@@ -5,7 +5,12 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { normalizar } from '@/lib/nomes';
 
 // Menu retrátil: canais > regionais > equipes > colaboradores.
-export default function ArvoreMenu({ grupos, colaboradores }) {
+export default function ArvoreMenu({ grupos, colaboradores, abertaInicial = true }) {
+  const [secaoAberta, setSecaoAberta] = useState(abertaInicial);
+  const alternarSecao = () => setSecaoAberta((a) => {
+    document.cookie = `menu_equipes=${a ? '0' : '1'}; path=/; max-age=31536000; samesite=lax`;
+    return !a;
+  });
   const caminho = usePathname();
   const params = useSearchParams();
   const p = params.get('p');
@@ -119,21 +124,27 @@ export default function ArvoreMenu({ grupos, colaboradores }) {
   return (
     <div className="arvore">
       <div className="arvore-cab">
-        <span className="arvore-titulo">Equipes</span>
-        {abertos.size > 0 && !busca && <button type="button" onClick={() => setAbertos(new Set())}>Recolher tudo</button>}
+        <button type="button" className="arvore-titulo" onClick={alternarSecao} aria-expanded={secaoAberta}>
+          <span className={`seta-grupo${secaoAberta ? ' aberto' : ''}`}>▶</span> Equipes
+        </button>
+        {secaoAberta && abertos.size > 0 && !busca && <button type="button" onClick={() => setAbertos(new Set())}>Recolher tudo</button>}
       </div>
-      <input
-        type="text"
-        className="arvore-busca"
-        placeholder="Buscar equipe ou pessoa"
-        value={busca}
-        onChange={(e) => setBusca(e.target.value)}
-        aria-label="Buscar equipe ou colaborador"
-      />
-      <div className="arvore-lista">
-        <ul>{raizes.map((g) => <No key={g.id} g={g} />)}</ul>
-        {filtro && !filtro.gruposVisiveis.size && <p className="dica" style={{ color: '#8a86a0', padding: '4px 8px' }}>Nada encontrado.</p>}
-      </div>
+      {secaoAberta && (
+        <>
+          <input
+            type="text"
+            className="arvore-busca"
+            placeholder="Buscar equipe ou pessoa"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            aria-label="Buscar equipe ou colaborador"
+          />
+          <div className="arvore-lista">
+            <ul>{raizes.map((g) => <No key={g.id} g={g} />)}</ul>
+            {filtro && !filtro.gruposVisiveis.size && <p className="dica" style={{ color: '#8a86a0', padding: '4px 8px' }}>Nada encontrado.</p>}
+          </div>
+        </>
+      )}
     </div>
   );
 }

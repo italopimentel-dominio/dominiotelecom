@@ -21,7 +21,9 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 - cadastrar feriados estaduais/municipais para todos ou só para uma equipe (vale também para as equipes abaixo dela);
 - cadastrar "dia útil extra" (sábado trabalhado, feriado em que a operação funciona).
 
-**Menu em árvore.** Na barra lateral, a seção Equipes mostra canais, regionais, equipes e colaboradores em níveis que abrem e fecham (▶). Tem busca por nome. Clicar numa equipe abre o detalhe dela; clicar num colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto. A ordem dos níveis segue o cadastro em "Equipes e colaboradores" (campo "Fica dentro de").
+**Menu lateral.** O botão no topo do menu recolhe a barra para uma faixa só de ícones (passe o mouse para ver o nome); a escolha fica salva no navegador. Os cadastros (equipes, produtos, períodos, feriados, usuários) ficam agrupados em "Cadastros", que abre e fecha. Minha senha e Sair ficam no rodapé, ao lado do nome.
+
+**Menu em árvore.** Na barra lateral, a seção Equipes (que também abre e fecha) mostra canais, regionais, equipes e colaboradores em níveis que abrem e fecham (▶). Tem busca por nome. Clicar numa equipe abre o detalhe dela; clicar num colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto. A ordem dos níveis segue o cadastro em "Equipes e colaboradores" (campo "Fica dentro de").
 
 **Importar resultados (Excel/CSV).** Menu Importar resultados, só para Editor e Administrador:
 1. Escolha o período e o arquivo (.xlsx, .xls ou .csv, inclusive CSV com ponto e vírgula).
@@ -32,6 +34,17 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 6. Quando um nome diferente é vinculado (ex.: "JOAO S." a "João Silva"), o sistema guarda esse apelido e reconhece sozinho na próxima importação (tabela `colaborador_apelidos`).
 
 O arquivo é lido no navegador; só os números conferidos são enviados ao banco.
+
+## Controle Indireto
+
+Menu próprio para acompanhar os parceiros do canal Indireto.
+
+- **Parceiros:** nome fantasia, razão social, CNPJ (validado), código/PDV, status (prospecção, em onboarding, ativo, inativo), cidade/UF, endereço, contato, telefone, e-mail, ponto focal responsável, início da parceria e observações.
+- **Treinamentos:** onboarding, telecom e serviços, cada um com data, status (agendado, realizado, cancelado), quem aplicou e observação. A situação de cada tipo aparece como Realizado, Agendado, Sem registro (agendado com data passada) ou Pendente.
+- **Apontamentos:** histórico de anotações do ponto focal, com autor, data e hora. Não dá para editar depois; só quem escreveu (ou um administrador) pode apagar.
+- **Lista:** filtros por busca (nome, cidade, CNPJ, contato), status, ponto focal ("só os meus") e treinamento pendente; resumo no topo e agenda dos próximos 14 dias.
+
+Permissão própria (tela Usuários, coluna Controle Indireto): Sem acesso, Visualiza ou Ponto focal (edita). É independente da permissão de metas: um Visualizador de metas pode ser ponto focal do Indireto. Administrador pode tudo, inclusive excluir parceiros.
 
 ## Cálculos
 
@@ -72,27 +85,31 @@ Fuso horário: "hoje" é sempre o dia em São Paulo.
 
 ```
 app/
+  actions/indireto.js  Gravação do Controle Indireto
   (app)/            telas que exigem login
     page.js         Painel (por canal, com todos os níveis)
     colaboradores/[id]/  Página do colaborador
     importar/       Importação de resultados por Excel/CSV
+    indireto/       Controle Indireto (lista, novo, [id] = página do parceiro)
     grupos/[id]/    Detalhe da equipe: semanas, colaboradores, realizado
     metas/          Grade de metas do mês (grupo x produto)
     estrutura/      Canais, equipes e colaboradores
     produtos/  periodos/  feriados/  usuarios/  conta/
   actions/          Server actions (gravação): auth.js, dados.js, usuarios.js
   login/  setup/
-components/         FormAcao, CampoNumero (salva ao sair do campo), BarraRitmo, ArvoreMenu, Importador...
+components/         FormAcao, CampoNumero (salva ao sair do campo), BarraRitmo, MenuLateral, ArvoreMenu, Importador, FormParceiro...
 lib/
   calc.js           Dias úteis, semanas, indicadores, divisão da meta
   feriados.js       Feriados nacionais (cálculo da Páscoa)
   nomes.js          Comparação de nomes (sem acento, nomes parecidos)
+  indireto.js       Status, tipos de treinamento, CNPJ
   dados.js          Leitura do banco e montagem da árvore
   datas.js  formato.js  auth.js  supabase/
 supabase/
   001_estrutura.sql         Tabelas, segurança, dados iniciais (rodar 1 vez)
   002_exemplo_outubro.sql   Opcional: Outubro/2026 com as metas da planilha
   003_importacao.sql        Tabela de apelidos usada na importação
+  004_controle_indireto.sql Parceiros, treinamentos, apontamentos e permissão do módulo
 middleware.js       Redireciona para /login quem não está logado
 ```
 

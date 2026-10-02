@@ -66,8 +66,8 @@ export default async function Estrutura({ searchParams }) {
               <span className="tag">{colabs.filter((c) => c.ativo).length} ativos</span>
             </div>
             {editar && (
-              <details style={{ marginBottom: 8 }}>
-                <summary className="dica" style={{ cursor: 'pointer' }}>Editar {g.nome}</summary>
+              <details className="recolhivel">
+                <summary>Editar {g.nome}</summary>
                 <div className="bloco" style={{ marginTop: 8 }}>
                   <FormAcao acao={salvarGrupo}>
                     <div className="campos">
@@ -92,7 +92,9 @@ export default async function Estrutura({ searchParams }) {
               </details>
             )}
             {colabs.length > 0 && (
-              <div className="tabela-wrap">
+              <details className="recolhivel" open={sp.abrir === g.id}>
+                <summary>Colaboradores ({colabs.length})</summary>
+              <div className="tabela-wrap" style={{ marginTop: 8 }}>
                 <table>
                   <thead><tr><th>Colaborador</th>{editar ? <><th className="esq">Equipe</th><th>Peso</th><th></th><th></th></> : <th>Peso</th>}</tr></thead>
                   <tbody>
@@ -129,6 +131,7 @@ export default async function Estrutura({ searchParams }) {
                   </tbody>
                 </table>
               </div>
+              </details>
             )}
           </section>
         );

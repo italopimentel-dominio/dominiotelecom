@@ -1,0 +1,23 @@
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { exigirSessao, podeEditarIndireto } from '@/lib/auth';
+import FormParceiro from '@/components/FormParceiro';
+import { listarFocais } from '../dados';
+
+export default async function NovoParceiro() {
+  const { supabase, perfil } = await exigirSessao();
+  if (!podeEditarIndireto(perfil)) redirect('/indireto');
+  const focais = await listarFocais(supabase);
+  return (
+    <>
+      <div className="topo">
+        <div>
+          <p className="dica"><Link href="/indireto">Controle Indireto</Link></p>
+          <h1 style={{ marginTop: 6 }}>Novo parceiro</h1>
+          <p className="sub">Depois de salvar, você registra os treinamentos e os apontamentos na página do parceiro.</p>
+        </div>
+      </div>
+      <div className="bloco"><FormParceiro parceiro={{ ponto_focal_id: perfil.id }} focais={focais} textoBotao="Cadastrar parceiro" /></div>
+    </>
+  );
+}

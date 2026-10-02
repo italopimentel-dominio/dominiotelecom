@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { exigirSessao, ehAdmin, NOME_PAPEL } from '@/lib/auth';
+import { exigirSessao, ehAdmin, NOME_PAPEL, NOME_PERM_INDIRETO } from '@/lib/auth';
 import FormAcao from '@/components/FormAcao';
 import { criarUsuario, alterarPapel, alternarUsuario, redefinirSenha } from '@/app/actions/usuarios';
 
@@ -13,7 +13,7 @@ export default async function Usuarios() {
       <div className="topo">
         <div>
           <h1>Usuários</h1>
-          <p className="sub">Visualizador só consulta. Editor lança metas, realizado e cadastros. Administrador também gerencia usuários.</p>
+          <p className="sub">Metas: Visualizador só consulta, Editor lança metas e resultados, Administrador também gerencia usuários. Controle Indireto tem permissão própria: quem é ponto focal precisa de "Ponto focal (edita)".</p>
         </div>
       </div>
 
@@ -29,13 +29,18 @@ export default async function Usuarios() {
               {Object.entries(NOME_PAPEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </label>
+          <label className="campo">Controle Indireto
+            <select name="perm_indireto" defaultValue="ver">
+              {Object.entries(NOME_PERM_INDIRETO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </label>
           <button className="btn" type="submit">Criar usuário</button>
         </div>
       </FormAcao>
 
       <div className="tabela-wrap" style={{ marginTop: 22 }}>
         <table>
-          <thead><tr><th>Nome</th><th className="esq">Usuário</th><th className="esq">Permissão</th><th className="esq">Nova senha</th><th></th></tr></thead>
+          <thead><tr><th>Nome</th><th className="esq">Usuário</th><th className="esq">Permissões (metas e Controle Indireto)</th><th className="esq">Nova senha</th><th></th></tr></thead>
           <tbody>
             {usuarios.map((u) => (
               <tr key={u.id} className={u.ativo ? '' : 'inativo'}>
@@ -47,6 +52,9 @@ export default async function Usuarios() {
                       <input type="hidden" name="id" value={u.id} />
                       <select name="papel" defaultValue={u.papel} aria-label={`Permissão de ${u.usuario}`}>
                         {Object.entries(NOME_PAPEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      </select>
+                      <select name="perm_indireto" defaultValue={u.perm_indireto || 'ver'} aria-label={`Controle Indireto de ${u.usuario}`}>
+                        {Object.entries(NOME_PERM_INDIRETO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                       </select>
                       <button className="btn btn-sec btn-peq" type="submit">Salvar</button>
                     </div>
