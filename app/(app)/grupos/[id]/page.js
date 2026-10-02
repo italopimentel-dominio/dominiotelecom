@@ -7,6 +7,8 @@ import { salvarRealizado, salvarRealizadoGrupo, salvarMetaIndividual } from '@/a
 import BarraRitmo from '@/components/BarraRitmo';
 import CampoNumero from '@/components/CampoNumero';
 import TempoCasa from '@/components/TempoCasa';
+import { calcularHeadcount } from '@/lib/headcount';
+import { ultimoDiaDoMes } from '@/lib/datas';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -54,6 +56,8 @@ export default async function DetalheGrupo({ params, searchParams }) {
   });
   const dentro = contagem.batida + contagem.emDia;
   const totalComMeta = dentro + contagem.fora;
+  const idsSub = new Set(base.subarvore(id));
+  const hc = calcularHeadcount(base.colaboradores.filter((c) => idsSub.has(c.grupo_id)), periodo.referencia, ultimoDiaDoMes(periodo.referencia));
   const pctDe = (n) => (totalComMeta ? `${Math.round((n / totalComMeta) * 100)}%` : '0%');
   const link = (prod) => `/grupos/${id}?p=${periodo.id}&prod=${prod}`;
 
@@ -74,6 +78,12 @@ export default async function DetalheGrupo({ params, searchParams }) {
               {contagem.semMeta > 0 && <span><b>{contagem.semMeta}</b> sem meta</span>}
             </div>
           )}
+          <div className="contagem-meta hc-linha">
+            <span title="Colaboradores no primeiro dia do mês">Começou o mês com <b>{hc.inicio}</b></span>
+            <span className={hc.admissoes.length ? 'dentro' : ''}><b>+{hc.admissoes.length}</b> {hc.admissoes.length === 1 ? 'admissão' : 'admissões'}</span>
+            <span className={hc.desligamentos.length ? 'fora' : ''}><b>−{hc.desligamentos.length}</b> {hc.desligamentos.length === 1 ? 'desligamento' : 'desligamentos'} ({Math.round(hc.pctPerdidos * 100)}% perdidos)</span>
+            <Link href={`/headcount?p=${periodo.id}`} className="dica" style={{ alignSelf: 'center' }}>ver headcount</Link>
+          </div>
         </div>
         <SeletorPeriodo periodos={periodos} atual={periodo.id} />
       </div>

@@ -45,6 +45,21 @@ Há duas visões: **Por liderança** (padrão, quando há cargos cadastrados) e 
 
 O arquivo é lido no navegador; só os números conferidos são enviados ao banco.
 
+## Headcount
+
+Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado de quantos bateram a meta e quantos estão dentro do ritmo (n e %) no produto escolhido. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.
+
+## Campanhas
+
+Menu Campanhas, para desafios com regras próprias (independentes das metas):
+- **Cadastro:** nome, datas, prêmio, regras (texto), quem participa (colaboradores ou equipes), se o alvo é de cada participante ou a soma de todos (coletiva), e os itens com alvo (ex.: Móveis 10, Fibras 5). Itens são texto livre.
+- **Participantes:** inclua uma equipe inteira (pega todos os ativos dela e das de baixo) ou pessoa por pessoa.
+- **Resultados:** lançados à mão numa grade participante x item (acumulado).
+- **Visuais (troca com um clique, sem perder nada):** 🏁 Corrida (carrinhos numa pista até a bandeira quadriculada), 🚀 Foguete (foguetes subindo até a lua), 🏆 Pódio (top 3 com medalhas e ranking), 🌡️ Termômetro (meta coletiva enchendo). Confete quando alguém completa. O progresso de cada um é a média do % atingido em cada item.
+- **Modo TV:** tela cheia para deixar numa TV da operação, atualiza sozinha a cada minuto.
+
+Permissão: todos veem; Editor e Administrador criam e lançam.
+
 ## Controle Indireto
 
 Menu próprio para acompanhar os parceiros do canal Indireto.
@@ -149,6 +164,7 @@ supabase/
   007_admissao.sql          Data de admissão dos colaboradores
   008_liderancas.sql        Cargos de liderança do organograma
   009_desligamento.sql      Data de desligamento dos colaboradores
+  010_campanhas.sql         Campanhas comerciais
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado
