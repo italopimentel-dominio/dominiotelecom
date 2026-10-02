@@ -6,6 +6,7 @@ import { fmtValor, fmtData, fmtFator, STATUS } from '@/lib/formato';
 import { salvarRealizado } from '@/app/actions/dados';
 import BarraRitmo from '@/components/BarraRitmo';
 import CampoNumero from '@/components/CampoNumero';
+import { tempoDeCasa } from '@/lib/datas';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -42,6 +43,7 @@ export default async function DetalheColaborador({ params, searchParams }) {
           <h1 style={{ marginTop: 6 }}>{colab.nome}</h1>
           <p className="sub">
             {periodo.nome}. Peso {String(colab.peso).replace('.', ',')} na divisão da meta.
+            {colab.data_admissao && ` Admissão em ${fmtData(colab.data_admissao, true)}${tempoDeCasa(colab.data_admissao) ? `, ${tempoDeCasa(colab.data_admissao).texto} de casa` : ''}.`}
             {!colab.ativo && ' Colaborador inativo.'}
           </p>
         </div>

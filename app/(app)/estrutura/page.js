@@ -1,6 +1,7 @@
 import { exigirSessao, podeEditar } from '@/lib/auth';
 import { carregarEstrutura } from '@/lib/dados';
 import FormAcao from '@/components/FormAcao';
+import TempoCasa from '@/components/TempoCasa';
 import { criarGrupo, salvarGrupo, alternarGrupo, criarColaborador, salvarColaborador, alternarColaborador } from '@/app/actions/dados';
 
 export default async function Estrutura({ searchParams }) {
@@ -49,9 +50,10 @@ export default async function Estrutura({ searchParams }) {
                 </select>
               </label>
               <label className="campo">Peso<input type="text" name="peso" defaultValue="1" style={{ width: 70 }} /></label>
+              <label className="campo">Admissão<input type="date" name="data_admissao" /></label>
               <button className="btn" type="submit">Adicionar</button>
             </div>
-            <p className="dica" style={{ marginTop: 8 }}>Peso 1 = cota cheia. Use 0,5 para meia cota (ex.: quem entrou no meio do mês) ou 0 para quem não recebe meta.</p>
+            <p className="dica" style={{ marginTop: 8 }}>Peso 1 = cota cheia. Use 0,5 para meia cota (ex.: quem entrou no meio do mês) ou 0 para quem não recebe meta. A data de admissão vale para todos os nomes da lista.</p>
           </FormAcao>
         </div>
       )}
@@ -96,13 +98,13 @@ export default async function Estrutura({ searchParams }) {
                 <summary>Colaboradores ({colabs.length})</summary>
               <div className="tabela-wrap" style={{ marginTop: 8 }}>
                 <table>
-                  <thead><tr><th>Colaborador</th>{editar ? <><th className="esq">Equipe</th><th>Peso</th><th></th><th></th></> : <th>Peso</th>}</tr></thead>
+                  <thead><tr><th>Colaborador</th>{editar ? <><th className="esq">Equipe</th><th>Peso</th><th className="esq">Admissão</th><th className="esq">Tempo de casa</th><th></th><th></th></> : <><th>Peso</th><th className="esq">Tempo de casa</th></>}</tr></thead>
                   <tbody>
                     {colabs.map((c) => (
                       <tr key={c.id} className={c.ativo ? '' : 'inativo'}>
                         {editar ? (
                           <>
-                            <td colSpan={4} style={{ padding: '6px 12px' }}>
+                            <td colSpan={6} style={{ padding: '6px 12px' }}>
                               <FormAcao acao={salvarColaborador}>
                                 <div className="campos" style={{ flexWrap: 'nowrap' }}>
                                   <input type="hidden" name="id" value={c.id} />
@@ -111,6 +113,8 @@ export default async function Estrutura({ searchParams }) {
                                     {opcoesGrupo.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
                                   </select>
                                   <input type="text" name="peso" defaultValue={String(c.peso).replace('.', ',')} aria-label="Peso" style={{ width: 64, textAlign: 'right' }} />
+                                  <input type="date" name="data_admissao" defaultValue={c.data_admissao || ''} aria-label="Data de admissão" />
+                                  <span style={{ minWidth: 150, fontSize: 13.5 }}><TempoCasa admissao={c.data_admissao} /></span>
                                   <button className="btn btn-sec btn-peq" type="submit">Salvar</button>
                                 </div>
                               </FormAcao>
@@ -124,7 +128,7 @@ export default async function Estrutura({ searchParams }) {
                             </td>
                           </>
                         ) : (
-                          <><td>{c.nome}{!c.ativo && <span className="nome-sub">inativo</span>}</td><td>{String(c.peso).replace('.', ',')}</td></>
+                          <><td>{c.nome}{!c.ativo && <span className="nome-sub">inativo</span>}</td><td>{String(c.peso).replace('.', ',')}</td><td className="esq"><TempoCasa admissao={c.data_admissao} comData /></td></>
                         )}
                       </tr>
                     ))}

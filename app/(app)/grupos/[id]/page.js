@@ -6,6 +6,7 @@ import { fmtValor, fmtData, fmtFator, fmtPct, STATUS } from '@/lib/formato';
 import { salvarRealizado, salvarRealizadoGrupo, salvarMetaIndividual } from '@/app/actions/dados';
 import BarraRitmo from '@/components/BarraRitmo';
 import CampoNumero from '@/components/CampoNumero';
+import TempoCasa from '@/components/TempoCasa';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -52,6 +53,8 @@ export default async function DetalheGrupo({ params, searchParams }) {
     });
   });
   const dentro = contagem.batida + contagem.emDia;
+  const totalComMeta = dentro + contagem.fora;
+  const pctDe = (n) => (totalComMeta ? `${Math.round((n / totalComMeta) * 100)}%` : '0%');
   const link = (prod) => `/grupos/${id}?p=${periodo.id}&prod=${prod}`;
 
   return (
@@ -66,8 +69,8 @@ export default async function DetalheGrupo({ params, searchParams }) {
           <p className="sub">{periodo.nome}. {an.colabsAtivosSub(id)} colaboradores ativos.</p>
           {dentro + contagem.fora > 0 && (
             <div className="contagem-meta" title="Dentro da meta: já bateu ou está no ritmo esperado até hoje. Fora: abaixo do ritmo.">
-              <span className="dentro"><b>{dentro}</b> dentro da meta em {produto.nome}{contagem.batida > 0 && ` (${contagem.batida} já bateram)`}</span>
-              <span className="fora"><b>{contagem.fora}</b> fora da meta</span>
+              <span className="dentro"><b>{dentro}</b> ({pctDe(dentro)}) dentro da meta em {produto.nome}{contagem.batida > 0 && `, ${contagem.batida} já bateram`}</span>
+              <span className="fora"><b>{contagem.fora}</b> ({pctDe(contagem.fora)}) fora da meta</span>
               {contagem.semMeta > 0 && <span><b>{contagem.semMeta}</b> sem meta</span>}
             </div>
           )}
@@ -156,11 +159,12 @@ export default async function DetalheGrupo({ params, searchParams }) {
           </p>
           <div className="tabela-wrap">
             <table>
-              <thead><tr><th>Colaborador</th><th>Peso</th><th>Meta</th><th>Realizado</th><th className="esq">Ritmo</th><th>Falta</th><th>Por dia útil</th><th>Nesta semana</th></tr></thead>
+              <thead><tr><th>Colaborador</th><th className="esq">Tempo de casa</th><th>Peso</th><th>Meta</th><th>Realizado</th><th className="esq">Ritmo</th><th>Falta</th><th>Por dia útil</th><th>Nesta semana</th></tr></thead>
               <tbody>
                 {linhas.map((l) => (
                   <tr key={l.colaborador.id} className={l.colaborador.ativo ? '' : 'inativo'}>
                     <td><Link href={`/colaboradores/${l.colaborador.id}?p=${periodo.id}`}>{l.colaborador.nome}</Link>{!l.colaborador.ativo && <span className="nome-sub">inativo</span>}</td>
+                    <td className="esq" style={{ fontSize: 13.5 }}><TempoCasa admissao={l.colaborador.data_admissao} /></td>
                     <td className="fraco">{String(l.colaborador.peso).replace('.', ',')}</td>
                     <td>
                       {editar && l.colaborador.ativo ? (

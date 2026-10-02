@@ -12,6 +12,7 @@ export default async function LayoutApp({ children }) {
   const principais = [
     { href: '/', rotulo: 'Painel', icone: 'painel' },
     { href: '/metas', rotulo: 'Metas', icone: 'metas' },
+    { href: '/organograma', rotulo: 'Organograma', icone: 'organograma' },
   ];
   if (podeEditar(perfil)) principais.push({ href: '/importar', rotulo: 'Importar resultados', icone: 'importar' });
   if (podeVerIndireto(perfil)) principais.push({ href: '/indireto', rotulo: 'Controle Indireto', icone: 'indireto' });

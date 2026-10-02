@@ -96,9 +96,10 @@ export async function criarColaborador(_prev, fd) {
   const nomes = txt(fd, 'nome').split('\n').map((n) => n.trim()).filter(Boolean);
   const grupo_id = txt(fd, 'grupo_id');
   const peso = numero(txt(fd, 'peso')) ?? 1;
+  const data_admissao = ou(txt(fd, 'data_admissao'));
   if (!nomes.length) return { erro: 'Informe pelo menos um nome.' };
   if (!grupo_id) return { erro: 'Escolha a equipe.' };
-  const { error } = await db.from('colaboradores').insert(nomes.map((nome) => ({ nome, grupo_id, peso })));
+  const { error } = await db.from('colaboradores').insert(nomes.map((nome) => ({ nome, grupo_id, peso, data_admissao })));
   if (error) return { erro: error.message };
   return pronto(nomes.length === 1 ? `${nomes[0]} adicionado.` : `${nomes.length} colaboradores adicionados.`);
 }
@@ -109,7 +110,7 @@ export async function salvarColaborador(_prev, fd) {
   const peso = numero(txt(fd, 'peso'));
   if (peso === null || peso < 0) return { erro: 'Peso inválido.' };
   const { error } = await db.from('colaboradores')
-    .update({ nome: txt(fd, 'nome'), grupo_id: txt(fd, 'grupo_id'), peso })
+    .update({ nome: txt(fd, 'nome'), grupo_id: txt(fd, 'grupo_id'), peso, data_admissao: ou(txt(fd, 'data_admissao')) })
     .eq('id', txt(fd, 'id'));
   if (error) return { erro: error.message };
   return pronto('Salvo.');
