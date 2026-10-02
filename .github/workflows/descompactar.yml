@@ -1,5 +1,6 @@
 name: Descompactar zip
 on:
+  workflow_dispatch:
   push:
     paths: ['**.zip']
 permissions:
