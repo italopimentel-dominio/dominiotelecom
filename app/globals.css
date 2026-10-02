@@ -40,15 +40,15 @@ p { margin: 0; }
 .app { display: grid; grid-template-columns: 216px 1fr; min-height: 100vh; }
 .lateral {
   background: var(--tinta); color: #dcd8ea; padding: 22px 14px;
-  display: flex; flex-direction: column; gap: 22px; position: sticky; top: 0; height: 100vh;
+  display: flex; flex-direction: column; gap: 18px; position: sticky; top: 0; height: 100vh; min-height: 0;
 }
 .marca { font-weight: 800; font-stretch: 75%; font-size: 22px; color: #fff; letter-spacing: 0.01em; padding: 0 8px; }
 .marca small { display: block; font-weight: 500; font-stretch: 100%; font-size: 12px; color: #a39fb8; letter-spacing: 0; }
 .nav { display: flex; flex-direction: column; gap: 2px; }
-.nav-item { color: #cfcbe0; text-decoration: none; padding: 8px 10px; border-radius: var(--raio); font-weight: 500; }
+.nav-item { color: #cfcbe0; text-decoration: none; padding: 6px 10px; border-radius: var(--raio); font-weight: 500; }
 .nav-item:hover { background: #2c2840; color: #fff; }
 .nav-item.ativo { background: #fff; color: var(--tinta); font-weight: 650; }
-.quem { margin-top: auto; padding: 0 8px; font-size: 13px; color: #a39fb8; }
+.quem { margin-top: auto; flex: none; padding: 0 8px; font-size: 13px; color: #a39fb8; }
 .quem strong { display: block; color: #fff; font-weight: 600; }
 .quem button { margin-top: 8px; background: none; border: 1px solid #4a4560; color: #dcd8ea; padding: 5px 10px; border-radius: var(--raio); cursor: pointer; font: inherit; font-size: 13px; }
 .conteudo { padding: 28px 32px 60px; min-width: 0; }
@@ -166,3 +166,40 @@ td.fraco { color: var(--suave); }
 .cartao-login h1 { font-size: 26px; }
 .cartao-login form { display: flex; flex-direction: column; gap: 14px; margin-top: 22px; }
 .cartao-login .btn { padding: 10px; margin-top: 4px; }
+
+/* ---------- importação ---------- */
+button.aba { background: none; border: 0; border-bottom: 3px solid transparent; cursor: pointer; font: inherit; font-weight: 600; }
+button.aba.ativa { border-color: var(--acento); }
+.btn:disabled { opacity: .5; cursor: not-allowed; filter: none; }
+.tag-ok { background: var(--ok-fundo); color: var(--ok); }
+.tag-atencao { background: var(--atencao-fundo); color: var(--atencao); }
+.aviso-ok { border-color: var(--ok); background: var(--ok-fundo); margin-bottom: 8px; }
+.grade-mapa { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.passo > h2 { margin-bottom: 10px; }
+
+/* ---------- árvore do menu ---------- */
+.arvore { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.arvore-cab { display: flex; align-items: center; justify-content: space-between; padding: 0 8px; margin-bottom: 6px; }
+.arvore-cab button { background: none; border: 0; color: #a39fb8; cursor: pointer; font: inherit; font-size: 13px; padding: 0; }
+.arvore-titulo { color: #a39fb8; font-size: 13px; font-weight: 600; }
+.arvore-busca { margin: 0 4px 8px; background: #2c2840 !important; border: 1px solid #3d3854 !important; color: #fff !important; font-size: 13px; padding: 5px 8px !important; }
+.arvore-busca::placeholder { color: #8a86a0; }
+.arvore-lista { overflow-y: auto; min-height: 0; flex: 1; padding-right: 2px; scrollbar-width: thin; scrollbar-color: #3d3854 transparent; }
+.arvore ul { list-style: none; margin: 0; padding: 0; }
+.arvore ul ul { margin-left: 12px; padding-left: 6px; border-left: 1px solid #36314b; }
+.no { display: flex; align-items: center; gap: 2px; border-radius: 4px; }
+.no:hover { background: #2c2840; }
+.no.atual { background: #3a2f55; }
+.no-seta { width: 20px; height: 24px; flex: none; background: none; border: 0; color: #8a86a0; cursor: pointer; padding: 0; font-size: 11px; transition: transform .15s; }
+.no-seta.aberto { transform: rotate(90deg); }
+.no-seta:disabled { visibility: hidden; }
+.no a { flex: 1; min-width: 0; color: #dcd8ea; text-decoration: none; font-size: 13.5px; padding: 3px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.no a:hover { color: #fff; }
+.no.pessoa a { color: #b5b0c9; font-size: 13px; padding-left: 8px; }
+.no.pessoa a::before { content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: #6c6784; margin-right: 7px; vertical-align: 2px; }
+.no .conta { font-size: 11.5px; color: #7d7895; padding-right: 6px; }
+@media (prefers-reduced-motion: reduce) { .no-seta { transition: none; } }
+@media (max-width: 860px) {
+  .arvore { flex-basis: 100%; order: 3; }
+  .arvore-lista { max-height: 50vh; }
+}

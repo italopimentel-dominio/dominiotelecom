@@ -231,3 +231,9 @@ begin
     (tsp, 'Paloma SP', 1), (tsp, 'Lucas', 2), (tsp, 'Vitória', 3),
     (tcp, 'Vitor CPS', 1), (tcp, 'Ester', 2), (tcp, 'Arielle', 3);
 end $$;
+
+-- ---------- Acesso do site às tabelas ----------
+grant usage on schema public to anon, authenticated, service_role;
+grant select, insert, update, delete on all tables in schema public to authenticated;
+grant all on all tables in schema public to service_role;
+grant execute on all functions in schema public to anon, authenticated, service_role;

@@ -21,6 +21,18 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 - cadastrar feriados estaduais/municipais para todos ou só para uma equipe (vale também para as equipes abaixo dela);
 - cadastrar "dia útil extra" (sábado trabalhado, feriado em que a operação funciona).
 
+**Menu em árvore.** Na barra lateral, a seção Equipes mostra canais, regionais, equipes e colaboradores em níveis que abrem e fecham (▶). Tem busca por nome. Clicar numa equipe abre o detalhe dela; clicar num colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto. A ordem dos níveis segue o cadastro em "Equipes e colaboradores" (campo "Fica dentro de").
+
+**Importar resultados (Excel/CSV).** Menu Importar resultados, só para Editor e Administrador:
+1. Escolha o período e o arquivo (.xlsx, .xls ou .csv, inclusive CSV com ponto e vírgula).
+2. O sistema acha sozinho a linha do cabeçalho, a coluna de nome, a de equipe (opcional) e a coluna de cada produto, comparando os nomes (ex.: "ALTAS MÓVEIS" = "Alta Móvel"). Tudo pode ser ajustado.
+3. Escolha entre substituir o realizado (planilha com o acumulado do mês) ou somar (planilha de um dia/semana).
+4. Cada nome da planilha aparece como Encontrado, Nome parecido (confira), Mais de um com esse nome ou Não cadastrado. Para cada um: vincular a um colaborador existente, cadastrar como novo (escolhendo a equipe) ou ignorar. Há atalho para cadastrar todos os não cadastrados numa equipe.
+5. Linhas repetidas do mesmo nome são somadas; linhas que começam com "Total" são ignoradas.
+6. Quando um nome diferente é vinculado (ex.: "JOAO S." a "João Silva"), o sistema guarda esse apelido e reconhece sozinho na próxima importação (tabela `colaborador_apelidos`).
+
+O arquivo é lido no navegador; só os números conferidos são enviados ao banco.
+
 ## Cálculos
 
 Para cada grupo e produto, dentro do fechamento do produto:
@@ -62,21 +74,25 @@ Fuso horário: "hoje" é sempre o dia em São Paulo.
 app/
   (app)/            telas que exigem login
     page.js         Painel (por canal, com todos os níveis)
+    colaboradores/[id]/  Página do colaborador
+    importar/       Importação de resultados por Excel/CSV
     grupos/[id]/    Detalhe da equipe: semanas, colaboradores, realizado
     metas/          Grade de metas do mês (grupo x produto)
     estrutura/      Canais, equipes e colaboradores
     produtos/  periodos/  feriados/  usuarios/  conta/
   actions/          Server actions (gravação): auth.js, dados.js, usuarios.js
   login/  setup/
-components/         FormAcao, CampoNumero (salva ao sair do campo), BarraRitmo...
+components/         FormAcao, CampoNumero (salva ao sair do campo), BarraRitmo, ArvoreMenu, Importador...
 lib/
   calc.js           Dias úteis, semanas, indicadores, divisão da meta
   feriados.js       Feriados nacionais (cálculo da Páscoa)
+  nomes.js          Comparação de nomes (sem acento, nomes parecidos)
   dados.js          Leitura do banco e montagem da árvore
   datas.js  formato.js  auth.js  supabase/
 supabase/
   001_estrutura.sql         Tabelas, segurança, dados iniciais (rodar 1 vez)
   002_exemplo_outubro.sql   Opcional: Outubro/2026 com as metas da planilha
+  003_importacao.sql        Tabela de apelidos usada na importação
 middleware.js       Redireciona para /login quem não está logado
 ```
 
@@ -100,7 +116,6 @@ Se o Supabase recusar o e-mail interno ao criar usuário, preencha o campo e-mai
 ## Ideias para próximas versões
 
 - Lançamento diário do realizado (histórico dia a dia e gráfico de evolução).
-- Importar realizado de planilha/CSV.
 - Colaborador com login próprio vendo só a própria meta.
 - Histórico de equipe do colaborador (hoje, se mudar de equipe, o realizado de meses antigos acompanha a equipe nova).
 - Exportar o painel para Excel/PDF.
