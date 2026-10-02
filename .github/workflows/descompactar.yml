@@ -1,0 +1,29 @@
+name: Descompactar zip
+on:
+  push:
+    paths: ['**.zip']
+permissions:
+  contents: write
+jobs:
+  descompactar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Descompactar e salvar
+        run: |
+          mkdir -p /tmp/extraido
+          for z in $(git ls-files '*.zip'); do
+            unzip -o "$z" -d /tmp/extraido
+            git rm -q "$z"
+          done
+          cd /tmp/extraido
+          rm -rf __MACOSX
+          # se o zip tiver uma pasta só dentro (ex.: metas-equipe), usa o conteúdo dela
+          if [ "$(ls -A | wc -l)" -eq 1 ] && [ -d "$(ls -A)" ]; then cd "$(ls -A)"; fi
+          cp -a . "$GITHUB_WORKSPACE"/
+          cd "$GITHUB_WORKSPACE"
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Descompacta zip" || echo "Nada para salvar"
+          git push
