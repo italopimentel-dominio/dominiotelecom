@@ -29,6 +29,8 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 
 **Organograma.** Menu próprio com a estrutura comercial desenhada: Comercial Duomni > canais > regionais > equipes, com os colaboradores ativos dentro de cada equipe (primeiro e último nome, cor por pessoa, etiqueta "novo" para menos de 3 meses). Abas por canal, zoom (−, +, ajustar à tela) e impressão (Ctrl+P esconde o menu). Clicar numa equipe ou pessoa abre as metas dela. É montado automaticamente a partir do cadastro de equipes e colaboradores.
 
+Há duas visões: **Por liderança** (padrão, quando há cargos cadastrados) e **Por canal** (estrutura de metas). Na visão por liderança, em **Editar cargos** (Editor/Administrador) você cadastra as pessoas de liderança (nome, cargo, a quem responde, admissão) e marca quais equipes cada uma lidera diretamente; os colaboradores dessas equipes aparecem dentro do cartão do líder. Exemplo: Diretor comercial > Gerente de Campinas > (Supervisor consultivo, que lidera Consultivo/Campinas) e (Coordenador de televendas > Supervisores de televendas, cada um liderando a sua equipe). Os cargos não mexem nas metas. Equipes com gente e sem líder vinculado aparecem numa lista abaixo do desenho para não ficarem esquecidas.
+
 **Colaboradores.** Na tela de cada equipe, o nome do colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto.
 
 **Importar resultados (Excel/CSV).** Menu Importar resultados, só para Editor e Administrador:
@@ -143,6 +145,7 @@ supabase/
   005_validacao_parceiros.sql Validação dos cadastros pelo gerente
   006_formulario_historico.sql CPF, data de ativação, histórico e Formulário Google
   007_admissao.sql          Data de admissão dos colaboradores
+  008_liderancas.sql        Cargos de liderança do organograma
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado
