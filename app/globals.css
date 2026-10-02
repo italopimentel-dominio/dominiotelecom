@@ -503,3 +503,4 @@ details.desligar[open] { background: var(--risco-fundo); border-radius: var(--ra
 .tv .cp-degrau { width: 13em; }
 .tv .cp-lugar-1 .cp-bloco { height: 24vh; } .tv .cp-lugar-2 .cp-bloco { height: 18vh; } .tv .cp-lugar-3 .cp-bloco { height: 13vh; }
 .tv-logo { position: absolute; right: 3vw; bottom: 2.6vw; height: 1.4em; opacity: .5; }
+.nav-separador { display: flex; flex-direction: column; gap: 1px; padding: 4px 0; border-top: 1px solid #2a2638; border-bottom: 1px solid #2a2638; margin: 2px 0; }

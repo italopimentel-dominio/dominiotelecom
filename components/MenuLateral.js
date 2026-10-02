@@ -8,14 +8,15 @@ function gravar(nome, valor) {
   document.cookie = `${nome}=${valor}; path=/; max-age=31536000; samesite=lax`;
 }
 
-export default function MenuLateral({ principais, cadastros, perfil, recolhidoInicial, sair }) {
+// menu: itens soltos { href, rotulo, icone } ou grupos { rotulo, icone, itens: [...] }
+export default function MenuLateral({ menu, perfil, recolhidoInicial, sair }) {
   const caminho = usePathname();
   const [recolhido, setRecolhido] = useState(recolhidoInicial);
-  const emCadastros = cadastros.some((i) => caminho.startsWith(i.href));
-  const [cadAberto, setCadAberto] = useState(emCadastros);
-
   const ativo = (href) => (href === '/' ? caminho === '/' || caminho.startsWith('/grupos') || caminho.startsWith('/colaboradores') : caminho.startsWith(href));
+  const [abertos, setAbertos] = useState(() => new Set(menu.filter((m) => m.itens && (m.aberto || m.itens.some((i) => ativo(i.href)))).map((m) => m.rotulo)));
+  const alternarGrupo = (r) => setAbertos((a) => { const n = new Set(a); if (n.has(r)) n.delete(r); else n.add(r); return n; });
   const alternar = () => { setRecolhido((r) => { gravar('menu_recolhido', r ? '0' : '1'); return !r; }); };
+
   const Item = ({ i }) => (
     <Link href={i.href} className={ativo(i.href) ? 'nav-item ativo' : 'nav-item'} aria-current={ativo(i.href) ? 'page' : undefined} title={recolhido ? i.rotulo : undefined}>
       <Icone nome={i.icone} /><span className="nav-rotulo">{i.rotulo}</span>
@@ -36,20 +37,21 @@ export default function MenuLateral({ principais, cadastros, perfil, recolhidoIn
       </div>
 
       <nav className="nav" aria-label="Principal">
-        {principais.map((i) => <Item key={i.href} i={i} />)}
-        {recolhido ? (
-          <>
-            {cadastros.map((i) => <Item key={i.href} i={i} />)}
-          </>
-        ) : (
-          <div className="grupo-nav">
-            <button type="button" className={`nav-item nav-grupo${emCadastros ? ' contem-ativo' : ''}`} onClick={() => setCadAberto((a) => !a)} aria-expanded={cadAberto}>
-              <Icone nome="cadastros" /><span className="nav-rotulo">Cadastros</span>
-              <span className={`seta-grupo${cadAberto ? ' aberto' : ''}`}>▶</span>
-            </button>
-            {cadAberto && <div className="sub-nav">{cadastros.map((i) => <Item key={i.href} i={i} />)}</div>}
-          </div>
-        )}
+        {menu.map((m) => {
+          if (!m.itens) return <Item key={m.href} i={m} />;
+          if (recolhido) return <div key={m.rotulo} className="nav-separador">{m.itens.map((i) => <Item key={i.href} i={i} />)}</div>;
+          const aberto = abertos.has(m.rotulo);
+          const contem = m.itens.some((i) => ativo(i.href));
+          return (
+            <div key={m.rotulo} className="grupo-nav">
+              <button type="button" className={`nav-item nav-grupo${contem ? ' contem-ativo' : ''}`} onClick={() => alternarGrupo(m.rotulo)} aria-expanded={aberto}>
+                <Icone nome={m.icone} /><span className="nav-rotulo">{m.rotulo}</span>
+                <span className={`seta-grupo${aberto ? ' aberto' : ''}`}>▶</span>
+              </button>
+              {aberto && <div className="sub-nav">{m.itens.map((i) => <Item key={i.href} i={i} />)}</div>}
+            </div>
+          );
+        })}
       </nav>
 
       <div className="quem">

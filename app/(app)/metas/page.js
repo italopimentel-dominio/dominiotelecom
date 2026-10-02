@@ -32,7 +32,7 @@ export default async function Metas({ searchParams }) {
     <>
       <div className="topo">
         <div>
-          <h1>Metas de {periodo.nome}</h1>
+          <h1>Quadro de metas de {periodo.nome}</h1>
           <p className="sub">
             {editar
               ? 'Lance a meta de cada equipe. As linhas em negrito são a soma automática das equipes abaixo delas.'

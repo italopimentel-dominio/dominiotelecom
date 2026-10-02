@@ -27,7 +27,7 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 - cadastrar feriados estaduais/municipais para todos ou só para uma equipe (vale também para as equipes abaixo dela);
 - cadastrar "dia útil extra" (sábado trabalhado, feriado em que a operação funciona).
 
-**Menu lateral.** O botão no topo do menu recolhe a barra para uma faixa só de ícones (passe o mouse para ver o nome); a escolha fica salva no navegador. Os cadastros (equipes, produtos, períodos, feriados, usuários) ficam agrupados em "Cadastros", que abre e fecha. Minha senha e Sair ficam no rodapé, ao lado do nome.
+**Menu lateral.** O grupo **Metas** reúne Painel, Quadro de metas, Importar resultados e Headcount. O botão no topo do menu recolhe a barra para uma faixa só de ícones (passe o mouse para ver o nome); a escolha fica salva no navegador. Os cadastros (equipes, produtos, períodos, feriados, usuários) ficam agrupados em "Cadastros", que abre e fecha. Minha senha e Sair ficam no rodapé, ao lado do nome.
 
 **Organograma.** Menu próprio com a estrutura comercial desenhada: Comercial Duomni > canais > regionais > equipes, com os colaboradores ativos dentro de cada equipe (primeiro e último nome, cor por pessoa, etiqueta "novo" para menos de 3 meses). Abas por canal, zoom (−, +, ajustar à tela) e impressão (Ctrl+P esconde o menu). Clicar numa equipe ou pessoa abre as metas dela. É montado automaticamente a partir do cadastro de equipes e colaboradores.
 
@@ -47,7 +47,7 @@ O arquivo é lido no navegador; só os números conferidos são enviados ao banc
 
 ## Headcount
 
-Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado de quantos bateram a meta e quantos estão dentro do ritmo (n e %) no produto escolhido. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.
+Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado da **meta geral** (média do % atingido em cada produto com meta, juntando quantidade e R$) e de quantos colaboradores estão dentro da meta geral (% geral igual ou acima do esperado até hoje), em número e %. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.
 
 ## Campanhas
 

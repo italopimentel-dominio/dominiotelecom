@@ -17,52 +17,40 @@ export default async function Headcount({ searchParams }) {
   const an = analisar(base);
   const inicio = periodo.referencia;
   const fim = ultimoDiaDoMes(inicio);
-  const produtos = base.produtos.filter((p) => p.ativo);
-  const produto = produtos.find((p) => p.id === sp.prod) || produtos[0];
 
   const colabsDe = (gid) => {
     const ids = new Set(base.subarvore(gid));
     return base.colaboradores.filter((c) => ids.has(c.grupo_id));
   };
-  const metaDe = (gid) => {
-    const r = { bateram: 0, dentro: 0, comMeta: 0 };
-    if (!produto) return r;
-    base.subarvore(gid).forEach((g) => an.individuais(g, produto).linhas.forEach((l) => {
-      if (!l.noPeriodo || l.status === 'sem-meta') return;
-      r.comMeta++;
-      if (l.status === 'batida') r.bateram++;
-      if (['batida', 'em-dia', 'inicio'].includes(l.status)) r.dentro++;
-    }));
-    return r;
-  };
+  const contar = (lista) => ({
+    total: lista.length,
+    dentro: lista.filter((x) => x.status !== 'fora').length,
+    bateram: lista.filter((x) => x.status === 'batida').length,
+  });
 
   const raizes = base.raizes.filter((g) => g.ativo);
+  const todosIds = raizes.flatMap((g) => base.subarvore(g.id));
   const geralHc = calcularHeadcount(base.colaboradores, inicio, fim);
-  const geralMeta = raizes.reduce((acc, g) => { const m = metaDe(g.id); return { bateram: acc.bateram + m.bateram, dentro: acc.dentro + m.dentro, comMeta: acc.comMeta + m.comMeta }; }, { bateram: 0, dentro: 0, comMeta: 0 });
-  const linhas = base.achatar(null, 0, true).map((g) => ({ g, hc: calcularHeadcount(colabsDe(g.id), inicio, fim), meta: metaDe(g.id) }))
-    .filter((l) => l.hc.inicio || l.hc.admissoes.length || l.hc.desligamentos.length);
-  const pct = (n, d) => (d ? ` (${Math.round((n / d) * 100)}%)` : '');
+  const geralMeta = an.geralGrupos(raizes.map((g) => g.id));
+  const geralPessoas = contar(an.geralColaboradores(todosIds));
+  const linhas = base.achatar(null, 0, true).map((g) => ({
+    g,
+    hc: calcularHeadcount(colabsDe(g.id), inicio, fim),
+    meta: an.geralGrupos([g.id]),
+    pessoas: contar(an.geralColaboradores(base.subarvore(g.id))),
+  })).filter((l) => l.hc.inicio || l.hc.admissoes.length || l.hc.desligamentos.length);
+  const pct = (n, d) => (d ? `${Math.round((n / d) * 100)}%` : '—');
   const nomeGrupo = (id) => base.caminho(id).map((g) => g.nome).join(' / ');
+  const corAting = (m) => (m.produtos === 0 ? '' : m.atingimento >= 1 ? 'txt-ok' : m.atingimento >= m.esperado ? '' : 'txt-risco');
 
   return (
     <>
       <div className="topo">
         <div>
           <h1>Headcount de {periodo.nome}</h1>
-          <p className="sub">Fotografia do mês: quem começou, quem entrou e quem saiu entre {fmtData(inicio, true)} e {fmtData(fim, true)}, ao lado de quantos atingiram a meta.</p>
+          <p className="sub">Quem começou o mês, quem entrou e quem saiu entre {fmtData(inicio, true)} e {fmtData(fim, true)}, e como está a meta geral (todos os produtos juntos).</p>
         </div>
-        <div className="linha-acoes">
-          {produto && (
-            <form method="get" className="seletor">
-              <input type="hidden" name="p" value={periodo.id} />
-              <select name="prod" defaultValue={produto.id} aria-label="Produto para a meta">
-                {produtos.map((p) => <option key={p.id} value={p.id}>Meta de {p.nome}</option>)}
-              </select>
-              <button className="btn btn-sec btn-peq" type="submit" style={{ marginLeft: 6 }}>Ver</button>
-            </form>
-          )}
-          <SeletorPeriodo periodos={periodos} atual={periodo.id} />
-        </div>
+        <SeletorPeriodo periodos={periodos} atual={periodo.id} />
       </div>
 
       <div className="hc-cartoes">
@@ -70,19 +58,37 @@ export default async function Headcount({ searchParams }) {
         <div className="hc-cartao hc-mais"><span>Admissões</span><b>+{geralHc.admissoes.length}</b><small>{fmtPct(geralHc.inicio ? geralHc.admissoes.length / geralHc.inicio : 0)} do início</small></div>
         <div className="hc-cartao hc-menos"><span>Desligamentos</span><b>−{geralHc.desligamentos.length}</b><small>{fmtPct(geralHc.pctPerdidos)} perdidos</small></div>
         <div className="hc-cartao"><span>Fecha o mês com</span><b>{geralHc.final}</b><small>{geralHc.variacao >= 0 ? '+' : ''}{fmtPct(geralHc.variacao)} no mês</small></div>
-        <div className="hc-cartao hc-meta"><span>Atingiram a meta de {produto?.nome}</span><b>{geralMeta.bateram}<em>{pct(geralMeta.bateram, geralMeta.comMeta)}</em></b><small>{geralMeta.dentro}{pct(geralMeta.dentro, geralMeta.comMeta)} dentro do ritmo</small></div>
+        <div className="hc-cartao hc-meta">
+          <span>Meta geral atingida</span>
+          <b>{fmtPct(geralMeta.atingimento)}</b>
+          <small>o esperado até hoje era {fmtPct(geralMeta.esperado)}</small>
+        </div>
+        <div className="hc-cartao">
+          <span>Colaboradores dentro da meta</span>
+          <b>{geralPessoas.dentro}<em>{pct(geralPessoas.dentro, geralPessoas.total)}</em></b>
+          <small>{geralPessoas.total - geralPessoas.dentro} ({pct(geralPessoas.total - geralPessoas.dentro, geralPessoas.total)}) fora, {geralPessoas.bateram} já bateram</small>
+        </div>
       </div>
 
-      <div className="tabela-wrap" style={{ marginTop: 18 }}>
+      <details className="recolhivel" style={{ marginTop: 10 }}>
+        <summary>Como a meta geral é calculada</summary>
+        <p className="bloco dica" style={{ marginTop: 6 }}>
+          Para cada produto com meta, o sistema vê quanto % já foi atingido (realizado ÷ meta) e tira a média de todos os produtos.
+          Assim, quantidade e R$ entram na mesma conta. O "esperado até hoje" é a parte do mês que já passou em dias úteis.
+          Um colaborador está <b>dentro da meta</b> quando o % geral dele é igual ou maior que o esperado até hoje.
+        </p>
+      </details>
+
+      <div className="tabela-wrap" style={{ marginTop: 14 }}>
         <table>
           <thead>
             <tr>
               <th>Canal / equipe</th><th>Início do mês</th><th>Admissões</th><th>Desligamentos</th><th>Fim do mês</th><th>% perdidos</th>
-              <th>Bateram a meta</th><th>Dentro do ritmo</th>
+              <th>Meta geral</th><th>Dentro da meta</th>
             </tr>
           </thead>
           <tbody>
-            {linhas.map(({ g, hc, meta }) => (
+            {linhas.map(({ g, hc, meta, pessoas }) => (
               <tr key={g.id} className={`nivel-${Math.min(g.nivel, 3)}${g.nivel === 0 ? ' linha-grupo' : ''}`}>
                 <td><Link href={`/grupos/${g.id}?p=${periodo.id}`}>{g.nome}</Link></td>
                 <td>{hc.inicio}</td>
@@ -90,8 +96,8 @@ export default async function Headcount({ searchParams }) {
                 <td className={hc.desligamentos.length ? 'txt-risco' : 'fraco'}>{hc.desligamentos.length ? `−${hc.desligamentos.length}` : '0'}</td>
                 <td><strong>{hc.final}</strong></td>
                 <td className={hc.pctPerdidos > 0.1 ? 'txt-risco' : ''}>{fmtPct(hc.pctPerdidos)}</td>
-                <td>{meta.comMeta ? `${meta.bateram}${pct(meta.bateram, meta.comMeta)}` : '—'}</td>
-                <td>{meta.comMeta ? `${meta.dentro}${pct(meta.dentro, meta.comMeta)}` : '—'}</td>
+                <td className={corAting(meta)}>{meta.produtos ? fmtPct(meta.atingimento) : '—'}</td>
+                <td>{pessoas.total ? `${pessoas.dentro} de ${pessoas.total} (${pct(pessoas.dentro, pessoas.total)})` : '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -117,7 +123,7 @@ export default async function Headcount({ searchParams }) {
         </section>
       </div>
       <p className="dica" style={{ marginTop: 12 }}>
-        Calculado pelas datas de admissão e desligamento. Quem está sem data de admissão conta como já presente no início do mês. Se alguém mudou de equipe, aparece na equipe atual.
+        Headcount calculado pelas datas de admissão e desligamento. Quem está sem data de admissão conta como já presente no início do mês. Se alguém mudou de equipe, aparece na equipe atual.
       </p>
     </>
   );
