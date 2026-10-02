@@ -1,7 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { sessao, podeEditarIndireto, ehAdmin } from '@/lib/auth';
+import { sessao, podeEditarIndireto, podeValidarIndireto, ehAdmin } from '@/lib/auth';
 import { soDigitos, cnpjValido, STATUS_PARCEIRO, TIPOS_TREINAMENTO, STATUS_TREINAMENTO } from '@/lib/indireto';
 
 const SEM_PERMISSAO = { erro: 'Seu usuário não tem permissão para editar o Controle Indireto.' };
@@ -41,9 +41,13 @@ export async function salvarParceiro(_prev, fd) {
 
   const db = s.supabase;
   if (id) {
+    const { data: antes } = await db.from('parceiros').select('validacao').eq('id', id).maybeSingle();
     const { error } = await db.from('parceiros').update(dados).eq('id', id);
     if (error) return { erro: error.message.includes('parceiros_cnpj_unico') ? 'Já existe um parceiro com esse CNPJ.' : error.message };
     revalidatePath('/indireto', 'layout');
+    if (antes && antes.validacao !== 'pendente' && !podeValidarIndireto(s.perfil)) {
+      return { ok: 'Dados salvos. O cadastro voltou para validação do gerente.' };
+    }
     return { ok: 'Dados salvos.' };
   }
   const { data, error } = await db.from('parceiros').insert(dados).select('id').single();
@@ -121,4 +125,25 @@ export async function excluirApontamento(_prev, fd) {
   if (!count) return { erro: 'Só quem escreveu (ou um administrador) pode apagar.' };
   revalidatePath('/indireto', 'layout');
   return { ok: true };
+}
+
+export async function validarParceiro(_prev, fd) {
+  const s = await sessao();
+  if (!podeValidarIndireto(s.perfil)) return { erro: 'Somente o gerente pode validar parceiros.' };
+  const id = txt(fd, 'id');
+  const decisao = txt(fd, 'decisao');
+  const motivo = txt(fd, 'motivo');
+  if (!['aprovado', 'reprovado'].includes(decisao)) return { erro: 'Escolha aprovar ou reprovar.' };
+  if (decisao === 'reprovado' && !motivo) return { erro: 'Escreva o motivo da reprovação para o ponto focal corrigir.' };
+  const { error } = await s.supabase.from('parceiros')
+    .update({ validacao: decisao, validacao_motivo: decisao === 'reprovado' ? motivo : (motivo || null) })
+    .eq('id', id);
+  if (error) return { erro: error.message };
+  // registra no histórico de apontamentos
+  await s.supabase.from('parceiro_apontamentos').insert({
+    parceiro_id: id,
+    texto: decisao === 'aprovado' ? `Cadastro validado.${motivo ? ` ${motivo}` : ''}` : `Cadastro reprovado: ${motivo}`,
+  });
+  revalidatePath('/indireto', 'layout');
+  return { ok: decisao === 'aprovado' ? 'Cadastro validado.' : 'Cadastro reprovado. O ponto focal verá o motivo.' };
 }

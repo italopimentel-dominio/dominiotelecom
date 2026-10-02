@@ -32,7 +32,7 @@ export async function criarUsuario(_prev, fd) {
     user_metadata: { usuario, nome }, app_metadata: { criado_pelo_painel: 'true' },
   });
   if (error) return { erro: `Não foi possível criar: ${error.message}` };
-  await admin.from('profiles').update({ papel, ativo: true, perm_indireto: ['nenhum', 'ver', 'editar'].includes(perm_indireto) ? perm_indireto : 'ver' }).eq('id', data.user.id);
+  await admin.from('profiles').update({ papel, ativo: true, perm_indireto: ['nenhum', 'ver', 'editar', 'validar'].includes(perm_indireto) ? perm_indireto : 'ver' }).eq('id', data.user.id);
   revalidatePath('/usuarios');
   return { ok: `Usuário ${usuario} criado.` };
 }
@@ -43,7 +43,7 @@ export async function alterarPapel(_prev, fd) {
   const id = String(fd.get('id'));
   const papel = String(fd.get('papel'));
   const perm_indireto = String(fd.get('perm_indireto') || 'ver');
-  if (!['nenhum', 'ver', 'editar'].includes(perm_indireto)) return { erro: 'Permissão inválida.' };
+  if (!['nenhum', 'ver', 'editar', 'validar'].includes(perm_indireto)) return { erro: 'Permissão inválida.' };
   if (id === s.user.id && papel !== 'admin') return { erro: 'Você não pode tirar a sua própria permissão de administrador.' };
   if (!['admin', 'editor', 'viewer'].includes(papel)) return { erro: 'Permissão inválida.' };
   const { error } = await criarClienteAdmin().from('profiles').update({ papel, perm_indireto }).eq('id', id);

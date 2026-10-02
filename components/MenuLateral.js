@@ -3,13 +3,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Icone from './Icones';
-import ArvoreMenu from './ArvoreMenu';
 
 function gravar(nome, valor) {
   document.cookie = `${nome}=${valor}; path=/; max-age=31536000; samesite=lax`;
 }
 
-export default function MenuLateral({ principais, cadastros, perfil, grupos, colaboradores, recolhidoInicial, equipesAbertaInicial, sair }) {
+export default function MenuLateral({ principais, cadastros, perfil, recolhidoInicial, sair }) {
   const caminho = usePathname();
   const [recolhido, setRecolhido] = useState(recolhidoInicial);
   const emCadastros = cadastros.some((i) => caminho.startsWith(i.href));
@@ -26,7 +25,11 @@ export default function MenuLateral({ principais, cadastros, perfil, grupos, col
   return (
     <aside className={`lateral${recolhido ? ' recolhida' : ''}`}>
       <div className="lateral-topo">
-        <div className="marca">Metas<small>da equipe</small></div>
+        <Link href="/" className="marca" aria-label="Duomni, ir para o painel">
+          <img src="/logo-duomni-branco.png" alt="Duomni" />
+          <small>Metas e controle</small>
+        </Link>
+        <Link href="/" aria-label="Duomni, ir para o painel"><img className="simbolo" src="/simbolo-duomni.png" alt="Duomni" /></Link>
         <button type="button" className="botao-recolher" onClick={alternar} aria-label={recolhido ? 'Expandir menu' : 'Recolher menu'} title={recolhido ? 'Expandir menu' : 'Recolher menu'}>
           <Icone nome={recolhido ? 'expandir' : 'recolher'} />
         </button>
@@ -37,9 +40,6 @@ export default function MenuLateral({ principais, cadastros, perfil, grupos, col
         {recolhido ? (
           <>
             {cadastros.map((i) => <Item key={i.href} i={i} />)}
-            <button type="button" className="nav-item" title="Equipes" onClick={() => { setRecolhido(false); gravar('menu_recolhido', '0'); gravar('menu_equipes', '1'); }}>
-              <Icone nome="equipes" />
-            </button>
           </>
         ) : (
           <div className="grupo-nav">
@@ -51,8 +51,6 @@ export default function MenuLateral({ principais, cadastros, perfil, grupos, col
           </div>
         )}
       </nav>
-
-      {!recolhido && <ArvoreMenu grupos={grupos} colaboradores={colaboradores} abertaInicial={equipesAbertaInicial} />}
 
       <div className="quem">
         <span className="avatar" title={`${perfil.nome} (${perfil.papel})`}>{(perfil.nome || '?').trim().charAt(0).toUpperCase()}</span>

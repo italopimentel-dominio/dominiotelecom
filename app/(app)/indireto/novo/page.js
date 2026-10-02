@@ -14,7 +14,7 @@ export default async function NovoParceiro() {
         <div>
           <p className="dica"><Link href="/indireto">Controle Indireto</Link></p>
           <h1 style={{ marginTop: 6 }}>Novo parceiro</h1>
-          <p className="sub">Depois de salvar, você registra os treinamentos e os apontamentos na página do parceiro.</p>
+          <p className="sub">O cadastro vai para validação do gerente. Depois de salvar, você já pode registrar treinamentos e apontamentos.</p>
         </div>
       </div>
       <div className="bloco"><FormParceiro parceiro={{ ponto_focal_id: perfil.id }} focais={focais} textoBotao="Cadastrar parceiro" /></div>

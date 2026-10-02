@@ -6,12 +6,8 @@ import { sair } from '@/app/actions/auth';
 export const dynamic = 'force-dynamic';
 
 export default async function LayoutApp({ children }) {
-  const { supabase, perfil } = await exigirSessao();
+  const { perfil } = await exigirSessao();
   const cookieStore = await cookies();
-  const [{ data: grupos }, { data: colaboradores }] = await Promise.all([
-    supabase.from('grupos').select('id, parent_id, nome').eq('ativo', true).order('ordem').order('nome'),
-    supabase.from('colaboradores').select('id, nome, grupo_id').eq('ativo', true).order('nome'),
-  ]);
 
   const principais = [
     { href: '/', rotulo: 'Painel', icone: 'painel' },
@@ -34,10 +30,7 @@ export default async function LayoutApp({ children }) {
         principais={principais}
         cadastros={cadastros}
         perfil={{ nome: perfil.nome || perfil.usuario, papel: `${NOME_PAPEL[perfil.papel]}${podeEditar(perfil) ? '' : ' (só leitura)'}` }}
-        grupos={grupos || []}
-        colaboradores={colaboradores || []}
         recolhidoInicial={cookieStore.get('menu_recolhido')?.value === '1'}
-        equipesAbertaInicial={cookieStore.get('menu_equipes')?.value !== '0'}
         sair={sair}
       />
       <main className="conteudo">{children}</main>

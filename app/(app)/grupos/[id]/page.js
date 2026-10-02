@@ -140,7 +140,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
               <tbody>
                 {linhas.map((l) => (
                   <tr key={l.colaborador.id} className={l.colaborador.ativo ? '' : 'inativo'}>
-                    <td>{l.colaborador.nome}{!l.colaborador.ativo && <span className="nome-sub">inativo</span>}</td>
+                    <td><Link href={`/colaboradores/${l.colaborador.id}?p=${periodo.id}`}>{l.colaborador.nome}</Link>{!l.colaborador.ativo && <span className="nome-sub">inativo</span>}</td>
                     <td className="fraco">{String(l.colaborador.peso).replace('.', ',')}</td>
                     <td>
                       {editar && l.colaborador.ativo ? (

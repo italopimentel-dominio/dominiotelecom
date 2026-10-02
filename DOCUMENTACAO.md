@@ -23,7 +23,7 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 
 **Menu lateral.** O botão no topo do menu recolhe a barra para uma faixa só de ícones (passe o mouse para ver o nome); a escolha fica salva no navegador. Os cadastros (equipes, produtos, períodos, feriados, usuários) ficam agrupados em "Cadastros", que abre e fecha. Minha senha e Sair ficam no rodapé, ao lado do nome.
 
-**Menu em árvore.** Na barra lateral, a seção Equipes (que também abre e fecha) mostra canais, regionais, equipes e colaboradores em níveis que abrem e fecham (▶). Tem busca por nome. Clicar numa equipe abre o detalhe dela; clicar num colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto. A ordem dos níveis segue o cadastro em "Equipes e colaboradores" (campo "Fica dentro de").
+**Colaboradores.** Na tela de cada equipe, o nome do colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto.
 
 **Importar resultados (Excel/CSV).** Menu Importar resultados, só para Editor e Administrador:
 1. Escolha o período e o arquivo (.xlsx, .xls ou .csv, inclusive CSV com ponto e vírgula).
@@ -44,7 +44,18 @@ Menu próprio para acompanhar os parceiros do canal Indireto.
 - **Apontamentos:** histórico de anotações do ponto focal, com autor, data e hora. Não dá para editar depois; só quem escreveu (ou um administrador) pode apagar.
 - **Lista:** filtros por busca (nome, cidade, CNPJ, contato), status, ponto focal ("só os meus") e treinamento pendente; resumo no topo e agenda dos próximos 14 dias.
 
-Permissão própria (tela Usuários, coluna Controle Indireto): Sem acesso, Visualiza ou Ponto focal (edita). É independente da permissão de metas: um Visualizador de metas pode ser ponto focal do Indireto. Administrador pode tudo, inclusive excluir parceiros.
+- **Validação pelo gerente:** todo parceiro cadastrado por um ponto focal entra como "Aguardando validação". O gerente aprova ou reprova (com motivo obrigatório); a decisão fica registrada nos apontamentos. Se o ponto focal alterar um cadastro já validado ou reprovado, ele volta sozinho para "Aguardando validação". Essas regras ficam no banco: só gerente/administrador consegue mudar a validação.
+
+Permissão própria (tela Usuários, coluna Controle Indireto), independente da permissão de metas:
+
+| Permissão | Pode |
+|---|---|
+| Sem acesso | não vê o menu |
+| Visualiza | consulta |
+| Ponto focal (cadastra) | cadastra parceiros, treinamentos e apontamentos |
+| Gerente (valida) | tudo do ponto focal + aprova ou reprova cadastros |
+
+Administrador pode tudo, inclusive excluir parceiros.
 
 ## Cálculos
 
@@ -97,7 +108,7 @@ app/
     produtos/  periodos/  feriados/  usuarios/  conta/
   actions/          Server actions (gravação): auth.js, dados.js, usuarios.js
   login/  setup/
-components/         FormAcao, CampoNumero (salva ao sair do campo), BarraRitmo, MenuLateral, ArvoreMenu, Importador, FormParceiro...
+components/         FormAcao, CampoNumero (salva ao sair do campo), BarraRitmo, MenuLateral, Importador, FormParceiro...
 lib/
   calc.js           Dias úteis, semanas, indicadores, divisão da meta
   feriados.js       Feriados nacionais (cálculo da Páscoa)
@@ -110,6 +121,7 @@ supabase/
   002_exemplo_outubro.sql   Opcional: Outubro/2026 com as metas da planilha
   003_importacao.sql        Tabela de apelidos usada na importação
   004_controle_indireto.sql Parceiros, treinamentos, apontamentos e permissão do módulo
+  005_validacao_parceiros.sql Validação dos cadastros pelo gerente
 middleware.js       Redireciona para /login quem não está logado
 ```
 

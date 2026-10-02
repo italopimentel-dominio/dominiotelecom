@@ -10,7 +10,8 @@ export default async function Login({ searchParams }) {
   return (
     <main className="tela-login">
       <div className="cartao-login">
-        <h1>Metas da Equipe</h1>
+        <img className="logo-login" src="/logo-duomni.png" alt="Duomni" />
+        <h1>Metas e controle</h1>
         <p className="dica" style={{ marginTop: 6 }}>Televendas, Consultivo e Indireto</p>
         {sp?.erro === 'inativo' && <p className="msg msg-erro">Seu acesso está inativo. Fale com um administrador.</p>}
         <FormAcao acao={entrar}>

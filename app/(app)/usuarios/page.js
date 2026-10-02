@@ -13,7 +13,7 @@ export default async function Usuarios() {
       <div className="topo">
         <div>
           <h1>Usuários</h1>
-          <p className="sub">Metas: Visualizador só consulta, Editor lança metas e resultados, Administrador também gerencia usuários. Controle Indireto tem permissão própria: quem é ponto focal precisa de "Ponto focal (edita)".</p>
+          <p className="sub">Metas: Visualizador só consulta, Editor lança metas e resultados, Administrador também gerencia usuários. Controle Indireto tem permissão própria: Ponto focal cadastra parceiros e o Gerente também aprova ou reprova os cadastros.</p>
         </div>
       </div>
 

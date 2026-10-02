@@ -10,6 +10,7 @@ export default async function Setup() {
   if (error) {
     return (
       <main className="tela-login"><div className="cartao-login">
+        <img className="logo-login" src="/logo-duomni.png" alt="Duomni" />
         <h1>Configuração incompleta</h1>
         <p className="msg msg-erro">Não foi possível acessar o banco: {error.message}</p>
         <p className="dica" style={{ marginTop: 10 }}>Confira as variáveis de ambiente na Vercel e se o arquivo 001_estrutura.sql foi executado no Supabase.</p>
@@ -20,6 +21,7 @@ export default async function Setup() {
   return (
     <main className="tela-login">
       <div className="cartao-login">
+        <img className="logo-login" src="/logo-duomni.png" alt="Duomni" />
         <h1>Primeiro acesso</h1>
         <p className="dica" style={{ marginTop: 6 }}>Crie o administrador. Depois, ele cadastra os demais usuários.</p>
         <FormAcao acao={criarPrimeiroAdmin}>

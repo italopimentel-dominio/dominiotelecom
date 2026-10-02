@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { exigirSessao, podeVerIndireto, podeEditarIndireto, ehAdmin } from '@/lib/auth';
+import { exigirSessao, podeVerIndireto, podeEditarIndireto, podeValidarIndireto, ehAdmin } from '@/lib/auth';
 import { hojeSP } from '@/lib/datas';
 import { fmtData } from '@/lib/formato';
-import { STATUS_PARCEIRO, TIPOS_TREINAMENTO, STATUS_TREINAMENTO, ROTULO_SITUACAO, situacaoTreinamento, fmtCnpj } from '@/lib/indireto';
+import { STATUS_PARCEIRO, TIPOS_TREINAMENTO, STATUS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, situacaoTreinamento, fmtCnpj } from '@/lib/indireto';
 import FormAcao from '@/components/FormAcao';
 import FormParceiro from '@/components/FormParceiro';
-import { criarTreinamento, atualizarTreinamento, excluirTreinamento, criarApontamento, excluirApontamento, excluirParceiro } from '@/app/actions/indireto';
+import { criarTreinamento, atualizarTreinamento, excluirTreinamento, criarApontamento, excluirApontamento, excluirParceiro, validarParceiro } from '@/app/actions/indireto';
 import { listarFocais, nomesDosPerfis } from '../dados';
 
 const dataHora = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
@@ -17,6 +17,7 @@ export default async function Parceiro({ params }) {
   if (!podeVerIndireto(perfil)) redirect('/');
   const editar = podeEditarIndireto(perfil);
   const admin = ehAdmin(perfil);
+  const validador = podeValidarIndireto(perfil);
   const hoje = hojeSP();
 
   const [{ data: p }, { data: treinos = [] }, { data: apont = [] }, nomes, focais] = await Promise.all([
@@ -53,6 +54,37 @@ export default async function Parceiro({ params }) {
             {[p.cnpj && fmtCnpj(p.cnpj), [p.cidade, p.uf].filter(Boolean).join('/'), p.ponto_focal_id && `ponto focal: ${nomes.get(p.ponto_focal_id)}`].filter(Boolean).join(', ')}
           </p>
         </div>
+      </div>
+
+      <div className={`validacao validacao-${p.validacao}`}>
+        <div>
+          <span className={`tag ${VALIDACAO[p.validacao].classe}`}>{VALIDACAO[p.validacao].texto}</span>
+          <p style={{ marginTop: 6 }}>
+            {p.validacao === 'pendente' && (validador ? 'Confira os dados cadastrais abaixo e aprove ou reprove.' : 'O gerente ainda precisa validar este cadastro.')}
+            {p.validacao === 'aprovado' && `Validado por ${nomes.get(p.validado_por) || 'gerente'} em ${p.validado_em ? dataHora(p.validado_em) : '—'}.`}
+            {p.validacao === 'reprovado' && <>Reprovado por {nomes.get(p.validado_por) || 'gerente'}: <strong>{p.validacao_motivo}</strong>. {editar && 'Corrija os dados e salve para enviar de novo.'}</>}
+          </p>
+          {editar && !validador && p.validacao === 'aprovado' && <p className="dica" style={{ marginTop: 4 }}>Se você alterar os dados cadastrais, o cadastro volta para validação.</p>}
+        </div>
+        {validador && (
+          <div className="validacao-acoes">
+            {p.validacao !== 'aprovado' && (
+              <FormAcao acao={validarParceiro}>
+                <input type="hidden" name="id" value={id} />
+                <input type="hidden" name="decisao" value="aprovado" />
+                <button className="btn btn-peq" type="submit">Aprovar cadastro</button>
+              </FormAcao>
+            )}
+            {p.validacao !== 'reprovado' && (
+              <FormAcao acao={validarParceiro} className="validacao-reprovar">
+                <input type="hidden" name="id" value={id} />
+                <input type="hidden" name="decisao" value="reprovado" />
+                <input type="text" name="motivo" required placeholder="Motivo da reprovação" aria-label="Motivo da reprovação" />
+                <button className="btn btn-perigo btn-peq" type="submit">Reprovar</button>
+              </FormAcao>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="cartoes">

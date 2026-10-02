@@ -4,7 +4,7 @@ import { exigirSessao, podeVerIndireto, podeEditarIndireto } from '@/lib/auth';
 import { hojeSP, somarDias } from '@/lib/datas';
 import { fmtData } from '@/lib/formato';
 import { normalizar } from '@/lib/nomes';
-import { STATUS_PARCEIRO, TIPOS_TREINAMENTO, ROTULO_SITUACAO, situacaoTreinamento, fmtCnpj, soDigitos } from '@/lib/indireto';
+import { STATUS_PARCEIRO, TIPOS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, situacaoTreinamento, fmtCnpj, soDigitos } from '@/lib/indireto';
 import { nomesDosPerfis, listarFocais } from './dados';
 
 export default async function ControleIndireto({ searchParams }) {
@@ -43,6 +43,7 @@ export default async function ControleIndireto({ searchParams }) {
     if (sp.status ? p.status !== sp.status : p.status === 'inativo' && !sp.q) return false;
     if (sp.focal === 'meus' && p.ponto_focal_id !== perfil.id) return false;
     if (sp.focal && sp.focal !== 'meus' && p.ponto_focal_id !== sp.focal) return false;
+    if (sp.val && p.validacao !== sp.val) return false;
     if (sp.pend && !['pendente', 'atrasado'].includes(p.sit[sp.pend]?.estado)) return false;
     if (b) {
       const alvo = normalizar([p.nome_fantasia, p.razao_social, p.cidade, p.codigo, p.contato_nome].join(' '));
@@ -59,7 +60,8 @@ export default async function ControleIndireto({ searchParams }) {
     .sort((a, b2) => a.data.localeCompare(b2.data));
   const pendencias = ativos.reduce((s, p) => s + Object.values(p.sit).filter((x) => x.estado === 'pendente' || x.estado === 'atrasado').length, 0);
   const nomeParceiro = new Map(linhas.map((p) => [p.id, p.nome_fantasia]));
-  const filtrando = sp.q || sp.status || sp.focal || sp.pend;
+  const filtrando = sp.q || sp.status || sp.focal || sp.pend || sp.val;
+  const aguardando = linhas.filter((p) => p.validacao === 'pendente').length;
 
   return (
     <>
@@ -76,6 +78,7 @@ export default async function ControleIndireto({ searchParams }) {
         <div><b>{emOnboarding}</b><span>em onboarding</span></div>
         <div><b>{proximos.length}</b><span>treinamentos nos próximos 14 dias</span></div>
         <div><b>{pendencias}</b><span>treinamentos pendentes</span></div>
+        <Link href="/indireto?val=pendente" className="numero-link"><b>{aguardando}</b><span>aguardando validação</span></Link>
       </div>
 
       <form className="bloco campos" style={{ margin: '14px 0' }} method="get">
@@ -91,6 +94,12 @@ export default async function ControleIndireto({ searchParams }) {
             <option value="">Todos</option>
             <option value="meus">Só os meus</option>
             {focais.map((f) => <option key={f.id} value={f.id}>{f.nome || f.usuario}</option>)}
+          </select>
+        </label>
+        <label className="campo">Validação
+          <select name="val" defaultValue={sp.val || ''}>
+            <option value="">Todas</option>
+            {Object.entries(VALIDACAO).map(([k, v]) => <option key={k} value={k}>{v.texto}</option>)}
           </select>
         </label>
         <label className="campo">Treinamento pendente
@@ -114,7 +123,7 @@ export default async function ControleIndireto({ searchParams }) {
           <table>
             <thead>
               <tr>
-                <th>Parceiro</th><th className="esq">Cidade</th><th className="esq">Ponto focal</th><th className="esq">Status</th>
+                <th>Parceiro</th><th className="esq">Cidade</th><th className="esq">Ponto focal</th><th className="esq">Status</th><th className="esq">Validação</th>
                 {Object.values(TIPOS_TREINAMENTO).map((t) => <th key={t} className="esq">{t}</th>)}
                 <th>Último apontamento</th>
               </tr>
@@ -129,6 +138,7 @@ export default async function ControleIndireto({ searchParams }) {
                   <td className="esq">{[p.cidade, p.uf].filter(Boolean).join('/') || '—'}</td>
                   <td className="esq">{p.ponto_focal_id ? nomes.get(p.ponto_focal_id) : <span className="fraco">—</span>}</td>
                   <td className="esq"><span className={`tag ${p.status === 'ativo' ? 'tag-ok' : p.status === 'onboarding' ? 'tag-acento' : ''}`}>{STATUS_PARCEIRO[p.status]}</span></td>
+                  <td className="esq"><span className={`tag ${VALIDACAO[p.validacao || 'pendente'].classe}`}>{VALIDACAO[p.validacao || 'pendente'].texto}</span></td>
                   {Object.keys(TIPOS_TREINAMENTO).map((t) => {
                     const s = p.sit[t];
                     return (
@@ -141,7 +151,7 @@ export default async function ControleIndireto({ searchParams }) {
                   <td className="fraco">{ultimoApont.has(p.id) ? fmtData(ultimoApont.get(p.id).slice(0, 10), true) : '—'}</td>
                 </tr>
               ))}
-              {!filtradas.length && <tr><td colSpan={8} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nenhum parceiro com esses filtros.</td></tr>}
+              {!filtradas.length && <tr><td colSpan={9} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nenhum parceiro com esses filtros.</td></tr>}
             </tbody>
           </table>
         </div>
