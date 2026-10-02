@@ -119,7 +119,12 @@ export async function salvarColaborador(_prev, fd) {
 export async function alternarColaborador(_prev, fd) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
-  const { error } = await db.from('colaboradores').update({ ativo: fd.get('ativar') === '1' }).eq('id', txt(fd, 'id'));
+  const ativar = fd.get('ativar') === '1';
+  const data = txt(fd, 'data_desligamento');
+  if (!ativar && !data) return { erro: 'Informe a data de desligamento.' };
+  const { error } = await db.from('colaboradores')
+    .update(ativar ? { ativo: true, data_desligamento: null } : { ativo: false, data_desligamento: data })
+    .eq('id', txt(fd, 'id'));
   if (error) return { erro: error.message };
   return pronto();
 }

@@ -44,7 +44,7 @@ export default async function DetalheColaborador({ params, searchParams }) {
           <p className="sub">
             {periodo.nome}. Peso {String(colab.peso).replace('.', ',')} na divisão da meta.
             {colab.data_admissao && ` Admissão em ${fmtData(colab.data_admissao, true)}${tempoDeCasa(colab.data_admissao) ? `, ${tempoDeCasa(colab.data_admissao).texto} de casa` : ''}.`}
-            {!colab.ativo && ' Colaborador inativo.'}
+            {colab.data_desligamento ? ` Desligado em ${fmtData(colab.data_desligamento, true)}.` : !colab.ativo && ' Colaborador inativo.'}
           </p>
         </div>
         <SeletorPeriodo periodos={periodos} atual={periodo.id} />

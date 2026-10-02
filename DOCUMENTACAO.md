@@ -8,6 +8,8 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 
 **Canais e equipes (árvore).** Tudo é um "grupo" que pode ficar dentro de outro: `Televendas > São Paulo > Paloma SP`. Não há limite de níveis. A meta é lançada só nas equipes da ponta (ex.: supervisores, Indireto). Quem tem equipes ativas abaixo (regionais e canais) tem a meta calculada como **soma** delas: Campinas = soma dos supervisores de Campinas, Televendas = Campinas + São Paulo + Inbound. Na tela Metas essas linhas aparecem em negrito, sem campo para digitar.
 
+**Admissão e desligamento.** Desligar um colaborador pede a data de desligamento. Em cada mês, o colaborador só aparece se esteve na casa em algum dia daquele mês (entre admissão e desligamento); meses anteriores continuam mostrando a pessoa e os resultados dela normalmente. Quem entra ou sai no meio do fechamento recebe meta proporcional aos dias úteis em que esteve na casa (ex.: entrou dia 16, 11 de 21 dias úteis = 52% da cota), sem precisar mexer no peso. O realizado de quem saiu continua somando na equipe. Reativar apaga a data de desligamento.
+
 **Colaboradores.** Pertencem a um grupo, têm data de admissão (o sistema mostra o tempo de casa no cadastro, na tela da equipe e na página do colaborador; quem tem menos de 3 meses aparece como "novo") e têm um **peso** (1 = cota cheia, 0,5 = meia cota, 0 = sem meta). A meta do grupo é dividida entre os colaboradores ativos do próprio grupo, proporcional ao peso. Na tela da equipe dá para **fixar** a meta de alguém; o restante é dividido entre os outros. Em produtos de quantidade a divisão usa números inteiros que somam exatamente a meta.
 
 **Realizado.** Lançado por colaborador (tela da equipe). Para grupos sem colaboradores (ex.: Indireto) é lançado direto no grupo. O realizado de um grupo é a soma de tudo que está abaixo dele.
@@ -146,6 +148,7 @@ supabase/
   006_formulario_historico.sql CPF, data de ativação, histórico e Formulário Google
   007_admissao.sql          Data de admissão dos colaboradores
   008_liderancas.sql        Cargos de liderança do organograma
+  009_desligamento.sql      Data de desligamento dos colaboradores
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado

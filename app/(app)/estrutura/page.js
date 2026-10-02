@@ -2,12 +2,15 @@ import { exigirSessao, podeEditar } from '@/lib/auth';
 import { carregarEstrutura } from '@/lib/dados';
 import FormAcao from '@/components/FormAcao';
 import TempoCasa from '@/components/TempoCasa';
+import { hojeSP } from '@/lib/datas';
+import { fmtData } from '@/lib/formato';
 import { criarGrupo, salvarGrupo, alternarGrupo, criarColaborador, salvarColaborador, alternarColaborador } from '@/app/actions/dados';
 
 export default async function Estrutura({ searchParams }) {
   const sp = await searchParams;
   const { supabase, perfil } = await exigirSessao();
   const editar = podeEditar(perfil);
+  const hoje = hojeSP();
   const est = await carregarEstrutura(supabase);
   const todos = est.achatar(null, 0, false);
   const nomeCompleto = (id) => est.caminho(id).map((g) => g.nome).join(' / ');
@@ -120,15 +123,30 @@ export default async function Estrutura({ searchParams }) {
                               </FormAcao>
                             </td>
                             <td>
-                              <FormAcao acao={alternarColaborador}>
-                                <input type="hidden" name="id" value={c.id} />
-                                <input type="hidden" name="ativar" value={c.ativo ? '0' : '1'} />
-                                <button className={c.ativo ? 'btn btn-perigo btn-peq' : 'btn btn-sec btn-peq'} type="submit">{c.ativo ? 'Inativar' : 'Reativar'}</button>
-                              </FormAcao>
+                              {c.ativo ? (
+                                <details className="recolhivel desligar">
+                                  <summary className="texto-perigo">Desligar</summary>
+                                  <FormAcao acao={alternarColaborador}>
+                                    <div className="campos" style={{ flexWrap: 'nowrap', marginTop: 6 }}>
+                                      <input type="hidden" name="id" value={c.id} />
+                                      <input type="hidden" name="ativar" value="0" />
+                                      <input type="date" name="data_desligamento" defaultValue={hoje} required aria-label="Data de desligamento" />
+                                      <button className="btn btn-perigo btn-peq" type="submit">Confirmar</button>
+                                    </div>
+                                  </FormAcao>
+                                </details>
+                              ) : (
+                                <FormAcao acao={alternarColaborador} confirmar={`Reativar ${c.nome}? A data de desligamento será apagada.`}>
+                                  <input type="hidden" name="id" value={c.id} />
+                                  <input type="hidden" name="ativar" value="1" />
+                                  <span className="nome-sub" style={{ marginBottom: 4 }}>{c.data_desligamento ? `desligado em ${fmtData(c.data_desligamento, true)}` : 'inativo'}</span>
+                                  <button className="btn btn-sec btn-peq" type="submit">Reativar</button>
+                                </FormAcao>
+                              )}
                             </td>
                           </>
                         ) : (
-                          <><td>{c.nome}{!c.ativo && <span className="nome-sub">inativo</span>}</td><td>{String(c.peso).replace('.', ',')}</td><td className="esq"><TempoCasa admissao={c.data_admissao} comData /></td></>
+                          <><td>{c.nome}{!c.ativo && <span className="nome-sub">{c.data_desligamento ? `desligado em ${fmtData(c.data_desligamento, true)}` : 'inativo'}</span>}</td><td>{String(c.peso).replace('.', ',')}</td><td className="esq"><TempoCasa admissao={c.data_admissao} comData /></td></>
                         )}
                       </tr>
                     ))}

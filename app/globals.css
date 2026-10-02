@@ -369,3 +369,5 @@ a.org-titulo:hover strong { color: var(--acento); }
 .org-bloco-equipe { border-top: 1px solid var(--linha); }
 .org-nome-equipe { display: block; padding: 6px 12px 0; font-size: 11.5px; font-weight: 600; color: var(--suave); text-decoration: none; text-transform: uppercase; letter-spacing: .04em; }
 .org-nome-equipe:hover { color: var(--acento); }
+.texto-perigo { color: var(--risco) !important; font-weight: 600; font-size: 13.5px !important; }
+details.desligar[open] { background: var(--risco-fundo); border-radius: var(--raio); padding: 6px 8px; }

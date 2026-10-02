@@ -45,7 +45,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
   const contagem = { batida: 0, emDia: 0, fora: 0, semMeta: 0 };
   base.subarvore(id).forEach((gid) => {
     an.individuais(gid, produto).linhas.forEach((l) => {
-      if (!l.colaborador.ativo) return;
+      if (!l.noPeriodo) return;
       if (l.status === 'batida') contagem.batida++;
       else if (l.status === 'em-dia' || l.status === 'inicio') contagem.emDia++;
       else if (l.status === 'atencao' || l.status === 'risco') contagem.fora++;
@@ -162,12 +162,17 @@ export default async function DetalheGrupo({ params, searchParams }) {
               <thead><tr><th>Colaborador</th><th className="esq">Tempo de casa</th><th>Peso</th><th>Meta</th><th>Realizado</th><th className="esq">Ritmo</th><th>Falta</th><th>Por dia útil</th><th>Nesta semana</th></tr></thead>
               <tbody>
                 {linhas.map((l) => (
-                  <tr key={l.colaborador.id} className={l.colaborador.ativo ? '' : 'inativo'}>
-                    <td><Link href={`/colaboradores/${l.colaborador.id}?p=${periodo.id}`}>{l.colaborador.nome}</Link>{!l.colaborador.ativo && <span className="nome-sub">inativo</span>}</td>
+                  <tr key={l.colaborador.id} className={l.noPeriodo ? '' : 'inativo'}>
+                    <td>
+                      <Link href={`/colaboradores/${l.colaborador.id}?p=${periodo.id}`}>{l.colaborador.nome}</Link>
+                      {l.colaborador.data_desligamento && <span className="nome-sub">desligado em {fmtData(l.colaborador.data_desligamento, true)}</span>}
+                      {!l.noPeriodo && !l.colaborador.data_desligamento && <span className="nome-sub">inativo</span>}
+                      {l.noPeriodo && l.fracao < 1 && <span className="nome-sub">meta proporcional: {Math.round(l.fracao * 100)}% dos dias úteis</span>}
+                    </td>
                     <td className="esq" style={{ fontSize: 13.5 }}><TempoCasa admissao={l.colaborador.data_admissao} /></td>
                     <td className="fraco">{String(l.colaborador.peso).replace('.', ',')}</td>
                     <td>
-                      {editar && l.colaborador.ativo ? (
+                      {editar && l.noPeriodo ? (
                         <CampoNumero
                           rotulo={`Meta de ${l.colaborador.nome}`}
                           acao={salvarMetaIndividual.bind(null, periodo.id, l.colaborador.id, produto.id)}
