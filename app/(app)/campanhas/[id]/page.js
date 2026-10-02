@@ -2,13 +2,14 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { exigirSessao, podeEditar } from '@/lib/auth';
 import { fmtValor } from '@/lib/formato';
-import { TEMAS } from '@/lib/campanhas';
+import { TEMAS, PERSONAGENS } from '@/lib/campanhas';
 import { carregarCampanha } from '@/lib/campanhasDados';
 import { capitalizar } from '@/lib/nomes';
 import PainelCampanha from '@/components/PainelCampanha';
 import FormCampanha from '@/components/FormCampanha';
 import FormAcao from '@/components/FormAcao';
 import CampoNumero from '@/components/CampoNumero';
+import { enviarImagemCampanha, removerImagemCampanha, salvarVisualCampanha, enviarFotoColaborador } from '@/app/actions/midia';
 import { salvarCampanha, excluirCampanha, salvarItem, excluirItem, adicionarParticipantes, removerParticipante, salvarResultadoCampanha } from '@/app/actions/campanhas';
 
 export default async function Campanha({ params, searchParams }) {
@@ -54,6 +55,77 @@ export default async function Campanha({ params, searchParams }) {
 
       {editar && (
         <>
+          <section className="secao">
+            <details className="bloco" open={sp.personalizar === '1'}>
+              <summary style={{ cursor: 'pointer', fontWeight: 600 }}>🎨 Personalizar o visual</summary>
+              <div className="pers-grade" style={{ marginTop: 14 }}>
+                {[['capa', 'Imagem de capa', c.capa_url, 'Banner no topo da campanha. Ideal: foto larga (ex.: 1600 x 500).'], ['premio', 'Foto do prêmio', c.premio_url, 'Vira a linha de chegada, a lua do foguete e o topo do pódio.']].map(([campo, titulo, url, dica]) => (
+                  <div key={campo}>
+                    <h3 style={{ marginBottom: 8 }}>{titulo}</h3>
+                    <div className="pers-img" style={url ? { backgroundImage: `url("${url}")`, borderStyle: 'solid' } : undefined}>{!url && 'Sem imagem'}</div>
+                    <FormAcao acao={enviarImagemCampanha}>
+                      <input type="hidden" name="campanha_id" value={id} />
+                      <input type="hidden" name="campo" value={campo} />
+                      <div className="campos">
+                        <input type="file" name="arquivo" accept="image/png,image/jpeg,image/webp,image/gif" required style={{ maxWidth: 210 }} />
+                        <button className="btn btn-sec btn-peq" type="submit">Enviar</button>
+                      </div>
+                    </FormAcao>
+                    {url && (
+                      <FormAcao acao={removerImagemCampanha}>
+                        <input type="hidden" name="campanha_id" value={id} />
+                        <input type="hidden" name="campo" value={campo} />
+                        <button className="lt-apagar" type="submit" style={{ marginTop: 6 }}>remover imagem</button>
+                      </FormAcao>
+                    )}
+                    <p className="dica" style={{ marginTop: 6 }}>{dica} Até 5 MB.</p>
+                  </div>
+                ))}
+                <FormAcao acao={salvarVisualCampanha}>
+                  <input type="hidden" name="campanha_id" value={id} />
+                  <h3 style={{ marginBottom: 8 }}>Personagens da corrida e do foguete</h3>
+                  <div className="pers-bonecos">
+                    <label><input type="radio" name="personagem" value="" defaultChecked={!c.personagem} /><span className="em">✨</span>Padrão</label>
+                    {Object.entries(PERSONAGENS).map(([k, v]) => (
+                      <label key={k}><input type="radio" name="personagem" value={k} defaultChecked={c.personagem === k} /><span className="em">{v.lista.slice(0, 2).join('')}</span>{v.nome}</label>
+                    ))}
+                    <label><input type="radio" name="personagem" value="proprio" defaultChecked={!!c.personagem && !PERSONAGENS[c.personagem]} /><span className="em">😎</span>Meu emoji</label>
+                  </div>
+                  <div className="campos" style={{ marginTop: 10 }}>
+                    <label className="campo">Meu emoji<input type="text" name="emoji" defaultValue={c.personagem && !PERSONAGENS[c.personagem] ? c.personagem : ''} placeholder="ex.: 🦁" style={{ width: 90 }} /></label>
+                    <label className="campo">Cor da campanha<input type="color" name="cor" defaultValue={c.cor || '#6b40e7'} style={{ width: 70, height: 38, padding: 2 }} /></label>
+                  </div>
+                  <label className="campo" style={{ marginTop: 10 }}>Frase de motivação<input type="text" name="frase" defaultValue={c.frase || ''} placeholder="ex.: Quem chegar primeiro leva!" maxLength={120} /></label>
+                  <button className="btn" type="submit" style={{ marginTop: 12 }}>Salvar visual</button>
+                </FormAcao>
+              </div>
+
+              {c.participacao !== 'equipe' && participantes.length > 0 && (
+                <>
+                  <h3 style={{ margin: '22px 0 6px' }}>Fotos dos participantes</h3>
+                  <p className="dica" style={{ marginBottom: 10 }}>A foto aparece na pista, no foguete, no pódio e também no organograma. Vale para todas as campanhas.</p>
+                  <div className="fotos-grade">
+                    {ordemPart.map((p) => (
+                      <div key={p.id} className="foto-cartao">
+                        {p.foto ? <img src={p.foto} alt="" className="foto" /> : <span className="foto" style={{ background: '#c9c5d6' }}>{p.nome.charAt(0)}</span>}
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.nome}</div>
+                          <FormAcao acao={enviarFotoColaborador}>
+                            <input type="hidden" name="colaborador_id" value={p.colaborador_id} />
+                            <div className="campos" style={{ gap: 4 }}>
+                              <input type="file" name="arquivo" accept="image/png,image/jpeg,image/webp" required aria-label={`Foto de ${p.nome}`} />
+                              <button className="btn btn-sec btn-peq" type="submit">Enviar</button>
+                            </div>
+                          </FormAcao>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </details>
+          </section>
+
           <section className="secao">
             <h2 style={{ marginBottom: 6 }}>Lançar resultados</h2>
             <p className="dica" style={{ marginBottom: 10 }}>Digite o acumulado de cada participante e saia do campo para salvar. O visual atualiza na hora (e no Modo TV, a cada minuto).</p>

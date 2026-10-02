@@ -28,12 +28,28 @@ export default async function Headcount({ searchParams }) {
     bateram: lista.filter((x) => x.status === 'batida').length,
   });
 
+  // ---------- filtro por supervisor (equipes da ponta), com várias escolhas ----------
+  const [{ data: lids }, { data: vinc }] = await Promise.all([
+    supabase.from('liderancas').select('id, nome, ativo'),
+    supabase.from('lideranca_grupos').select('*'),
+  ]);
+  const liderDe = new Map();
+  (vinc || []).forEach((v) => { const l = (lids || []).find((x) => x.id === v.lideranca_id && x.ativo); if (l) liderDe.set(v.grupo_id, l.nome); });
+  const opcoes = base.achatar(null, 0, true)
+    .filter((g) => base.colaboradores.some((c) => c.grupo_id === g.id) || !base.filhosDe(g.id).some((f) => f.ativo))
+    .map((g) => ({ id: g.id, rotulo: liderDe.get(g.id) || g.nome, caminho: base.caminho(g.id).slice(0, -1).map((x) => x.nome).join(' / ') }));
+  const escolhidos = [].concat(sp.sup || []).filter((id) => opcoes.some((o) => o.id === id));
+  const filtrando = escolhidos.length > 0;
+
   const raizes = base.raizes.filter((g) => g.ativo);
-  const todosIds = raizes.flatMap((g) => base.subarvore(g.id));
-  const geralHc = calcularHeadcount(base.colaboradores, inicio, fim);
-  const geralMeta = an.geralGrupos(raizes.map((g) => g.id));
+  const focoIds = filtrando ? escolhidos : raizes.map((g) => g.id);
+  const todosIds = [...new Set(focoIds.flatMap((id) => base.subarvore(id)))];
+  const idsSet = new Set(todosIds);
+  const geralHc = calcularHeadcount(base.colaboradores.filter((c) => filtrando ? idsSet.has(c.grupo_id) : true), inicio, fim);
+  const geralMeta = an.geralGrupos(focoIds);
   const geralPessoas = contar(an.geralColaboradores(todosIds));
-  const linhas = base.achatar(null, 0, true).map((g) => ({
+  const gruposTabela = filtrando ? base.achatar(null, 0, true).filter((g) => escolhidos.includes(g.id)).map((g) => ({ ...g, nivel: 0 })) : base.achatar(null, 0, true);
+  const linhas = gruposTabela.map((g) => ({
     g,
     hc: calcularHeadcount(colabsDe(g.id), inicio, fim),
     meta: an.geralGrupos([g.id]),
@@ -50,9 +66,36 @@ export default async function Headcount({ searchParams }) {
           <h1>Headcount de {periodo.nome}</h1>
           <p className="sub">Quem começou o mês, quem entrou e quem saiu entre {fmtData(inicio, true)} e {fmtData(fim, true)}, e como está a meta geral (todos os produtos juntos).</p>
         </div>
-        <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        <div className="linha-acoes">
+          <details className="filtro-multi">
+            <summary>{filtrando ? `${escolhidos.length} ${escolhidos.length === 1 ? 'supervisor' : 'supervisores'}` : 'Todos os supervisores'} ▾</summary>
+            <form method="get" className="filtro-multi-caixa">
+              <input type="hidden" name="p" value={periodo.id} />
+              <p className="dica" style={{ marginBottom: 6 }}>Escolha um ou mais</p>
+              <div className="filtro-multi-lista">
+                {opcoes.map((o) => (
+                  <label key={o.id} className="check">
+                    <input type="checkbox" name="sup" value={o.id} defaultChecked={escolhidos.includes(o.id)} />
+                    <span>{o.rotulo}{o.caminho && <span className="nome-sub">{o.caminho}</span>}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="linha-acoes" style={{ marginTop: 10 }}>
+                <button className="btn btn-peq" type="submit">Aplicar</button>
+                <a className="dica" href={`/headcount?p=${periodo.id}`}>Limpar</a>
+              </div>
+            </form>
+          </details>
+          <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        </div>
       </div>
 
+      {filtrando && (
+        <p className="filtro-ativo">
+          Mostrando: {escolhidos.map((id) => opcoes.find((o) => o.id === id)?.rotulo).join(', ')}
+          <a href={`/headcount?p=${periodo.id}`}>× limpar filtro</a>
+        </p>
+      )}
       <div className="hc-cartoes">
         <div className="hc-cartao"><span>Começou o mês com</span><b>{geralHc.inicio}</b><small>colaboradores</small></div>
         <div className="hc-cartao hc-mais"><span>Admissões</span><b>+{geralHc.admissoes.length}</b><small>{fmtPct(geralHc.inicio ? geralHc.admissoes.length / geralHc.inicio : 0)} do início</small></div>

@@ -42,7 +42,7 @@ export default async function Organograma({ searchParams }) {
     return (
       <li>
         <Link href={`/colaboradores/${c.id}`} className="org-pessoa" title={`${capitalizar(c.nome)}${t ? ` (${t.texto} de casa)` : ''}`}>
-          <span className="org-avatar" style={{ background: corDe(c.nome) }}>{c.nome.trim().charAt(0).toUpperCase()}</span>
+          {c.foto_url ? <img src={c.foto_url} alt="" className="org-avatar org-foto" /> : <span className="org-avatar" style={{ background: corDe(c.nome) }}>{c.nome.trim().charAt(0).toUpperCase()}</span>}
           <span className="org-pessoa-nome">{nomeCurto(c.nome)}</span>
           {t && t.meses < 3 && <span className="org-novo" title="Menos de 3 meses de casa">novo</span>}
         </Link>

@@ -47,7 +47,7 @@ O arquivo é lido no navegador; só os números conferidos são enviados ao banc
 
 ## Headcount
 
-Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado da **meta geral** (média do % atingido em cada produto com meta, juntando quantidade e R$) e de quantos colaboradores estão dentro da meta geral (% geral igual ou acima do esperado até hoje), em número e %. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.
+Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado da **meta geral** (média do % atingido em cada produto com meta, juntando quantidade e R$) e de quantos colaboradores estão dentro da meta geral (% geral igual ou acima do esperado até hoje), em número e %. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. Filtro por supervisor com várias escolhas (equipes da ponta; quando a equipe tem líder cadastrado no organograma, aparece o nome dele). A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.
 
 ## Campanhas
 
@@ -56,6 +56,7 @@ Menu Campanhas, para desafios com regras próprias (independentes das metas):
 - **Participantes:** inclua uma equipe inteira (pega todos os ativos dela e das de baixo) ou pessoa por pessoa.
 - **Resultados:** lançados à mão numa grade participante x item (acumulado).
 - **Visuais (troca com um clique, sem perder nada):** 🏁 Corrida (carrinhos numa pista até a bandeira quadriculada), 🚀 Foguete (foguetes subindo até a lua), 🏆 Pódio (top 3 com medalhas e ranking), 🌡️ Termômetro (meta coletiva enchendo). Confete quando alguém completa. O progresso de cada um é a média do % atingido em cada item.
+- **Personalizar o visual** (Editor/Administrador, na página da campanha): imagem de capa (banner), foto do prêmio (vira a linha de chegada, a lua do foguete, o topo do pódio e do termômetro), cor da campanha, personagens (carros, motos, cavalos, bichos, corredores, naves ou um emoji próprio), frase de motivação e fotos dos participantes (a foto fica no cadastro do colaborador e aparece também no organograma). As imagens ficam na pasta pública `midia` do Supabase Storage (até 5 MB cada).
 - **Modo TV:** tela cheia para deixar numa TV da operação, atualiza sozinha a cada minuto.
 
 Permissão: todos veem; Editor e Administrador criam e lançam.
@@ -165,6 +166,7 @@ supabase/
   008_liderancas.sql        Cargos de liderança do organograma
   009_desligamento.sql      Data de desligamento dos colaboradores
   010_campanhas.sql         Campanhas comerciais
+  011_personalizacao.sql    Visual das campanhas, fotos e pasta de imagens
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado
