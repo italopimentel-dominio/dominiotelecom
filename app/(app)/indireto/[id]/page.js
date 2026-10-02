@@ -3,7 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { exigirSessao, podeVerIndireto, podeEditarIndireto, podeValidarIndireto, ehAdmin } from '@/lib/auth';
 import { hojeSP } from '@/lib/datas';
 import { fmtData } from '@/lib/formato';
-import { STATUS_PARCEIRO, TIPOS_TREINAMENTO, STATUS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, situacaoTreinamento, fmtCnpj } from '@/lib/indireto';
+import { STATUS_PARCEIRO, TIPOS_TREINAMENTO, STATUS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, CAMPOS_HISTORICO, situacaoTreinamento, documentoDe, fmtCnpj, fmtCpf } from '@/lib/indireto';
 import FormAcao from '@/components/FormAcao';
 import FormParceiro from '@/components/FormParceiro';
 import { criarTreinamento, atualizarTreinamento, excluirTreinamento, criarApontamento, excluirApontamento, excluirParceiro, validarParceiro } from '@/app/actions/indireto';
@@ -20,21 +20,37 @@ export default async function Parceiro({ params }) {
   const validador = podeValidarIndireto(perfil);
   const hoje = hojeSP();
 
-  const [{ data: p }, { data: treinos = [] }, { data: apont = [] }, nomes, focais] = await Promise.all([
+  const [{ data: p }, { data: treinos = [] }, { data: apont = [] }, nomes, focais, { data: respostas = [] }, { data: historico = [] }] = await Promise.all([
     supabase.from('parceiros').select('*').eq('id', id).maybeSingle(),
     supabase.from('parceiro_treinamentos').select('*').eq('parceiro_id', id).order('data', { ascending: false }),
     supabase.from('parceiro_apontamentos').select('*').eq('parceiro_id', id).order('criado_em', { ascending: false }),
     nomesDosPerfis(supabase),
     listarFocais(supabase),
+    supabase.from('parceiro_respostas_form').select('*').eq('parceiro_id', id).order('respondido_em', { ascending: false }),
+    supabase.from('parceiro_historico').select('*').eq('parceiro_id', id).order('em', { ascending: false }).limit(300),
   ]);
   if (!p) notFound();
 
+  const valorHist = (campo, v) => {
+    if (v === null || v === undefined || v === '') return '—';
+    if (campo === 'status') return STATUS_PARCEIRO[v] || v;
+    if (campo === 'validacao') return VALIDACAO[v]?.texto || v;
+    if (campo === 'ponto_focal_id') return nomes.get(v) || 'usuário removido';
+    if (campo === 'cnpj') return fmtCnpj(v);
+    if (campo === 'cpf') return fmtCpf(v);
+    if (campo === 'form_respondido_em') return dataHora(v);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return fmtData(v, true);
+    return v;
+  };
+  const quemHist = (h) => (h.origem === 'formulario' ? 'Formulário Google' : h.usuario_id ? nomes.get(h.usuario_id) || 'Usuário removido' : 'Sistema');
+
   const info = [
     ['Razão social', p.razao_social],
-    ['CNPJ', p.cnpj && fmtCnpj(p.cnpj)],
+    [p.cpf ? 'CPF' : 'CNPJ', documentoDe(p)],
     ['Código / PDV', p.codigo],
     ['Ponto focal', p.ponto_focal_id && nomes.get(p.ponto_focal_id)],
     ['Início da parceria', p.data_inicio && fmtData(p.data_inicio, true)],
+    ['Data de ativação', p.data_ativacao && fmtData(p.data_ativacao, true)],
     ['Cidade', [p.cidade, p.uf].filter(Boolean).join('/')],
     ['Endereço', p.endereco],
     ['Contato', p.contato_nome],
@@ -51,7 +67,7 @@ export default async function Parceiro({ params }) {
           <h1 style={{ marginTop: 6 }}>{p.nome_fantasia}</h1>
           <p className="sub">
             <span className={`tag ${p.status === 'ativo' ? 'tag-ok' : p.status === 'onboarding' ? 'tag-acento' : ''}`}>{STATUS_PARCEIRO[p.status]}</span>{' '}
-            {[p.cnpj && fmtCnpj(p.cnpj), [p.cidade, p.uf].filter(Boolean).join('/'), p.ponto_focal_id && `ponto focal: ${nomes.get(p.ponto_focal_id)}`].filter(Boolean).join(', ')}
+            {[documentoDe(p), p.data_ativacao && `ativado em ${fmtData(p.data_ativacao, true)}`, [p.cidade, p.uf].filter(Boolean).join('/'), p.ponto_focal_id && `ponto focal: ${nomes.get(p.ponto_focal_id)}`].filter(Boolean).join(', ')}
           </p>
         </div>
       </div>
@@ -61,7 +77,9 @@ export default async function Parceiro({ params }) {
           <span className={`tag ${VALIDACAO[p.validacao].classe}`}>{VALIDACAO[p.validacao].texto}</span>
           <p style={{ marginTop: 6 }}>
             {p.validacao === 'pendente' && (validador ? 'Confira os dados cadastrais abaixo e aprove ou reprove.' : 'O gerente ainda precisa validar este cadastro.')}
-            {p.validacao === 'aprovado' && `Validado por ${nomes.get(p.validado_por) || 'gerente'} em ${p.validado_em ? dataHora(p.validado_em) : '—'}.`}
+            {p.validacao === 'aprovado' && (p.validacao_automatica
+              ? `Validado automaticamente em ${p.validado_em ? dataHora(p.validado_em) : '—'}: o parceiro respondeu o formulário de treinamento.`
+              : `Validado por ${nomes.get(p.validado_por) || 'gerente'} em ${p.validado_em ? dataHora(p.validado_em) : '—'}.`)}
             {p.validacao === 'reprovado' && <>Reprovado por {nomes.get(p.validado_por) || 'gerente'}: <strong>{p.validacao_motivo}</strong>. {editar && 'Corrija os dados e salve para enviar de novo.'}</>}
           </p>
           {editar && !validador && p.validacao === 'aprovado' && <p className="dica" style={{ marginTop: 4 }}>Se você alterar os dados cadastrais, o cadastro volta para validação.</p>}
@@ -73,6 +91,13 @@ export default async function Parceiro({ params }) {
                 <input type="hidden" name="id" value={id} />
                 <input type="hidden" name="decisao" value="aprovado" />
                 <button className="btn btn-peq" type="submit">Aprovar cadastro</button>
+              </FormAcao>
+            )}
+            {p.validacao === 'aprovado' && (
+              <FormAcao acao={validarParceiro} confirmar="Desfazer a validação? O cadastro volta para Aguardando validação.">
+                <input type="hidden" name="id" value={id} />
+                <input type="hidden" name="decisao" value="pendente" />
+                <button className="btn btn-sec btn-peq" type="submit">Desvalidar</button>
               </FormAcao>
             )}
             {p.validacao !== 'reprovado' && (
@@ -104,6 +129,34 @@ export default async function Parceiro({ params }) {
           );
         })}
       </div>
+
+      <section className="secao">
+        <h2 style={{ marginBottom: 10 }}>Formulário de treinamento</h2>
+        {respostas?.length ? (
+          <div className="tabela-wrap">
+            <table>
+              <thead><tr><th>Respondido em</th><th className="esq">Formulário</th><th className="esq">Treinamento</th><th className="esq">Respostas</th></tr></thead>
+              <tbody>
+                {respostas.map((r) => (
+                  <tr key={r.id}>
+                    <td>{dataHora(r.respondido_em)}</td>
+                    <td className="esq">{r.formulario || '—'}</td>
+                    <td className="esq">{TIPOS_TREINAMENTO[r.tipo_treinamento]}</td>
+                    <td className="esq" style={{ whiteSpace: 'normal' }}>
+                      <details className="recolhivel">
+                        <summary>Ver respostas</summary>
+                        <dl className="ficha" style={{ marginTop: 8 }}>
+                          {Object.entries(r.respostas || {}).map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{String(v)}</dd></div>)}
+                        </dl>
+                      </details>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : <p className="dica">O parceiro ainda não respondeu o formulário. Quando responder, o treinamento é marcado como realizado e o cadastro é validado automaticamente.</p>}
+      </section>
 
       <section className="secao">
         <h2 style={{ marginBottom: 10 }}>Treinamentos</h2>
@@ -214,6 +267,31 @@ export default async function Parceiro({ params }) {
             {info.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v || '—'}</dd></div>)}
           </dl>
         )}
+        <details className="recolhivel" style={{ marginTop: 18 }}>
+          <summary>Histórico de alterações ({historico?.length || 0})</summary>
+          {historico?.length ? (
+            <div className="tabela-wrap" style={{ marginTop: 8 }}>
+              <table>
+                <thead><tr><th>Quando</th><th className="esq">Quem</th><th className="esq">Campo</th><th className="esq">Antes</th><th className="esq">Depois</th></tr></thead>
+                <tbody>
+                  {historico.map((h) => (
+                    <tr key={h.id}>
+                      <td>{dataHora(h.em)}</td>
+                      <td className="esq">{quemHist(h)}</td>
+                      {h.acao === 'criado'
+                        ? <td className="esq" colSpan={3}>Cadastro criado</td>
+                        : <>
+                            <td className="esq">{CAMPOS_HISTORICO[h.campo] || h.campo}</td>
+                            <td className="esq fraco" style={{ whiteSpace: 'normal' }}>{valorHist(h.campo, h.antes)}</td>
+                            <td className="esq" style={{ whiteSpace: 'normal' }}>{valorHist(h.campo, h.depois)}</td>
+                          </>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : <p className="dica" style={{ marginTop: 8 }}>Sem alterações registradas. O histórico começa a contar a partir desta atualização.</p>}
+        </details>
         {admin && (
           <FormAcao acao={excluirParceiro} confirmar={`Excluir ${p.nome_fantasia} com todos os treinamentos e apontamentos? Não dá para desfazer.`}>
             <input type="hidden" name="id" value={id} />

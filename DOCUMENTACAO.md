@@ -39,11 +39,13 @@ O arquivo é lido no navegador; só os números conferidos são enviados ao banc
 
 Menu próprio para acompanhar os parceiros do canal Indireto.
 
-- **Parceiros:** nome fantasia, razão social, CNPJ (validado), código/PDV, status (prospecção, em onboarding, ativo, inativo), cidade/UF, endereço, contato, telefone, e-mail, ponto focal responsável, início da parceria e observações.
+- **Parceiros:** nome fantasia, razão social/nome completo, CPF ou CNPJ (validado; o sistema reconhece pelo número de dígitos), data de ativação (preenchida com a data do dia ao marcar como Ativo, se estiver vazia), código/PDV, status (prospecção, em onboarding, ativo, inativo), cidade/UF, endereço, contato, telefone, e-mail, ponto focal responsável, início da parceria e observações.
 - **Treinamentos:** onboarding, telecom e serviços, cada um com data, status (agendado, realizado, cancelado), quem aplicou e observação. A situação de cada tipo aparece como Realizado, Agendado, Sem registro (agendado com data passada) ou Pendente.
 - **Apontamentos:** histórico de anotações do ponto focal, com autor, data e hora. Não dá para editar depois; só quem escreveu (ou um administrador) pode apagar.
-- **Lista:** filtros por busca (nome, cidade, CNPJ, contato), status, ponto focal ("só os meus") e treinamento pendente; resumo no topo e agenda dos próximos 14 dias.
+- **Histórico de alterações:** toda mudança no cadastro fica registrada no banco (quem, quando, campo, antes e depois), inclusive as feitas pelo formulário. Fica no fim da página do parceiro.
+- **Lista:** filtros por busca (nome, cidade, CPF/CNPJ, contato), status, validação, mês de ativação, formulário respondido, ponto focal ("só os meus") e treinamento pendente; resumo no topo e agenda dos próximos 14 dias.
 
+- **Formulário Google de treinamento:** um Apps Script no formulário envia cada resposta para `/api/forms`. O sistema acha o parceiro pelo CPF/CNPJ (ou pelo e-mail) nas respostas e então: marca "Formulário: Respondeu", registra o treinamento como realizado e **valida o parceiro automaticamente**. O gerente pode **desvalidar** depois. Respostas sem parceiro encontrado aparecem na lista, em "Respostas do formulário sem parceiro", para vincular ou ignorar.
 - **Validação pelo gerente:** todo parceiro cadastrado por um ponto focal entra como "Aguardando validação". O gerente aprova ou reprova (com motivo obrigatório); a decisão fica registrada nos apontamentos. Se o ponto focal alterar um cadastro já validado ou reprovado, ele volta sozinho para "Aguardando validação". Essas regras ficam no banco: só gerente/administrador consegue mudar a validação.
 
 Permissão própria (tela Usuários, coluna Controle Indireto), independente da permissão de metas:
@@ -56,6 +58,16 @@ Permissão própria (tela Usuários, coluna Controle Indireto), independente da 
 | Gerente (valida) | tudo do ponto focal + aprova ou reprova cadastros |
 
 Administrador pode tudo, inclusive excluir parceiros.
+
+### Configurar o Formulário Google
+
+1. Na Vercel, crie a variável `FORMS_WEBHOOK_SECRET` com um texto longo inventado (ex.: `duomni-forms-8f3k2...`) e faça Redeploy.
+2. No formulário, garanta uma pergunta de **CPF ou CNPJ** (é por ela que o parceiro é encontrado).
+3. No editor do formulário: ⋮ > **Editor de scripts**. Apague o conteúdo e cole o arquivo `integracoes-google-forms.gs`. Troque `SEGREDO` pelo mesmo texto do passo 1 e, se precisar, `TIPO_TREINAMENTO` (onboarding, telecom ou servicos) e `URL_SISTEMA`. Salve.
+4. Em **Acionadores** (relógio): Adicionar acionador > função `aoEnviar` > origem "Do formulário" > evento "Ao enviar formulário". Autorize com a conta dona do formulário.
+5. Para as respostas que já existem: selecione `enviarTodas` e clique em Executar uma vez. Respostas repetidas são ignoradas.
+
+Se houver um formulário para cada treinamento, repita os passos em cada um, mudando `TIPO_TREINAMENTO`.
 
 ## Cálculos
 
@@ -122,6 +134,9 @@ supabase/
   003_importacao.sql        Tabela de apelidos usada na importação
   004_controle_indireto.sql Parceiros, treinamentos, apontamentos e permissão do módulo
   005_validacao_parceiros.sql Validação dos cadastros pelo gerente
+  006_formulario_historico.sql CPF, data de ativação, histórico e Formulário Google
+integracoes-google-forms.gs  Script para colar no Formulário Google
+app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado
 ```
 
@@ -138,6 +153,7 @@ middleware.js       Redireciona para /login quem não está logado
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (secreta, nunca com prefixo NEXT_PUBLIC)
    - `LOGIN_EMAIL_DOMAIN` (opcional)
+   - `FORMS_WEBHOOK_SECRET` (para o Formulário Google)
 4. Abrir `https://SEU-SITE.vercel.app/setup` e criar o administrador.
 
 Se o Supabase recusar o e-mail interno ao criar usuário, preencha o campo e-mail ou troque `LOGIN_EMAIL_DOMAIN` por um domínio real da empresa (nenhum e-mail é enviado).

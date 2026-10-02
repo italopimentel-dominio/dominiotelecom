@@ -19,7 +19,7 @@ export async function middleware(request) {
   );
   const { data: { user } } = await supabase.auth.getUser();
   const caminho = request.nextUrl.pathname;
-  const publico = caminho.startsWith('/login') || caminho.startsWith('/setup');
+  const publico = caminho.startsWith('/login') || caminho.startsWith('/setup') || caminho.startsWith('/api/forms');
   if (!user && !publico) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

@@ -1,6 +1,6 @@
 import FormAcao from '@/components/FormAcao';
 import { salvarParceiro } from '@/app/actions/indireto';
-import { STATUS_PARCEIRO, fmtCnpj } from '@/lib/indireto';
+import { STATUS_PARCEIRO, documentoDe } from '@/lib/indireto';
 
 const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
 
@@ -11,8 +11,8 @@ export default function FormParceiro({ parceiro = {}, focais, textoBotao = 'Salv
       {p.id && <input type="hidden" name="id" value={p.id} />}
       <div className="grade-form">
         <label className="campo">Nome fantasia *<input type="text" name="nome_fantasia" defaultValue={p.nome_fantasia} required /></label>
-        <label className="campo">Razão social<input type="text" name="razao_social" defaultValue={p.razao_social || ''} /></label>
-        <label className="campo">CNPJ<input type="text" name="cnpj" defaultValue={fmtCnpj(p.cnpj)} inputMode="numeric" placeholder="00.000.000/0000-00" /></label>
+        <label className="campo">Razão social / nome completo<input type="text" name="razao_social" defaultValue={p.razao_social || ''} /></label>
+        <label className="campo">CPF ou CNPJ<input type="text" name="documento" defaultValue={documentoDe(p)} inputMode="numeric" placeholder="só números" /></label>
         <label className="campo">Código do parceiro / PDV<input type="text" name="codigo" defaultValue={p.codigo || ''} /></label>
         <label className="campo">Status
           <select name="status" defaultValue={p.status || 'onboarding'}>
@@ -20,6 +20,7 @@ export default function FormParceiro({ parceiro = {}, focais, textoBotao = 'Salv
           </select>
         </label>
         <label className="campo">Início da parceria<input type="date" name="data_inicio" defaultValue={p.data_inicio || ''} /></label>
+        <label className="campo">Data de ativação<input type="date" name="data_ativacao" defaultValue={p.data_ativacao || ''} /></label>
         <label className="campo">Ponto focal
           <select name="ponto_focal_id" defaultValue={p.ponto_focal_id || ''}>
             <option value="">Sem ponto focal</option>
