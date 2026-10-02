@@ -7,6 +7,7 @@ import { salvarRealizado } from '@/app/actions/dados';
 import BarraRitmo from '@/components/BarraRitmo';
 import CampoNumero from '@/components/CampoNumero';
 import { tempoDeCasa } from '@/lib/datas';
+import Composicao from '@/components/Composicao';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -67,9 +68,11 @@ export default async function DetalheColaborador({ params, searchParams }) {
                     <td>{l.produto.nome}</td>
                     <td>{fmtValor(l.meta, u)}{l.fixo !== null && <span className="nome-sub">fixa</span>}</td>
                     <td>
-                      {editar
-                        ? <CampoNumero rotulo={`Realizado ${l.produto.nome}`} acao={salvarRealizado.bind(null, periodo.id, id, l.produto.id)} valor={l.realizadoBruto} placeholder="0" />
-                        : fmtValor(l.realizado, u)}
+                      {an.ehComposto(l.produto.id)
+                        ? <>{fmtValor(l.realizado, u)}<Composicao compacta itens={an.composicaoColab(id, l.produto.id)} /></>
+                        : editar
+                          ? <CampoNumero rotulo={`Realizado ${l.produto.nome}`} acao={salvarRealizado.bind(null, periodo.id, id, l.produto.id)} valor={l.realizadoBruto} placeholder="0" />
+                          : fmtValor(l.realizado, u)}
                     </td>
                     <td className="esq"><BarraRitmo pct={l.pct} esperado={l.esperado} status={l.status} /></td>
                     <td>{l.status === 'batida' ? <span className="tag tag-acento">{STATUS.batida}</span> : fmtValor(l.falta, u)}</td>

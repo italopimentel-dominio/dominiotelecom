@@ -32,7 +32,7 @@ export default async function Importar({ searchParams }) {
       <Importador
         periodos={periodos}
         periodoInicial={periodo.id}
-        produtos={est.produtos.filter((p) => p.ativo)}
+        produtos={est.produtos.filter((p) => p.ativo && p.tipo !== 'composto')}
         colaboradores={colaboradores}
         grupos={grupos}
         apelidos={apelidos || []}

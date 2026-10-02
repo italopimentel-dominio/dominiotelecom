@@ -86,7 +86,7 @@ export default async function Metas({ searchParams }) {
           <thead>
             <tr>
               <th>Canal / equipe</th>
-              {produtos.map((p) => <th key={p.id}>{p.nome}{p.unidade === 'brl' && <span className="nome-sub">R$</span>}</th>)}
+              {produtos.map((p) => <th key={p.id}>{p.nome}{p.unidade === 'brl' && <span className="nome-sub">R$</span>}{p.tipo === 'composto' && <span className="nome-sub">soma de produtos</span>}</th>)}
             </tr>
           </thead>
           <tbody>

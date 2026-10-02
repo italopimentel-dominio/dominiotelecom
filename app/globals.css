@@ -585,3 +585,13 @@ img.cp-avatar-mini { display: inline-block; }
 .foto-cartao .foto { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex: none; display: grid; place-items: center; color: #fff; font-weight: 700; }
 .foto-cartao input[type=file] { font-size: 12px; max-width: 140px; }
 .org-foto { object-fit: cover; }
+
+/* ---------- produto soma (composição) ---------- */
+.comp-barra { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: #ebe9f1; }
+.comp-barra span { height: 100%; }
+.comp-barra span + span { box-shadow: inset 2px 0 0 #fff; }
+.comp-legenda { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+.comp-legenda i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+.comp-zero { opacity: .5; }
+.comp-texto { white-space: normal; max-width: 260px; }
+.tag-soma { background: var(--acento-fundo); color: var(--acento); font-size: 11px; padding: 0 6px; border-radius: 99px; font-weight: 600; margin-left: 4px; }

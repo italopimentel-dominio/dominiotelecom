@@ -3,6 +3,7 @@ import { exigirSessao, podeEditar } from '@/lib/auth';
 import { listarPeriodos, escolherPeriodo, carregarBase, analisar } from '@/lib/dados';
 import { fmtValor, fmtData, fmtFator, STATUS } from '@/lib/formato';
 import BarraRitmo from '@/components/BarraRitmo';
+import Composicao from '@/components/Composicao';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -91,9 +92,12 @@ export default async function Painel({ searchParams }) {
                   <tbody>
                     {linhas.map((l) => (
                       <tr key={l.produto.id}>
-                        <td>{l.produto.nome}</td>
+                        <td>{l.produto.nome}{an.ehComposto(l.produto.id) && <span className="tag-soma">soma</span>}</td>
                         <td>{l.temMeta ? fmtValor(l.meta, l.produto.unidade) : '—'}</td>
-                        <td>{fmtValor(l.realizado, l.produto.unidade)}</td>
+                        <td>
+                          {fmtValor(l.realizado, l.produto.unidade)}
+                          {an.ehComposto(l.produto.id) && <Composicao compacta itens={an.composicao(grupo.id, l.produto.id)} />}
+                        </td>
                         <td className="esq"><BarraRitmo pct={l.pct} esperado={l.esperado} status={l.status} /></td>
                         <td>{l.status === 'batida' ? <span className="tag tag-acento">{STATUS.batida}</span> : fmtValor(l.falta, l.produto.unidade)}</td>
                         <td className="fraco">{fmtValor(l.faltaBruta, l.produto.unidade)}</td>

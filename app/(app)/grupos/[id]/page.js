@@ -7,6 +7,7 @@ import { salvarRealizado, salvarRealizadoGrupo, salvarMetaIndividual } from '@/a
 import BarraRitmo from '@/components/BarraRitmo';
 import CampoNumero from '@/components/CampoNumero';
 import TempoCasa from '@/components/TempoCasa';
+import Composicao from '@/components/Composicao';
 import { calcularHeadcount } from '@/lib/headcount';
 import { ultimoDiaDoMes } from '@/lib/datas';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
@@ -42,6 +43,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
   const filhos = base.filhosDe(id).filter((g) => g.ativo);
   const semColabs = !base.colaboradores.some((c) => c.grupo_id === id);
   const u = produto.unidade;
+  const soma = an.ehComposto(produto.id);
 
   // Colaboradores ativos desta equipe e das equipes abaixo, comparados com a meta individual de cada um
   const contagem = { batida: 0, emDia: 0, fora: 0, semMeta: 0 };
@@ -111,6 +113,14 @@ export default async function DetalheGrupo({ params, searchParams }) {
           </tbody>
         </table>
       </div>
+
+      {soma && (
+        <section className="secao">
+          <h2 style={{ marginBottom: 6 }}>Do que é feito o resultado de {produto.nome}</h2>
+          <p className="dica" style={{ marginBottom: 10 }}>{produto.nome} é a soma automática dos produtos abaixo. Para mudar o realizado, lance nos produtos de origem.</p>
+          <div className="bloco"><Composicao itens={an.composicao(id, produto.id)} /></div>
+        </section>
+      )}
 
       <section className="secao">
         <h2>Necessidade por semana</h2>
@@ -193,7 +203,9 @@ export default async function DetalheGrupo({ params, searchParams }) {
                       {l.fixo !== null && <span className="nome-sub">fixa</span>}
                     </td>
                     <td>
-                      {editar ? (
+                      {soma ? (
+                        <>{fmtValor(l.realizado, u)}<Composicao compacta itens={an.composicaoColab(l.colaborador.id, produto.id)} /></>
+                      ) : editar ? (
                         <CampoNumero rotulo={`Realizado de ${l.colaborador.nome}`} acao={salvarRealizado.bind(null, periodo.id, l.colaborador.id, produto.id)} valor={l.realizadoBruto} placeholder="0" />
                       ) : fmtValor(l.realizado, u)}
                     </td>
@@ -209,7 +221,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
         </section>
       )}
 
-      {semColabs && filhos.length === 0 && (
+      {semColabs && filhos.length === 0 && !soma && (
         <section className="secao">
           <h2>Realizado da equipe</h2>
           <p className="dica" style={{ marginBottom: 10 }}>Esta equipe não tem colaboradores cadastrados, então o realizado é lançado direto aqui.</p>

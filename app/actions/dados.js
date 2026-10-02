@@ -135,11 +135,28 @@ export async function criarProduto(_prev, fd) {
   if (!db) return SEM_PERMISSAO;
   const nome = txt(fd, 'nome');
   if (!nome) return { erro: 'Informe o nome.' };
+  const tipo = txt(fd, 'tipo') === 'composto' ? 'composto' : 'simples';
   const { error } = await db.from('produtos').insert({
-    nome, unidade: txt(fd, 'unidade') || 'qtd', ciclo: (txt(fd, 'ciclo') || 'GERAL').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
+    nome, tipo, unidade: tipo === 'composto' ? 'qtd' : txt(fd, 'unidade') || 'qtd', ciclo: (txt(fd, 'ciclo') || 'GERAL').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
   });
   if (error) return { erro: error.message };
-  return pronto(`${nome} criado.`);
+  return pronto(tipo === 'composto' ? `${nome} criado. Agora escolha quais produtos entram na soma.` : `${nome} criado.`);
+}
+
+export async function salvarComposicao(_prev, fd) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const produto_id = txt(fd, 'produto_id');
+  const ids = [...new Set(fd.getAll('comp').map(String).filter((x) => x && x !== produto_id))];
+  const linhas = ids.map((componente_id) => ({ produto_id, componente_id, peso: numero(txt(fd, `peso_${componente_id}`)) || 1 }));
+  if (linhas.some((l) => l.peso <= 0)) return { erro: 'O peso precisa ser maior que zero.' };
+  const { error: e1 } = await db.from('produto_componentes').delete().eq('produto_id', produto_id);
+  if (e1) return { erro: e1.message };
+  if (linhas.length) {
+    const { error } = await db.from('produto_componentes').insert(linhas);
+    if (error) return { erro: error.message };
+  }
+  return pronto(linhas.length ? `Soma salva com ${linhas.length} produtos.` : 'Nenhum produto marcado: a soma ficou vazia.');
 }
 
 export async function salvarProduto(_prev, fd) {

@@ -16,6 +16,8 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 
 **Produtos.** Têm medida (quantidade ou R$) e um código de **fechamento** (ex.: `GERAL`, `FIBRA`).
 
+**Produto soma (ex.: Total de produtos).** Um produto do tipo "Soma de produtos" recebe uma meta única (ex.: 200) e o realizado dele é calculado sozinho somando os produtos escolhidos (ex.: Alta Móvel + Alta Fibra + Reno Móvel), com peso opcional (2 = conta em dobro). Não se lança realizado nele: lança-se nos produtos de origem (à mão ou pela importação). Painel, tela da equipe e do colaborador mostram a composição (ex.: 10 Alta Fibra, 40 Reno Móvel, 30 Alta Móvel) e, na equipe, uma barra colorida com a participação de cada produto. Dá para usar só a soma no Televendas (deixando as metas por produto em branco) ou as duas coisas juntas.
+
 **Novo mês.** Na tela Metas, em "Criar metas de outro mês": escolha o mês e de qual mês copiar as metas (inclusive as metas fixas de colaboradores); o sistema cria e já abre o mês novo. Também dá para copiar metas de outro mês para o mês aberto. Na grade, o cabeçalho dos produtos e a coluna de equipes ficam fixos ao rolar.
 
 **Dentro/fora da meta.** Na tela da equipe, abaixo da quantidade de colaboradores ativos, aparece quantos estão dentro da meta (já bateram ou estão no ritmo esperado até hoje) e fora (abaixo do ritmo), em quantidade e percentual, no produto selecionado, contando também as equipes abaixo.
@@ -167,6 +169,7 @@ supabase/
   009_desligamento.sql      Data de desligamento dos colaboradores
   010_campanhas.sql         Campanhas comerciais
   011_personalizacao.sql    Visual das campanhas, fotos e pasta de imagens
+  012_produto_soma.sql      Produto soma (meta de total de produtos)
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado
