@@ -1,5 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { sessao, podeEditar } from '@/lib/auth';
 import { numero } from '@/lib/formato';
 import { ultimoDiaDoMes } from '@/lib/datas';
@@ -176,6 +177,12 @@ export async function criarPeriodo(_prev, fd) {
   if (origem) {
     const { data: metas } = await db.from('metas').select('grupo_id, produto_id, valor').eq('periodo_id', origem);
     if (metas?.length) await db.from('metas').insert(metas.map((m) => ({ ...m, periodo_id: per.id })));
+    const { data: fixas } = await db.from('metas_individuais').select('colaborador_id, produto_id, valor').eq('periodo_id', origem);
+    if (fixas?.length) await db.from('metas_individuais').insert(fixas.map((m) => ({ ...m, periodo_id: per.id })));
+  }
+  if (txt(fd, 'voltar') === 'metas') {
+    revalidatePath('/', 'layout');
+    redirect(`/metas?p=${per.id}`);
   }
   return pronto(`${nome} criado.`);
 }

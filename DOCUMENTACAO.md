@@ -6,13 +6,17 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 
 ## Como o sistema é organizado
 
-**Canais e equipes (árvore).** Tudo é um "grupo" que pode ficar dentro de outro: `Televendas > São Paulo > Paloma SP`. Não há limite de níveis. Cada grupo pode ter meta própria para cada produto, como na planilha (a meta da regional não precisa ser a soma das equipes).
+**Canais e equipes (árvore).** Tudo é um "grupo" que pode ficar dentro de outro: `Televendas > São Paulo > Paloma SP`. Não há limite de níveis. A meta é lançada só nas equipes da ponta (ex.: supervisores, Indireto). Quem tem equipes ativas abaixo (regionais e canais) tem a meta calculada como **soma** delas: Campinas = soma dos supervisores de Campinas, Televendas = Campinas + São Paulo + Inbound. Na tela Metas essas linhas aparecem em negrito, sem campo para digitar.
 
 **Colaboradores.** Pertencem a um grupo e têm um **peso** (1 = cota cheia, 0,5 = meia cota, 0 = sem meta). A meta do grupo é dividida entre os colaboradores ativos do próprio grupo, proporcional ao peso. Na tela da equipe dá para **fixar** a meta de alguém; o restante é dividido entre os outros. Em produtos de quantidade a divisão usa números inteiros que somam exatamente a meta.
 
 **Realizado.** Lançado por colaborador (tela da equipe). Para grupos sem colaboradores (ex.: Indireto) é lançado direto no grupo. O realizado de um grupo é a soma de tudo que está abaixo dele.
 
 **Produtos.** Têm medida (quantidade ou R$) e um código de **fechamento** (ex.: `GERAL`, `FIBRA`).
+
+**Novo mês.** Na tela Metas, em "Criar metas de outro mês": escolha o mês e de qual mês copiar as metas (inclusive as metas fixas de colaboradores); o sistema cria e já abre o mês novo. Também dá para copiar metas de outro mês para o mês aberto. Na grade, o cabeçalho dos produtos e a coluna de equipes ficam fixos ao rolar.
+
+**Dentro/fora da meta.** Na tela da equipe, abaixo da quantidade de colaboradores ativos, aparece quantos estão dentro da meta (já bateram ou estão no ritmo esperado até hoje) e fora (abaixo do ritmo) no produto selecionado, contando também as equipes abaixo.
 
 **Períodos e fechamentos.** Cada mês é um período. Ao criar o mês, o sistema cria um fechamento para cada código usado pelos produtos, do dia 1 ao último dia do mês; ajuste as datas se Fibra fechar em outro dia. O acréscimo da necessidade bruta (padrão 30%) é configurado por mês.
 

@@ -39,6 +39,19 @@ export default async function DetalheGrupo({ params, searchParams }) {
   const filhos = base.filhosDe(id).filter((g) => g.ativo);
   const semColabs = !base.colaboradores.some((c) => c.grupo_id === id);
   const u = produto.unidade;
+
+  // Colaboradores ativos desta equipe e das equipes abaixo, comparados com a meta individual de cada um
+  const contagem = { batida: 0, emDia: 0, fora: 0, semMeta: 0 };
+  base.subarvore(id).forEach((gid) => {
+    an.individuais(gid, produto).linhas.forEach((l) => {
+      if (!l.colaborador.ativo) return;
+      if (l.status === 'batida') contagem.batida++;
+      else if (l.status === 'em-dia' || l.status === 'inicio') contagem.emDia++;
+      else if (l.status === 'atencao' || l.status === 'risco') contagem.fora++;
+      else contagem.semMeta++;
+    });
+  });
+  const dentro = contagem.batida + contagem.emDia;
   const link = (prod) => `/grupos/${id}?p=${periodo.id}&prod=${prod}`;
 
   return (
@@ -51,6 +64,13 @@ export default async function DetalheGrupo({ params, searchParams }) {
           </p>
           <h1 style={{ marginTop: 6 }}>{grupo.nome}</h1>
           <p className="sub">{periodo.nome}. {an.colabsAtivosSub(id)} colaboradores ativos.</p>
+          {dentro + contagem.fora > 0 && (
+            <div className="contagem-meta" title="Dentro da meta: já bateu ou está no ritmo esperado até hoje. Fora: abaixo do ritmo.">
+              <span className="dentro"><b>{dentro}</b> dentro da meta em {produto.nome}{contagem.batida > 0 && ` (${contagem.batida} já bateram)`}</span>
+              <span className="fora"><b>{contagem.fora}</b> fora da meta</span>
+              {contagem.semMeta > 0 && <span><b>{contagem.semMeta}</b> sem meta</span>}
+            </div>
+          )}
         </div>
         <SeletorPeriodo periodos={periodos} atual={periodo.id} />
       </div>
