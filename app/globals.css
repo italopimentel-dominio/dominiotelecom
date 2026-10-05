@@ -615,3 +615,4 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .rz-leg { display: inline-block; width: 18px; height: 7px; border-radius: 99px; margin-right: 6px; vertical-align: 1px; }
 .rz-leg-meta { background: var(--acento); } .rz-leg-real { background: var(--ok); }
 .linha-soma-leve td { font-weight: 600; }
+.resumo-escolha { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 2px 14px; }

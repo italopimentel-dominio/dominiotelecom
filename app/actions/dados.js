@@ -49,6 +49,15 @@ export async function salvarMetaEmpresa(periodo_id, produto_id, valor) {
   return gravarValor('metas_empresa', { periodo_id, produto_id }, valor);
 }
 
+export async function salvarIndicadoresResumo(_prev, fd) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const ids = [...new Set(fd.getAll('ind').map(String).filter(Boolean))];
+  const { error } = await db.from('config').update({ resumo_produtos: ids.length ? ids : null }).eq('id', 1);
+  if (error) return { erro: error.message };
+  return pronto(ids.length ? `${ids.length} indicadores no resumo.` : 'Voltou para a escolha automática.');
+}
+
 export async function copiarMetasEmpresa(_prev, fd) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;

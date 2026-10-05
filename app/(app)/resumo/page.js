@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { exigirSessao, podeEditar } from '@/lib/auth';
 import { listarPeriodos, escolherPeriodo, carregarBase, carregarEstrutura, analisar } from '@/lib/dados';
 import { fmtValor, fmtPct } from '@/lib/formato';
-import { salvarMetaEmpresa, copiarMetasEmpresa } from '@/app/actions/dados';
+import { salvarMetaEmpresa, copiarMetasEmpresa, salvarIndicadoresResumo } from '@/app/actions/dados';
 import CampoNumero from '@/components/CampoNumero';
 import FormAcao from '@/components/FormAcao';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
@@ -22,9 +22,15 @@ async function buscarTodos(consulta) {
 
 const corAting = (v, esperado) => (v === null ? '' : v >= 1 ? 'rz-ok' : v >= esperado * 0.85 ? 'rz-md' : 'rz-bx');
 
-// Indicadores do resumo: somas (classes) e produtos que não fazem parte de nenhuma soma
-function montarIndicadores(produtos) {
+// Indicadores do resumo: os escolhidos (na ordem dos produtos) ou, se ninguém escolheu,
+// as somas (classes) e os produtos que não fazem parte de nenhuma soma
+function montarIndicadores(produtos, escolhidos) {
   const ativos = produtos.filter((p) => p.ativo);
+  if (escolhidos?.length) {
+    const sel = new Set(escolhidos);
+    const lista = ativos.filter((p) => sel.has(p.id));
+    if (lista.length) return lista;
+  }
   const dentroDeSoma = new Set(ativos.filter((p) => p.tipo === 'composto').flatMap((p) => p.componentes.map((c) => c.componente_id)));
   return ativos.filter((p) => p.tipo === 'composto' || !dentroDeSoma.has(p.id));
 }
@@ -47,6 +53,8 @@ export default async function Resumo({ searchParams }) {
   const periodo = escolherPeriodo(periodos, sp.p);
   if (!periodo) return <SemPeriodo podeEditar={editar} />;
   const aba = sp.aba === 'historico' ? 'historico' : 'mes';
+  const { data: cfg } = await supabase.from('config').select('resumo_produtos').eq('id', 1).maybeSingle();
+  const escolhidos = cfg?.resumo_produtos || null;
   const abrir = sp.nivel === '2';
 
   const Abas = () => (
@@ -76,7 +84,7 @@ export default async function Resumo({ searchParams }) {
       buscarTodos(() => supabase.from('realizados_grupo').select('periodo_id, grupo_id, produto_id, valor').in('periodo_id', ids)),
       buscarTodos(() => supabase.from('metas_empresa').select('periodo_id, produto_id, valor').in('periodo_id', ids)),
     ]);
-    const indicadores = montarIndicadores(est.produtos);
+    const indicadores = montarIndicadores(est.produtos, escolhidos);
     const raizes = est.raizes.filter((g) => g.ativo);
     const colunas = lista.map((per) => {
       const base = {
@@ -135,7 +143,8 @@ export default async function Resumo({ searchParams }) {
   const { data: me } = await supabase.from('metas_empresa').select('produto_id, valor').eq('periodo_id', periodo.id);
   const metaEmp = new Map((me || []).map((m) => [m.produto_id, Number(m.valor)]));
   const produtos = base.produtos;
-  const indicadores = montarIndicadores(produtos);
+  const indicadores = montarIndicadores(produtos, escolhidos);
+  const marcados = new Set(indicadores.map((p) => p.id));
   const metaDist = metaDistribuidaFn(an, produtos);
   const raizes = base.raizes.filter((g) => g.ativo);
   const linhasCanal = raizes.flatMap((g) => [{ g, nivel: 0 }, ...(abrir ? base.filhosDe(g.id).filter((f) => f.ativo).map((f) => ({ g: f, nivel: 1 })) : [])]);
@@ -153,6 +162,27 @@ export default async function Resumo({ searchParams }) {
   return (
     <>
       <Abas />
+
+      {editar && (
+        <details className="recolhivel" style={{ marginBottom: 12 }}>
+          <summary>⚙ Escolher os indicadores deste resumo</summary>
+          <FormAcao acao={salvarIndicadoresResumo} className="bloco">
+            <p className="dica" style={{ marginBottom: 8 }}>Marque o que deve aparecer nos cartões, nas tabelas por canal e no histórico. Vale para todos os usuários. A ordem segue a ordem dos produtos (Cadastros &gt; Produtos).</p>
+            <div className="resumo-escolha">
+              {produtos.filter((p) => p.ativo).map((p) => (
+                <label key={p.id} className="check">
+                  <input type="checkbox" name="ind" value={p.id} defaultChecked={marcados.has(p.id)} />
+                  {p.nome}{p.tipo === 'composto' && <span className="tag-soma">soma</span>}
+                </label>
+              ))}
+            </div>
+            <div className="linha-acoes" style={{ marginTop: 10 }}>
+              <button className="btn btn-peq" type="submit">Salvar escolha</button>
+              <span className="dica">{escolhidos?.length ? 'Escolha personalizada.' : 'Hoje está automático (somas e produtos fora de soma). Desmarque tudo e salve para voltar ao automático.'}</span>
+            </div>
+          </FormAcao>
+        </details>
+      )}
 
       <div className="hc-cartoes">
         {indicadores.map((p) => {

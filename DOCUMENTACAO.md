@@ -58,7 +58,7 @@ Menu Metas > Resumo da empresa. Junta a visão geral sem duplicar dados:
 - Botão para abrir unidades/equipes de cada canal (Campinas, São Paulo, Inbound, Hunter, Farmer...).
 - **Histórico**: % atingido de cada indicador nos últimos 12 meses (sobre a meta da empresa, ou a distribuída com *). Clicar num mês abre o resumo dele para ajustar.
 
-Os indicadores são as somas (ex.: Receitas altas em R$ = Alta Móvel + Alta Básica + VADA) e os produtos que não estão dentro de nenhuma soma. Somas podem ser em quantidade ou em R$.
+Os indicadores podem ser escolhidos na própria tela (⚙ Escolher os indicadores deste resumo, Editor/Administrador, vale para todos). Sem escolha, aparecem automaticamente as somas (ex.: Receitas altas em R$ = Alta Móvel + Alta Básica + VADA) e os produtos que não estão dentro de nenhuma soma. Somas podem ser em quantidade ou em R$.
 
 ## Headcount
 
@@ -184,6 +184,7 @@ supabase/
   011_personalizacao.sql    Visual das campanhas, fotos e pasta de imagens
   012_produto_soma.sql      Produto soma (meta de total de produtos)
   013_meta_empresa.sql      Meta da empresa por indicador (Resumo da empresa)
+  014_indicadores_resumo.sql Indicadores escolhidos para o Resumo da empresa
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado
