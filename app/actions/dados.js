@@ -32,21 +32,28 @@ async function gravarValor(tabela, chave, valor) {
   return pronto();
 }
 
-export async function salvarMeta(periodo_id, grupo_id, produto_id, valor) {
-  return gravarValor('metas', { periodo_id, grupo_id, produto_id }, valor);
+const med = (m) => (m === 'brl' ? 'brl' : 'qtd');
+// Produto em quantidade, em receita ou nas duas
+function medidasDoForm(fd) {
+  const v = String(fd.get('medidas') || fd.get('unidade') || 'qtd');
+  const medidas = ['qtd', 'brl', 'ambos'].includes(v) ? v : 'qtd';
+  return { medidas, unidade: medidas === 'brl' ? 'brl' : 'qtd' };
 }
-export async function salvarMetaIndividual(periodo_id, colaborador_id, produto_id, valor) {
-  return gravarValor('metas_individuais', { periodo_id, colaborador_id, produto_id }, valor);
+export async function salvarMeta(periodo_id, grupo_id, produto_id, medida, valor) {
+  return gravarValor('metas', { periodo_id, grupo_id, produto_id, medida: med(medida) }, valor);
 }
-export async function salvarRealizado(periodo_id, colaborador_id, produto_id, valor) {
-  return gravarValor('realizados', { periodo_id, colaborador_id, produto_id }, valor);
+export async function salvarMetaIndividual(periodo_id, colaborador_id, produto_id, medida, valor) {
+  return gravarValor('metas_individuais', { periodo_id, colaborador_id, produto_id, medida: med(medida) }, valor);
 }
-export async function salvarRealizadoGrupo(periodo_id, grupo_id, produto_id, valor) {
-  return gravarValor('realizados_grupo', { periodo_id, grupo_id, produto_id }, valor);
+export async function salvarRealizado(periodo_id, colaborador_id, produto_id, medida, valor) {
+  return gravarValor('realizados', { periodo_id, colaborador_id, produto_id, medida: med(medida) }, valor);
+}
+export async function salvarRealizadoGrupo(periodo_id, grupo_id, produto_id, medida, valor) {
+  return gravarValor('realizados_grupo', { periodo_id, grupo_id, produto_id, medida: med(medida) }, valor);
 }
 
-export async function salvarMetaEmpresa(periodo_id, produto_id, valor) {
-  return gravarValor('metas_empresa', { periodo_id, produto_id }, valor);
+export async function salvarMetaEmpresa(periodo_id, produto_id, medida, valor) {
+  return gravarValor('metas_empresa', { periodo_id, produto_id, medida: med(medida) }, valor);
 }
 
 export async function salvarIndicadoresResumo(_prev, fd) {
@@ -64,7 +71,7 @@ export async function copiarMetasEmpresa(_prev, fd) {
   const origem = txt(fd, 'origem');
   const destino = txt(fd, 'destino');
   if (!origem || origem === destino) return { erro: 'Escolha outro mês.' };
-  const { data, error } = await db.from('metas_empresa').select('produto_id, valor').eq('periodo_id', origem);
+  const { data, error } = await db.from('metas_empresa').select('produto_id, valor, medida').eq('periodo_id', origem);
   if (error) return { erro: error.message };
   if (!data.length) return { erro: 'Esse mês não tem meta da empresa.' };
   const { error: e2 } = await db.from('metas_empresa').upsert(data.map((m) => ({ ...m, periodo_id: destino })));
@@ -78,7 +85,7 @@ export async function copiarMetas(_prev, fd) {
   const origem = txt(fd, 'origem');
   const destino = txt(fd, 'destino');
   if (!origem || origem === destino) return { erro: 'Escolha um período de origem diferente do atual.' };
-  const { data, error } = await db.from('metas').select('grupo_id, produto_id, valor').eq('periodo_id', origem);
+  const { data, error } = await db.from('metas').select('grupo_id, produto_id, valor, medida').eq('periodo_id', origem);
   if (error) return { erro: error.message };
   if (!data.length) return { erro: 'O período de origem não tem metas.' };
   const { error: e2 } = await db.from('metas').upsert(data.map((m) => ({ ...m, periodo_id: destino })));
@@ -164,7 +171,7 @@ export async function criarProduto(_prev, fd) {
   if (!nome) return { erro: 'Informe o nome.' };
   const tipo = txt(fd, 'tipo') === 'composto' ? 'composto' : 'simples';
   const { error } = await db.from('produtos').insert({
-    nome, tipo, unidade: txt(fd, 'unidade') === 'brl' ? 'brl' : 'qtd', ciclo: (txt(fd, 'ciclo') || 'GERAL').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
+    nome, tipo, ...medidasDoForm(fd), ciclo: (txt(fd, 'ciclo') || 'GERAL').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
   });
   if (error) return { erro: error.message };
   return pronto(tipo === 'composto' ? `${nome} criado. Agora escolha quais produtos entram na soma.` : `${nome} criado.`);
@@ -190,7 +197,7 @@ export async function salvarProduto(_prev, fd) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
   const { error } = await db.from('produtos').update({
-    nome: txt(fd, 'nome'), unidade: txt(fd, 'unidade'), ciclo: txt(fd, 'ciclo').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
+    nome: txt(fd, 'nome'), ...medidasDoForm(fd), ciclo: txt(fd, 'ciclo').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
   }).eq('id', txt(fd, 'id'));
   if (error) return { erro: error.message };
   return pronto('Salvo.');
@@ -225,9 +232,9 @@ export async function criarPeriodo(_prev, fd) {
   })));
   const origem = txt(fd, 'copiar_de');
   if (origem) {
-    const { data: metas } = await db.from('metas').select('grupo_id, produto_id, valor').eq('periodo_id', origem);
+    const { data: metas } = await db.from('metas').select('grupo_id, produto_id, valor, medida').eq('periodo_id', origem);
     if (metas?.length) await db.from('metas').insert(metas.map((m) => ({ ...m, periodo_id: per.id })));
-    const { data: fixas } = await db.from('metas_individuais').select('colaborador_id, produto_id, valor').eq('periodo_id', origem);
+    const { data: fixas } = await db.from('metas_individuais').select('colaborador_id, produto_id, valor, medida').eq('periodo_id', origem);
     if (fixas?.length) await db.from('metas_individuais').insert(fixas.map((m) => ({ ...m, periodo_id: per.id })));
   }
   if (txt(fd, 'voltar') === 'metas') {

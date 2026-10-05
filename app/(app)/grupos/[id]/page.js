@@ -10,6 +10,8 @@ import TempoCasa from '@/components/TempoCasa';
 import Composicao from '@/components/Composicao';
 import { calcularHeadcount } from '@/lib/headcount';
 import { ultimoDiaDoMes } from '@/lib/datas';
+import { lerMedida } from '@/lib/medidaServidor';
+import AlternarMedida from '@/components/AlternarMedida';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -21,7 +23,8 @@ export default async function DetalheGrupo({ params, searchParams }) {
   const periodos = await listarPeriodos(supabase);
   const periodo = escolherPeriodo(periodos, sp.p);
   if (!periodo) return <SemPeriodo podeEditar={editar} />;
-  const base = await carregarBase(supabase, periodo);
+  const medida = await lerMedida(sp);
+  const base = await carregarBase(supabase, periodo, medida);
   const grupo = base.porId.get(id);
   if (!grupo) notFound();
   const an = analisar(base);
@@ -87,7 +90,10 @@ export default async function DetalheGrupo({ params, searchParams }) {
             <Link href={`/headcount?p=${periodo.id}`} className="dica" style={{ alignSelf: 'center' }}>ver headcount</Link>
           </div>
         </div>
-        <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        <div className="linha-acoes">
+          <AlternarMedida atual={medida} />
+          <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        </div>
       </div>
 
       <div className="abas">
@@ -195,7 +201,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
                       {editar && l.noPeriodo ? (
                         <CampoNumero
                           rotulo={`Meta de ${l.colaborador.nome}`}
-                          acao={salvarMetaIndividual.bind(null, periodo.id, l.colaborador.id, produto.id)}
+                          acao={salvarMetaIndividual.bind(null, periodo.id, l.colaborador.id, produto.id, medida)}
                           valor={l.fixo}
                           placeholder={fmtValor(l.meta, u === 'brl' ? 'qtd' : u)}
                         />
@@ -206,7 +212,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
                       {soma ? (
                         <>{fmtValor(l.realizado, u)}<Composicao compacta itens={an.composicaoColab(l.colaborador.id, produto.id)} /></>
                       ) : editar ? (
-                        <CampoNumero rotulo={`Realizado de ${l.colaborador.nome}`} acao={salvarRealizado.bind(null, periodo.id, l.colaborador.id, produto.id)} valor={l.realizadoBruto} placeholder="0" />
+                        <CampoNumero rotulo={`Realizado de ${l.colaborador.nome}`} acao={salvarRealizado.bind(null, periodo.id, l.colaborador.id, produto.id, medida)} valor={l.realizadoBruto} placeholder="0" />
                       ) : fmtValor(l.realizado, u)}
                     </td>
                     <td className="esq"><BarraRitmo pct={l.pct} esperado={l.esperado} status={l.status} compacta /></td>
@@ -228,7 +234,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
           <div className="bloco linha-acoes">
             <span>{produto.nome}:</span>
             {editar
-              ? <CampoNumero largo rotulo={`Realizado de ${grupo.nome}`} acao={salvarRealizadoGrupo.bind(null, periodo.id, id, produto.id)} valor={an.realizadoGrupoDireto(id, produto.id)} placeholder="0" />
+              ? <CampoNumero largo rotulo={`Realizado de ${grupo.nome}`} acao={salvarRealizadoGrupo.bind(null, periodo.id, id, produto.id, medida)} valor={an.realizadoGrupoDireto(id, produto.id)} placeholder="0" />
               : <strong>{fmtValor(ind.realizado, u)}</strong>}
             <Link href="/estrutura" className="dica">Cadastrar colaboradores</Link>
           </div>

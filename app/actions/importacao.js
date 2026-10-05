@@ -37,9 +37,10 @@ export async function importarRealizados(dados) {
     const cid = l.colaborador_id || idDaChave.get(l.chave);
     if (!cid) continue;
     if (l.apelido) apelidos.set(normalizar(l.apelido), cid);
-    for (const [pid, v] of Object.entries(l.valores || {})) {
+    for (const [item, v] of Object.entries(l.valores || {})) {
       if (v === null || v === undefined || !isFinite(v)) continue;
-      const k = `${cid}|${pid}`;
+      const [pid, medida = 'qtd'] = item.split('|');
+      const k = `${cid}|${pid}|${medida === 'brl' ? 'brl' : 'qtd'}`;
       valores.set(k, (valores.get(k) || 0) + Number(v));
     }
   }
@@ -49,11 +50,11 @@ export async function importarRealizados(dados) {
   if (modo === 'somar') {
     const ids = [...new Set([...valores.keys()].map((k) => k.split('|')[0]))];
     for (let i = 0; i < ids.length; i += 200) {
-      const { data, error } = await db.from('realizados').select('colaborador_id, produto_id, valor')
+      const { data, error } = await db.from('realizados').select('colaborador_id, produto_id, valor, medida')
         .eq('periodo_id', periodo_id).in('colaborador_id', ids.slice(i, i + 200));
       if (error) return { erro: error.message };
       (data || []).forEach((r) => {
-        const k = `${r.colaborador_id}|${r.produto_id}`;
+        const k = `${r.colaborador_id}|${r.produto_id}|${r.medida || 'qtd'}`;
         if (valores.has(k)) valores.set(k, valores.get(k) + Number(r.valor));
       });
     }
@@ -61,8 +62,8 @@ export async function importarRealizados(dados) {
 
   // 4) grava
   const registros = [...valores.entries()].map(([k, valor]) => {
-    const [colaborador_id, produto_id] = k.split('|');
-    return { periodo_id, colaborador_id, produto_id, valor: Math.round(valor * 100) / 100 };
+    const [colaborador_id, produto_id, medida] = k.split('|');
+    return { periodo_id, colaborador_id, produto_id, medida, valor: Math.round(valor * 100) / 100 };
   });
   for (let i = 0; i < registros.length; i += 500) {
     const { error } = await db.from('realizados').upsert(registros.slice(i, i + 500));

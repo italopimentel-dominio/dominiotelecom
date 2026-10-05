@@ -29,6 +29,11 @@ function acharColuna(cabecalho, palavras) {
   return i >= 0 ? String(i) : '';
 }
 
+const RE_VALOR = /receita|valor|r\$|fatur|reais|ticket/i;
+const RE_VALOR_G = /receita|valor|r\$|fatur|reais|ticket/gi;
+
+// Liga cada produto (e medida) à coluna de nome mais parecido.
+// Produto com quantidade e receita: a coluna de receita precisa ter "receita", "valor" ou "R$" no nome.
 function mapearProdutos(cabecalho, produtos, ocupadas) {
   const usadas = new Set(ocupadas);
   const mapa = {};
@@ -36,7 +41,9 @@ function mapearProdutos(cabecalho, produtos, ocupadas) {
     let melhor = -1, nota = 0;
     cabecalho.forEach((h, i) => {
       if (usadas.has(String(i)) || !h) return;
-      const s = similaridade(h, p.nome);
+      const ehValor = RE_VALOR.test(h);
+      if (p.ambos && (p.unidade === 'brl') !== ehValor) return;
+      const s = similaridade(h.replace(RE_VALOR_G, ' '), p.nome);
       if (s > nota) { nota = s; melhor = i; }
     });
     if (melhor >= 0 && nota >= 0.7) { mapa[p.id] = String(melhor); usadas.add(String(melhor)); }
@@ -304,7 +311,7 @@ export default function Importador({ periodos, periodoInicial, produtos, colabor
             <h3 style={{ margin: '18px 0 8px' }}>Qual coluna tem o resultado de cada produto</h3>
             <div className="grade-mapa">
               {produtos.map((p) => (
-                <label key={p.id} className="campo">{p.nome}{p.unidade === 'brl' ? ' (R$)' : ''}
+                <label key={p.id} className="campo">{p.nome}{p.unidade === 'brl' ? ' (R$)' : p.ambos ? ' (quantidade)' : ''}
                   <select value={mapa[p.id] ?? ''} onChange={(e) => setMapa((m) => ({ ...m, [p.id]: e.target.value }))}>
                     <option value="">Não importar</option>
                     {colunas.map((i) => <option key={i} value={i}>{nomeColuna(i)}</option>)}

@@ -5,19 +5,28 @@ import { fmtValor, fmtPct } from '@/lib/formato';
 import { salvarMetaEmpresa, copiarMetasEmpresa, salvarIndicadoresResumo } from '@/app/actions/dados';
 import CampoNumero from '@/components/CampoNumero';
 import FormAcao from '@/components/FormAcao';
+import { lerMedida } from '@/lib/medidaServidor';
+import { produtosDaMedida } from '@/lib/medida';
+import AlternarMedida from '@/components/AlternarMedida';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
-// Busca todas as linhas (o Supabase devolve no máximo 1000 por vez)
-async function buscarTodos(consulta) {
-  const tudo = [];
-  for (let de = 0; ; de += 1000) {
-    const { data, error } = await consulta().range(de, de + 999);
-    if (error || !data?.length) break;
-    tudo.push(...data);
-    if (data.length < 1000) break;
-  }
-  return tudo;
+// Busca todas as linhas (o Supabase devolve no máximo 1000 por vez), filtrando pela medida.
+// Se a coluna "medida" ainda não existe, busca sem filtro.
+async function buscarTodos(consulta, medida) {
+  const ler = async (filtrar) => {
+    const tudo = [];
+    for (let de = 0; ; de += 1000) {
+      let q = consulta();
+      if (filtrar) q = q.eq('medida', medida);
+      const { data, error } = await q.range(de, de + 999);
+      if (error) return null;
+      tudo.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    return tudo;
+  };
+  return (medida && (await ler(true))) || (await ler(false)) || [];
 }
 
 const corAting = (v, esperado) => (v === null ? '' : v >= 1 ? 'rz-ok' : v >= esperado * 0.85 ? 'rz-md' : 'rz-bx');
@@ -53,6 +62,7 @@ export default async function Resumo({ searchParams }) {
   const periodo = escolherPeriodo(periodos, sp.p);
   if (!periodo) return <SemPeriodo podeEditar={editar} />;
   const aba = sp.aba === 'historico' ? 'historico' : 'mes';
+  const medida = await lerMedida(sp);
   const { data: cfg } = await supabase.from('config').select('resumo_produtos').eq('id', 1).maybeSingle();
   const escolhidos = cfg?.resumo_produtos || null;
   const abrir = sp.nivel === '2';
@@ -68,6 +78,7 @@ export default async function Resumo({ searchParams }) {
           <Link href={`/resumo?p=${periodo.id}`} className={aba === 'mes' ? 'ativo' : ''}>Mês</Link>
           <Link href={`/resumo?p=${periodo.id}&aba=historico`} className={aba === 'historico' ? 'ativo' : ''}>Histórico</Link>
         </div>
+        <AlternarMedida atual={medida} />
         {aba === 'mes' && <SeletorPeriodo periodos={periodos} atual={periodo.id} />}
       </div>
     </div>
@@ -79,22 +90,23 @@ export default async function Resumo({ searchParams }) {
     const ids = lista.map((p) => p.id);
     const [est, metas, realizados, realizadosGrupo, metasEmp] = await Promise.all([
       carregarEstrutura(supabase),
-      buscarTodos(() => supabase.from('metas').select('periodo_id, grupo_id, produto_id, valor').in('periodo_id', ids)),
-      buscarTodos(() => supabase.from('realizados').select('periodo_id, colaborador_id, produto_id, valor').in('periodo_id', ids)),
-      buscarTodos(() => supabase.from('realizados_grupo').select('periodo_id, grupo_id, produto_id, valor').in('periodo_id', ids)),
-      buscarTodos(() => supabase.from('metas_empresa').select('periodo_id, produto_id, valor').in('periodo_id', ids)),
+      buscarTodos(() => supabase.from('metas').select('*').in('periodo_id', ids), medida),
+      buscarTodos(() => supabase.from('realizados').select('*').in('periodo_id', ids).order('periodo_id').order('colaborador_id').order('produto_id'), medida),
+      buscarTodos(() => supabase.from('realizados_grupo').select('*').in('periodo_id', ids), medida),
+      buscarTodos(() => supabase.from('metas_empresa').select('*').in('periodo_id', ids), medida),
     ]);
-    const indicadores = montarIndicadores(est.produtos, escolhidos);
+    const produtosM = produtosDaMedida(est.produtos, medida);
+    const indicadores = montarIndicadores(produtosM, escolhidos);
     const raizes = est.raizes.filter((g) => g.ativo);
     const colunas = lista.map((per) => {
       const base = {
-        ...est, periodo: per, ciclos: [], metasIndividuais: [], feriados: [], config: null,
+        ...est, produtos: produtosM, periodo: per, ciclos: [], metasIndividuais: [], feriados: [], config: null,
         metas: metas.filter((m) => m.periodo_id === per.id),
         realizados: realizados.filter((r) => r.periodo_id === per.id),
         realizadosGrupo: realizadosGrupo.filter((r) => r.periodo_id === per.id),
       };
       const an = analisar(base);
-      const metaDist = metaDistribuidaFn(an, est.produtos);
+      const metaDist = metaDistribuidaFn(an, produtosM);
       const emp = new Map(metasEmp.filter((m) => m.periodo_id === per.id).map((m) => [m.produto_id, Number(m.valor)]));
       const valores = new Map(indicadores.map((p) => {
         const dist = raizes.map((g) => metaDist(g.id, p)).filter((x) => x !== null);
@@ -138,10 +150,10 @@ export default async function Resumo({ searchParams }) {
   }
 
   // ================= MÊS =================
-  const base = await carregarBase(supabase, periodo);
+  const base = await carregarBase(supabase, periodo, medida);
   const an = analisar(base);
-  const { data: me } = await supabase.from('metas_empresa').select('produto_id, valor').eq('periodo_id', periodo.id);
-  const metaEmp = new Map((me || []).map((m) => [m.produto_id, Number(m.valor)]));
+  const me = await buscarTodos(() => supabase.from('metas_empresa').select('*').eq('periodo_id', periodo.id), medida);
+  const metaEmp = new Map(me.map((m) => [m.produto_id, Number(m.valor)]));
   const produtos = base.produtos;
   const indicadores = montarIndicadores(produtos, escolhidos);
   const marcados = new Set(indicadores.map((p) => p.id));
@@ -273,7 +285,7 @@ export default async function Resumo({ searchParams }) {
                 return (
                   <tr key={`${p.id}-${sub}`} className={sub ? 'nivel-1' : 'linha-soma-leve'}>
                     <td>{p.nome}{p.tipo === 'composto' && <span className="tag-soma">soma</span>}</td>
-                    <td>{editar ? <CampoNumero largo rotulo={`Meta da empresa ${p.nome}`} acao={salvarMetaEmpresa.bind(null, periodo.id, p.id)} valor={t.emp} placeholder="—" /> : fmtValor(t.emp, p.unidade)}</td>
+                    <td>{editar ? <CampoNumero largo rotulo={`Meta da empresa ${p.nome}`} acao={salvarMetaEmpresa.bind(null, periodo.id, p.id, medida)} valor={t.emp} placeholder="—" /> : fmtValor(t.emp, p.unidade)}</td>
                     <td>{fmtValor(t.dist, p.unidade)}</td>
                     <td className="fraco">{t.emp && t.dist !== null ? `${t.dist >= t.emp ? '+' : ''}${fmtPct(t.dist / t.emp - 1)}` : '—'}</td>
                     <td>{fmtValor(t.real, p.unidade)}</td>

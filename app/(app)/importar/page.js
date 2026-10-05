@@ -3,6 +3,7 @@ import { listarPeriodos, escolherPeriodo, carregarEstrutura } from '@/lib/dados'
 import Importador from '@/components/Importador';
 import SemPeriodo from '@/components/SemPeriodo';
 import { importarRealizados } from '@/app/actions/importacao';
+import { listaMedidas } from '@/lib/medida';
 
 export default async function Importar({ searchParams }) {
   const sp = await searchParams;
@@ -32,7 +33,10 @@ export default async function Importar({ searchParams }) {
       <Importador
         periodos={periodos}
         periodoInicial={periodo.id}
-        produtos={est.produtos.filter((p) => p.ativo && p.tipo !== 'composto')}
+        produtos={est.produtos.filter((p) => p.ativo && p.tipo !== 'composto').flatMap((p) => {
+          const ms = listaMedidas(p);
+          return ms.map((m) => ({ id: `${p.id}|${m}`, nome: p.nome, unidade: m, ambos: ms.length > 1 }));
+        })}
         colaboradores={colaboradores}
         grupos={grupos}
         apelidos={apelidos || []}

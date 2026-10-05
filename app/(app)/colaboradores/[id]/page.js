@@ -8,6 +8,8 @@ import BarraRitmo from '@/components/BarraRitmo';
 import CampoNumero from '@/components/CampoNumero';
 import { tempoDeCasa } from '@/lib/datas';
 import Composicao from '@/components/Composicao';
+import { lerMedida } from '@/lib/medidaServidor';
+import AlternarMedida from '@/components/AlternarMedida';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -19,7 +21,8 @@ export default async function DetalheColaborador({ params, searchParams }) {
   const periodos = await listarPeriodos(supabase);
   const periodo = escolherPeriodo(periodos, sp.p);
   if (!periodo) return <SemPeriodo podeEditar={editar} />;
-  const base = await carregarBase(supabase, periodo);
+  const medida = await lerMedida(sp);
+  const base = await carregarBase(supabase, periodo, medida);
   const colab = base.colaboradores.find((c) => c.id === id);
   if (!colab) notFound();
   const an = analisar(base);
@@ -48,7 +51,10 @@ export default async function DetalheColaborador({ params, searchParams }) {
             {colab.data_desligamento ? ` Desligado em ${fmtData(colab.data_desligamento, true)}.` : !colab.ativo && ' Colaborador inativo.'}
           </p>
         </div>
-        <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        <div className="linha-acoes">
+          <AlternarMedida atual={medida} />
+          <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        </div>
       </div>
 
       {!linhas.length ? (
@@ -71,7 +77,7 @@ export default async function DetalheColaborador({ params, searchParams }) {
                       {an.ehComposto(l.produto.id)
                         ? <>{fmtValor(l.realizado, u)}<Composicao compacta itens={an.composicaoColab(id, l.produto.id)} /></>
                         : editar
-                          ? <CampoNumero rotulo={`Realizado ${l.produto.nome}`} acao={salvarRealizado.bind(null, periodo.id, id, l.produto.id)} valor={l.realizadoBruto} placeholder="0" />
+                          ? <CampoNumero rotulo={`Realizado ${l.produto.nome}`} acao={salvarRealizado.bind(null, periodo.id, id, l.produto.id, medida)} valor={l.realizadoBruto} placeholder="0" />
                           : fmtValor(l.realizado, u)}
                     </td>
                     <td className="esq"><BarraRitmo pct={l.pct} esperado={l.esperado} status={l.status} /></td>

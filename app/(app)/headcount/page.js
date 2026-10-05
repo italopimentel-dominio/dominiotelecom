@@ -4,6 +4,8 @@ import { listarPeriodos, escolherPeriodo, carregarBase, analisar } from '@/lib/d
 import { ultimoDiaDoMes } from '@/lib/datas';
 import { fmtData, fmtPct } from '@/lib/formato';
 import { calcularHeadcount } from '@/lib/headcount';
+import { lerMedida } from '@/lib/medidaServidor';
+import AlternarMedida from '@/components/AlternarMedida';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -13,7 +15,8 @@ export default async function Headcount({ searchParams }) {
   const periodos = await listarPeriodos(supabase);
   const periodo = escolherPeriodo(periodos, sp.p);
   if (!periodo) return <SemPeriodo podeEditar={podeEditar(perfil)} />;
-  const base = await carregarBase(supabase, periodo);
+  const medida = await lerMedida(sp);
+  const base = await carregarBase(supabase, periodo, medida);
   const an = analisar(base);
   const inicio = periodo.referencia;
   const fim = ultimoDiaDoMes(inicio);
@@ -86,6 +89,7 @@ export default async function Headcount({ searchParams }) {
               </div>
             </form>
           </details>
+          <AlternarMedida atual={medida} />
           <SeletorPeriodo periodos={periodos} atual={periodo.id} />
         </div>
       </div>

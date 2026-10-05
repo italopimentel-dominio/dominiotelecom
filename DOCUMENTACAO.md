@@ -14,7 +14,9 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 
 **Realizado.** Lançado por colaborador (tela da equipe). Para grupos sem colaboradores (ex.: Indireto) é lançado direto no grupo. O realizado de um grupo é a soma de tudo que está abaixo dele.
 
-**Produtos.** Têm medida (quantidade ou R$) e um código de **fechamento** (ex.: `GERAL`, `FIBRA`).
+**Quantidade e receita.** Cada produto pode ser medido em quantidade, em receita (R$) ou nas duas. Metas, metas fixas, resultados (à mão e na importação) e a meta da empresa são guardados separados por medida. O botão **# Quantidade | R$ Receita** no topo do Painel, Quadro de metas, tela da equipe, do colaborador, Headcount e Resumo da empresa troca a visão de todas essas telas de uma vez (a escolha fica salva no navegador). Na visão de quantidade aparecem os produtos com quantidade; na de receita, os produtos com receita. Na importação, um produto com as duas medidas aparece duas vezes (quantidade e R$); a coluna de receita é reconhecida quando o cabeçalho tem "receita", "valor" ou "R$".
+
+**Produtos.** Têm medida (quantidade, receita ou as duas) e um código de **fechamento** (ex.: `GERAL`, `FIBRA`).
 
 **Produto soma (ex.: Total de produtos).** Um produto do tipo "Soma de produtos" recebe uma meta única (ex.: 200) e o realizado dele é calculado sozinho somando os produtos escolhidos (ex.: Alta Móvel + Alta Fibra + Reno Móvel), com peso opcional (2 = conta em dobro). Não se lança realizado nele: lança-se nos produtos de origem (à mão ou pela importação). Painel, tela da equipe e do colaborador mostram a composição (ex.: 10 Alta Fibra, 40 Reno Móvel, 30 Alta Móvel) e, na equipe, uma barra colorida com a participação de cada produto. Dá para usar só a soma no Televendas (deixando as metas por produto em branco) ou as duas coisas juntas.
 
@@ -185,6 +187,7 @@ supabase/
   012_produto_soma.sql      Produto soma (meta de total de produtos)
   013_meta_empresa.sql      Meta da empresa por indicador (Resumo da empresa)
   014_indicadores_resumo.sql Indicadores escolhidos para o Resumo da empresa
+  015_quantidade_e_receita.sql Metas e resultados em quantidade e em receita
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado

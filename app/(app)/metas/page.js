@@ -4,6 +4,8 @@ import { fmtValor } from '@/lib/formato';
 import { salvarMeta, copiarMetas, criarPeriodo } from '@/app/actions/dados';
 import CampoNumero from '@/components/CampoNumero';
 import FormAcao from '@/components/FormAcao';
+import { lerMedida } from '@/lib/medidaServidor';
+import AlternarMedida from '@/components/AlternarMedida';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -19,7 +21,8 @@ export default async function Metas({ searchParams }) {
   const periodos = await listarPeriodos(supabase);
   const periodo = escolherPeriodo(periodos, sp.p);
   if (!periodo) return <SemPeriodo podeEditar={editar} />;
-  const base = await carregarBase(supabase, periodo);
+  const medida = await lerMedida(sp);
+  const base = await carregarBase(supabase, periodo, medida);
   const an = analisar(base);
   const produtos = base.produtos.filter((p) => p.ativo);
   const grupos = base.achatar(null, 0, true);
@@ -32,7 +35,7 @@ export default async function Metas({ searchParams }) {
     <>
       <div className="topo">
         <div>
-          <h1>Quadro de metas de {periodo.nome}</h1>
+          <h1>Quadro de metas de {periodo.nome}<span className="titulo-medida">{medida === 'brl' ? 'em receita (R$)' : 'em quantidade'}</span></h1>
           <p className="sub">
             {editar
               ? 'Lance a meta de cada equipe. As linhas em negrito são a soma automática das equipes abaixo delas.'
@@ -40,6 +43,7 @@ export default async function Metas({ searchParams }) {
           </p>
         </div>
         <div className="linha-acoes">
+          <AlternarMedida atual={medida} />
           <SeletorPeriodo periodos={periodos} atual={periodo.id} />
         </div>
       </div>
@@ -100,7 +104,7 @@ export default async function Metas({ searchParams }) {
                     return (
                       <td key={p.id}>
                         {editar && !soma
-                          ? <CampoNumero rotulo={`Meta ${p.nome} ${g.nome}`} acao={salvarMeta.bind(null, periodo.id, g.id, p.id)} valor={v} />
+                          ? <CampoNumero rotulo={`Meta ${p.nome} ${g.nome}`} acao={salvarMeta.bind(null, periodo.id, g.id, p.id, medida)} valor={v} />
                           : v === null ? <span className="fraco">—</span> : fmtValor(v, p.unidade)}
                       </td>
                     );

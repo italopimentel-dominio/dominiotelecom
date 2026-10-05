@@ -1,9 +1,10 @@
 import { exigirSessao, podeEditar } from '@/lib/auth';
 import { carregarEstrutura } from '@/lib/dados';
+import { medidasDo, listaMedidas, temMedida } from '@/lib/medida';
 import FormAcao from '@/components/FormAcao';
 import { criarProduto, salvarProduto, alternarProduto, salvarComposicao } from '@/app/actions/dados';
 
-const UNIDADES = { qtd: 'Quantidade', brl: 'Valor (R$)' };
+const UNIDADES = { qtd: 'Quantidade', brl: 'Receita (R$)', ambos: 'Quantidade e receita' };
 
 export default async function Produtos() {
   const { supabase, perfil } = await exigirSessao();
@@ -18,7 +19,7 @@ export default async function Produtos() {
       <div className="topo">
         <div>
           <h1>Produtos</h1>
-          <p className="sub">O fechamento indica qual calendário o produto segue. Um produto <b>soma</b> junta vários produtos numa meta só (ex.: Total de produtos = 200).</p>
+          <p className="sub">Medida: quantidade, receita (R$) ou as duas (aí você lança e vê os dois, alternando no botão Quantidade | Receita). O fechamento indica qual calendário o produto segue. Um produto <b>soma</b> junta vários produtos numa meta só (ex.: Total de produtos = 200).</p>
         </div>
       </div>
 
@@ -35,13 +36,9 @@ export default async function Produtos() {
                         <div className="campos" style={{ flexWrap: 'nowrap' }}>
                           <input type="hidden" name="id" value={p.id} />
                           <input type="text" name="nome" defaultValue={p.nome} aria-label="Nome" style={{ width: 200 }} />
-                          {p.tipo === 'composto'
-                            ? <><input type="hidden" name="unidade" value={p.unidade} /><span className="tag tag-acento" style={{ minWidth: 150 }}>Soma ({p.unidade === 'brl' ? 'R$' : 'quantidade'})</span></>
-                            : (
-                              <select name="unidade" defaultValue={p.unidade} aria-label="Medida">
-                                {Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                              </select>
-                            )}
+                          <select name="medidas" defaultValue={medidasDo(p)} aria-label="Medida">
+                            {Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{p.tipo === 'composto' ? `Soma: ${v.toLowerCase()}` : v}</option>)}
+                          </select>
                           <input type="text" name="ciclo" defaultValue={p.ciclo} aria-label="Fechamento" style={{ width: 110 }} />
                           <input type="number" name="ordem" defaultValue={p.ordem} aria-label="Ordem" style={{ width: 70 }} />
                           <button className="btn btn-sec btn-peq" type="submit">Salvar</button>
@@ -62,7 +59,7 @@ export default async function Produtos() {
                 ) : (
                   <>
                     <td>{p.nome}{p.tipo === 'composto' && <span className="nome-sub">soma de {p.componentes.map((c) => nome.get(c.componente_id)).join(', ')}</span>}</td>
-                    <td className="esq">{p.tipo === 'composto' ? 'Soma de produtos' : UNIDADES[p.unidade]}</td>
+                    <td className="esq">{p.tipo === 'composto' ? `Soma: ${UNIDADES[medidasDo(p)].toLowerCase()}` : UNIDADES[medidasDo(p)]}</td>
                     <td className="esq">{p.ciclo}</td><td>{p.ordem}</td>
                   </>
                 )}
@@ -83,8 +80,8 @@ export default async function Produtos() {
                 <FormAcao key={s.id} acao={salvarComposicao} className="bloco">
                   <h3 style={{ marginBottom: 8 }}>{s.nome}</h3>
                   <input type="hidden" name="produto_id" value={s.id} />
-                  <p className="dica" style={{ marginBottom: 6 }}>Só aparecem produtos em {s.unidade === 'brl' ? 'R$' : 'quantidade'}, a mesma medida da soma.</p>
-                  {simples.filter((p) => p.unidade === s.unidade).map((p) => (
+                  <p className="dica" style={{ marginBottom: 6 }}>Aparecem os produtos com a mesma medida da soma ({UNIDADES[medidasDo(s)].toLowerCase()}).</p>
+                  {simples.filter((p) => listaMedidas(s).some((m) => temMedida(p, m))).map((p) => (
                     <div key={p.id} className="campos" style={{ alignItems: 'center', marginBottom: 4, flexWrap: 'nowrap' }}>
                       <label className="check" style={{ flex: 1 }}><input type="checkbox" name="comp" value={p.id} defaultChecked={marcados.has(p.id)} /> {p.nome}</label>
                       <label className="dica" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>peso
@@ -113,7 +110,7 @@ export default async function Produtos() {
                 </select>
               </label>
               <label className="campo">Medida
-                <select name="unidade">{Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+                <select name="medidas" defaultValue="ambos">{Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
               </label>
               <label className="campo">Fechamento<input type="text" name="ciclo" defaultValue="GERAL" style={{ width: 110 }} /></label>
               <label className="campo">Ordem<input type="number" name="ordem" defaultValue={produtos.length + 1} style={{ width: 70 }} /></label>

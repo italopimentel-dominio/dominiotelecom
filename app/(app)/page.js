@@ -4,6 +4,8 @@ import { listarPeriodos, escolherPeriodo, carregarBase, analisar } from '@/lib/d
 import { fmtValor, fmtData, fmtFator, STATUS } from '@/lib/formato';
 import BarraRitmo from '@/components/BarraRitmo';
 import Composicao from '@/components/Composicao';
+import { lerMedida } from '@/lib/medidaServidor';
+import AlternarMedida from '@/components/AlternarMedida';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
 
@@ -14,7 +16,8 @@ export default async function Painel({ searchParams }) {
   const periodo = escolherPeriodo(periodos, sp.p);
   if (!periodo) return <SemPeriodo podeEditar={podeEditar(perfil)} />;
 
-  const base = await carregarBase(supabase, periodo);
+  const medida = await lerMedida(sp);
+  const base = await carregarBase(supabase, periodo, medida);
   const an = analisar(base);
   const raizes = base.raizes.filter((g) => g.ativo);
   const canal = raizes.find((r) => r.id === sp.c) || raizes[0];
@@ -38,7 +41,10 @@ export default async function Painel({ searchParams }) {
           <h1>{periodo.nome}</h1>
           <p className="sub">Hoje é {fmtData(an.hoje, true)}. Necessidade bruta calculada com {fator}.</p>
         </div>
-        <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        <div className="linha-acoes">
+          <AlternarMedida atual={medida} />
+          <SeletorPeriodo periodos={periodos} atual={periodo.id} />
+        </div>
       </div>
 
       {!raizes.length ? (
