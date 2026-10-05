@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { sessao, podeEditar } from '@/lib/auth';
 import { numero } from '@/lib/formato';
-import { ultimoDiaDoMes } from '@/lib/datas';
+import { ultimoDiaDoMes, hojeSP } from '@/lib/datas';
 
 const SEM_PERMISSAO = { erro: 'Seu usuário só tem permissão para visualizar.' };
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -156,6 +156,56 @@ export async function salvarColaborador(_prev, fd) {
     .eq('id', txt(fd, 'id'));
   if (error) return { erro: error.message };
   return pronto('Salvo.');
+}
+
+const MESES_NOME = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+// Troca de equipe a partir de um mês. Os meses anteriores continuam na equipe antiga.
+export async function transferirColaboradores(_prev, fd) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const ids = [...new Set([...fd.getAll('ids'), fd.get('id')].map((x) => String(x || '')).filter(Boolean))];
+  const destino = txt(fd, 'grupo_id');
+  const mes = txt(fd, 'mes'); // AAAA-MM
+  if (!ids.length) return { erro: 'Marque pelo menos uma pessoa.' };
+  if (!destino) return { erro: 'Escolha a nova equipe.' };
+  if (!/^\d{4}-\d{2}$/.test(mes)) return { erro: 'Escolha o mês em que a troca começa.' };
+  const desde = `${mes}-01`;
+  const mesAtual = `${hojeSP().slice(0, 7)}-01`;
+  const { data: colabs, error } = await db.from('colaboradores').select('id, nome, grupo_id').in('id', ids);
+  if (error) return { erro: error.message };
+  const { data: vinc, error: e2 } = await db.from('colaborador_equipes').select('*').in('colaborador_id', ids);
+  if (e2) return { erro: 'Rode o arquivo 016_historico_equipes.sql no Supabase antes de trocar equipes com histórico.' };
+  for (const c of colabs || []) {
+    const meus = (vinc || []).filter((v) => v.colaborador_id === c.id);
+    // primeira troca: guarda a equipe de origem valendo para todo o passado
+    if (!meus.length) {
+      const { error: e3 } = await db.from('colaborador_equipes').insert({ colaborador_id: c.id, grupo_id: c.grupo_id, desde: '2000-01-01' });
+      if (e3) return { erro: e3.message };
+    }
+    // uma troca nova substitui as que estavam marcadas para depois dela
+    const depois = meus.filter((v) => v.desde > desde).map((v) => v.id);
+    if (depois.length) await db.from('colaborador_equipes').delete().in('id', depois);
+    const { error: e4 } = await db.from('colaborador_equipes').upsert({ colaborador_id: c.id, grupo_id: destino, desde }, { onConflict: 'colaborador_id,desde' });
+    if (e4) return { erro: e4.message };
+    if (desde <= mesAtual) await db.from('colaboradores').update({ grupo_id: destino }).eq('id', c.id);
+  }
+  const nomeMes = `${MESES_NOME[Number(mes.slice(5)) - 1]}/${mes.slice(0, 4)}`;
+  return pronto(`${ids.length === 1 ? 'Troca registrada' : `${ids.length} trocas registradas`}: vale a partir de ${nomeMes}. Os meses anteriores continuam na equipe antiga.`);
+}
+
+export async function desfazerTransferencia(_prev, fd) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const { data: v } = await db.from('colaborador_equipes').select('*').eq('id', txt(fd, 'id')).maybeSingle();
+  if (!v) return { erro: 'Troca não encontrada.' };
+  const { error } = await db.from('colaborador_equipes').delete().eq('id', v.id);
+  if (error) return { erro: error.message };
+  // volta a equipe "base" para a do vínculo que ficou valendo hoje
+  const { data: resto } = await db.from('colaborador_equipes').select('*').eq('colaborador_id', v.colaborador_id).lte('desde', hojeSP()).order('desde');
+  const vigente = (resto || []).at(-1);
+  if (vigente) await db.from('colaboradores').update({ grupo_id: vigente.grupo_id }).eq('id', v.colaborador_id);
+  return pronto('Troca desfeita.');
 }
 
 export async function alternarColaborador(_prev, fd) {

@@ -690,3 +690,22 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .form-pagina { max-width: 640px; }
 .form-pagina form .fs { display: flex; flex-direction: column; gap: 14px; }
 .config-equipe > summary { cursor: pointer; font-weight: 600; }
+.troca-info { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; font-size: 12.5px; color: var(--suave); margin-top: 2px; }
+.troca-info.futura { color: var(--acento); font-weight: 500; }
+.troca-desfazer { display: inline; }
+.troca-desfazer .fs { display: inline; }
+.lista-marcar { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 2px 14px; max-height: 260px; overflow: auto; }
+
+/* ---------- lista de produtos (colunas alinhadas) ---------- */
+.prod-lista { background: var(--branco); border: 1px solid var(--linha); border-radius: var(--raio); overflow-x: auto; }
+.prod-linha { display: grid; grid-template-columns: minmax(180px, 1.4fr) 230px 120px 80px 80px 1fr; gap: 10px; align-items: center; min-width: 760px; }
+.prod-linha.so-ver { grid-template-columns: minmax(180px, 1.4fr) 230px 120px 80px; }
+.prod-cab { padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: var(--suave); background: #faf9fc; border-bottom: 1px solid var(--linha); }
+.prod-item { position: relative; padding: 8px 14px; border-bottom: 1px solid var(--linha); }
+.prod-item:last-child { border-bottom: 0; }
+.prod-item.inativo { background: #fbfafc; }
+.prod-item.inativo input, .prod-item.inativo select { color: #a5a1b5; }
+.prod-linha input, .prod-linha select { width: 100%; }
+.prod-inativar { position: absolute; right: 14px; top: 8px; }
+.prod-form .msg { margin-left: 2px; }
+.prod-soma { font-size: 12.5px; color: var(--suave); margin-top: 4px; }

@@ -2,7 +2,7 @@ import FormAcao from '@/components/FormAcao';
 import TempoCasa from '@/components/TempoCasa';
 import { fmtData } from '@/lib/formato';
 import { capitalizar } from '@/lib/nomes';
-import { salvarColaborador, alternarColaborador } from '@/app/actions/dados';
+import { salvarColaborador, alternarColaborador, transferirColaboradores, desfazerTransferencia } from '@/app/actions/dados';
 
 const COTAS = [['1', 'Cota cheia'], ['0.5', 'Meia cota'], ['0', 'Sem meta']];
 
@@ -20,8 +20,17 @@ export function CampoCota({ valor = 1 }) {
   );
 }
 
-// Lista de pessoas com Editar (inclui transferir de equipe) e Desligar/Reativar
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const mesCurto = (d) => `${MESES[Number(d.slice(5, 7)) - 1]}/${d.slice(0, 4)}`;
+export function mesSeguinte(hoje) {
+  const [a, m] = hoje.split('-').map(Number);
+  return m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, '0')}`;
+}
+
+// Lista de pessoas com Editar, Trocar de equipe (com mês) e Desligar/Reativar
 export default function ListaPessoas({ pessoas, editar, hoje, opcoesEquipe }) {
+  const nomeEquipe = new Map(opcoesEquipe.map((o) => [o.id, o.nome.split(' / ').pop()]));
+  const proximo = mesSeguinte(hoje);
   return (
     <ul className="pessoas-lista">
       {pessoas.map((c) => (
@@ -36,6 +45,17 @@ export default function ListaPessoas({ pessoas, editar, hoje, opcoesEquipe }) {
                   : <span className="txt-risco">Desligado em {c.data_desligamento ? fmtData(c.data_desligamento, true) : '—'}</span>}
                 {Number(c.peso) !== 1 && <span className="tag" style={{ marginLeft: 6 }}>{Number(c.peso) === 0 ? 'sem meta' : Number(c.peso) === 0.5 ? 'meia cota' : `cota ${String(c.peso).replace('.', ',')}`}</span>}
               </span>
+              {(c.vinculos || []).filter((v) => v.desde > '2000-01-01').slice(-2).map((v) => (
+                <span key={v.id} className={`troca-info${v.desde > hoje ? ' futura' : ''}`}>
+                  {v.desde > hoje ? '→ vai para ' : '↪ entrou em '}<b>{nomeEquipe.get(v.grupo_id) || 'outra equipe'}</b>{v.desde > hoje ? ' a partir de ' : ' em '}{mesCurto(v.desde)}
+                  {editar && v.desde > hoje && (
+                    <FormAcao acao={desfazerTransferencia} confirmar="Desfazer esta troca de equipe?" className="troca-desfazer">
+                      <input type="hidden" name="id" value={v.id} />
+                      <button type="submit" className="lt-apagar">desfazer</button>
+                    </FormAcao>
+                  )}
+                </span>
+              ))}
             </div>
             {editar && (
               <div className="pessoa-acoes">
@@ -46,11 +66,7 @@ export default function ListaPessoas({ pessoas, editar, hoje, opcoesEquipe }) {
                       <input type="hidden" name="id" value={c.id} />
                       <div className="campos">
                         <label className="campo" style={{ flex: '1 1 220px' }}>Nome<input type="text" name="nome" defaultValue={c.nome} required /></label>
-                        <label className="campo">Equipe (para transferir)
-                          <select name="grupo_id" defaultValue={c.grupo_id}>
-                            {opcoesEquipe.map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
-                          </select>
-                        </label>
+                        <input type="hidden" name="grupo_id" value={c.grupo_base || c.grupo_id} />
                         <label className="campo">Data de admissão<input type="date" name="data_admissao" defaultValue={c.data_admissao || ''} /></label>
                         <CampoCota valor={c.peso} />
                         <button className="btn btn-sec" type="submit">Salvar</button>
@@ -58,6 +74,27 @@ export default function ListaPessoas({ pessoas, editar, hoje, opcoesEquipe }) {
                     </FormAcao>
                   </div>
                 </details>
+                {c.ativo && (
+                  <details className="acao-pessoa">
+                    <summary>Trocar de equipe</summary>
+                    <div className="acao-painel">
+                      <FormAcao acao={transferirColaboradores}>
+                        <input type="hidden" name="id" value={c.id} />
+                        <div className="campos">
+                          <label className="campo">Nova equipe
+                            <select name="grupo_id" required defaultValue="">
+                              <option value="" disabled>Escolha</option>
+                              {opcoesEquipe.filter((o) => o.id !== c.grupo_id).map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                            </select>
+                          </label>
+                          <label className="campo">A partir do mês<input type="month" name="mes" defaultValue={proximo} required /></label>
+                          <button className="btn" type="submit">Confirmar troca</button>
+                        </div>
+                        <p className="dica" style={{ marginTop: 6 }}>Os meses antes disso continuam na equipe atual (metas e resultados não mudam de lugar).</p>
+                      </FormAcao>
+                    </div>
+                  </details>
+                )}
                 {c.ativo ? (
                   <details className="acao-pessoa acao-desligar">
                     <summary>Desligar</summary>

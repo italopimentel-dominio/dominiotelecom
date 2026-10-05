@@ -5,8 +5,8 @@ import { carregarEstrutura } from '@/lib/dados';
 import { hojeSP } from '@/lib/datas';
 import { capitalizar } from '@/lib/nomes';
 import FormAcao from '@/components/FormAcao';
-import ListaPessoas from '@/components/Pessoas';
-import { salvarGrupo, alternarGrupo } from '@/app/actions/dados';
+import ListaPessoas, { mesSeguinte } from '@/components/Pessoas';
+import { salvarGrupo, alternarGrupo, transferirColaboradores } from '@/app/actions/dados';
 
 export default async function Equipe({ params, searchParams }) {
   const { id } = await params;
@@ -81,6 +81,32 @@ export default async function Equipe({ params, searchParams }) {
           </div>
         )}
       </section>
+
+      {editar && diretas.some((c) => c.ativo) && (
+        <section className="secao">
+          <details className="bloco config-equipe">
+            <summary>↔ Trocar várias pessoas de equipe</summary>
+            <FormAcao acao={transferirColaboradores}>
+              <p className="dica" style={{ margin: '10px 0 8px' }}>Marque quem vai mudar, escolha a nova equipe e o mês em que começa. Os meses anteriores continuam nesta equipe.</p>
+              <div className="lista-marcar">
+                {diretas.filter((c) => c.ativo).map((c) => (
+                  <label key={c.id} className="check"><input type="checkbox" name="ids" value={c.id} /> {capitalizar(c.nome)}</label>
+                ))}
+              </div>
+              <div className="campos" style={{ marginTop: 10 }}>
+                <label className="campo">Nova equipe
+                  <select name="grupo_id" required defaultValue="">
+                    <option value="" disabled>Escolha</option>
+                    {opcoesEquipe.filter((o) => o.id !== id).map((o) => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                  </select>
+                </label>
+                <label className="campo">A partir do mês<input type="month" name="mes" defaultValue={mesSeguinte(hoje)} required /></label>
+                <button className="btn" type="submit">Confirmar trocas</button>
+              </div>
+            </FormAcao>
+          </details>
+        </section>
+      )}
 
       {editar && (
         <section className="secao">

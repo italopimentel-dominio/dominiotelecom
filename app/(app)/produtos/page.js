@@ -23,50 +23,43 @@ export default async function Produtos() {
         </div>
       </div>
 
-      <div className="tabela-wrap">
-        <table>
-          <thead><tr><th>Produto</th><th className="esq">Medida</th><th className="esq">Fechamento</th><th>Ordem</th>{editar && <><th></th><th></th></>}</tr></thead>
-          <tbody>
-            {produtos.map((p) => (
-              <tr key={p.id} className={p.ativo ? '' : 'inativo'}>
-                {editar ? (
-                  <>
-                    <td colSpan={5} style={{ padding: '6px 12px' }}>
-                      <FormAcao acao={salvarProduto}>
-                        <div className="campos" style={{ flexWrap: 'nowrap' }}>
-                          <input type="hidden" name="id" value={p.id} />
-                          <input type="text" name="nome" defaultValue={p.nome} aria-label="Nome" style={{ width: 200 }} />
-                          <select name="medidas" defaultValue={medidasDo(p)} aria-label="Medida">
-                            {Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{p.tipo === 'composto' ? `Soma: ${v.toLowerCase()}` : v}</option>)}
-                          </select>
-                          <input type="text" name="ciclo" defaultValue={p.ciclo} aria-label="Fechamento" style={{ width: 110 }} />
-                          <input type="number" name="ordem" defaultValue={p.ordem} aria-label="Ordem" style={{ width: 70 }} />
-                          <button className="btn btn-sec btn-peq" type="submit">Salvar</button>
-                        </div>
-                      </FormAcao>
-                      {p.tipo === 'composto' && (
-                        <p className="dica" style={{ marginTop: 4 }}>Soma de: {p.componentes.map((c) => `${nome.get(c.componente_id)}${c.peso !== 1 ? ` (x${String(c.peso).replace('.', ',')})` : ''}`).join(', ') || 'nenhum produto ainda'}</p>
-                      )}
-                    </td>
-                    <td>
-                      <FormAcao acao={alternarProduto}>
-                        <input type="hidden" name="id" value={p.id} />
-                        <input type="hidden" name="ativar" value={p.ativo ? '0' : '1'} />
-                        <button className={p.ativo ? 'btn btn-perigo btn-peq' : 'btn btn-sec btn-peq'} type="submit">{p.ativo ? 'Inativar' : 'Reativar'}</button>
-                      </FormAcao>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td>{p.nome}{p.tipo === 'composto' && <span className="nome-sub">soma de {p.componentes.map((c) => nome.get(c.componente_id)).join(', ')}</span>}</td>
-                    <td className="esq">{p.tipo === 'composto' ? `Soma: ${UNIDADES[medidasDo(p)].toLowerCase()}` : UNIDADES[medidasDo(p)]}</td>
-                    <td className="esq">{p.ciclo}</td><td>{p.ordem}</td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="prod-lista">
+        <div className={`prod-linha prod-cab${editar ? '' : ' so-ver'}`}>
+          <span>Produto</span><span>Medida</span><span>Fechamento</span><span>Ordem</span>{editar && <><span /><span /></>}
+        </div>
+        {produtos.map((p) => (
+          <div key={p.id} className={`prod-item${p.ativo ? '' : ' inativo'}`}>
+            {editar ? (
+              <FormAcao acao={salvarProduto} className="prod-form">
+                <div className="prod-linha">
+                  <input type="hidden" name="id" value={p.id} />
+                  <input type="text" name="nome" defaultValue={p.nome} aria-label="Nome" />
+                  <select name="medidas" defaultValue={medidasDo(p)} aria-label="Medida">
+                    {Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                  <input type="text" name="ciclo" defaultValue={p.ciclo} aria-label="Fechamento" />
+                  <input type="number" name="ordem" defaultValue={p.ordem} aria-label="Ordem" />
+                  <button className="btn btn-sec btn-peq" type="submit">Salvar</button>
+                  <span />
+                </div>
+              </FormAcao>
+            ) : (
+              <div className="prod-linha so-ver">
+                <span>{p.nome}</span><span>{UNIDADES[medidasDo(p)]}</span><span>{p.ciclo}</span><span>{p.ordem}</span>
+              </div>
+            )}
+            {editar && (
+              <FormAcao acao={alternarProduto} className="prod-inativar">
+                <input type="hidden" name="id" value={p.id} />
+                <input type="hidden" name="ativar" value={p.ativo ? '0' : '1'} />
+                <button className={p.ativo ? 'btn btn-perigo btn-peq' : 'btn btn-sec btn-peq'} type="submit">{p.ativo ? 'Inativar' : 'Reativar'}</button>
+              </FormAcao>
+            )}
+            {p.tipo === 'composto' && (
+              <p className="prod-soma"><span className="tag-soma">soma</span> {p.componentes.map((c) => `${nome.get(c.componente_id)}${c.peso !== 1 ? ` (x${String(c.peso).replace('.', ',')})` : ''}`).join(', ') || 'nenhum produto ainda'}</p>
+            )}
+          </div>
+        ))}
       </div>
 
       {editar && somas.length > 0 && (

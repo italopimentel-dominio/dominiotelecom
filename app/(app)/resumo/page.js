@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { exigirSessao, podeEditar } from '@/lib/auth';
-import { listarPeriodos, escolherPeriodo, carregarBase, carregarEstrutura, analisar } from '@/lib/dados';
+import { listarPeriodos, escolherPeriodo, carregarBase, carregarEstrutura, analisar, colaboradoresNaData } from '@/lib/dados';
 import { fmtValor, fmtPct } from '@/lib/formato';
 import { salvarMetaEmpresa, copiarMetasEmpresa, salvarIndicadoresResumo } from '@/app/actions/dados';
 import CampoNumero from '@/components/CampoNumero';
@@ -111,7 +111,7 @@ export default async function Resumo({ searchParams }) {
     const raizes = est.raizes.filter((g) => g.ativo);
     const colunas = lista.map((per) => {
       const base = {
-        ...est, produtos: produtosM, periodo: per, ciclos: [], metasIndividuais: [], feriados: [], config: null,
+        ...est, produtos: produtosM, colaboradores: colaboradoresNaData(est.colaboradores, per.referencia), periodo: per, ciclos: [], metasIndividuais: [], feriados: [], config: null,
         metas: metas.filter((m) => m.periodo_id === per.id),
         realizados: realizados.filter((r) => r.periodo_id === per.id),
         realizadosGrupo: realizadosGrupo.filter((r) => r.periodo_id === per.id),

@@ -10,6 +10,8 @@ Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) 
 
 **Tela Equipes e colaboradores.** A página inicial mostra só as equipes, em cartões por canal (pessoas ativas e entradas/saídas do mês), a busca de pessoa e os botões **+ Cadastrar pessoa** e **+ Nova equipe** (cada um abre uma tela própria). Clicando numa equipe abre a página dela: pessoas (Ativos/Desligados, com Editar para corrigir ou transferir e Desligar com data), equipes que ficam dentro dela, botão Admitir nesta equipe e ⚙ Configurar a equipe (nome, onde fica, ordem, criar equipe dentro, inativar). A cota da meta aparece como Cota cheia, Meia cota ou Sem meta (peso 1, 0,5 e 0).
 
+**Troca de equipe com histórico.** Na página da equipe, cada pessoa tem **Trocar de equipe** (nova equipe + mês em que começa) e há **Trocar várias pessoas de equipe** para mudanças em lote. A troca vale a partir do mês escolhido: os meses anteriores continuam contando para a equipe antiga (metas e resultados não mudam de lugar), e do mês escolhido em diante a pessoa conta na equipe nova. Trocas futuras aparecem como "→ vai para Felipe a partir de nov/2026", com opção de desfazer. O histórico fica na tabela `colaborador_equipes`; telas de um mês usam a equipe daquele mês e as demais usam a equipe de hoje. (Editar não troca mais a equipe, para não mexer no passado.)
+
 **Admissão e desligamento.** Desligar um colaborador pede a data de desligamento. Em cada mês, o colaborador só aparece se esteve na casa em algum dia daquele mês (entre admissão e desligamento); meses anteriores continuam mostrando a pessoa e os resultados dela normalmente. Quem entra ou sai no meio do fechamento recebe meta proporcional aos dias úteis em que esteve na casa (ex.: entrou dia 16, 11 de 21 dias úteis = 52% da cota), sem precisar mexer no peso. O realizado de quem saiu continua somando na equipe. Reativar apaga a data de desligamento.
 
 **Colaboradores.** Pertencem a um grupo, têm data de admissão (o sistema mostra o tempo de casa no cadastro, na tela da equipe e na página do colaborador; quem tem menos de 3 meses aparece como "novo") e têm um **peso** (1 = cota cheia, 0,5 = meia cota, 0 = sem meta). A meta do grupo é dividida entre os colaboradores ativos do próprio grupo, proporcional ao peso. Na tela da equipe dá para **fixar** a meta de alguém; o restante é dividido entre os outros. Em produtos de quantidade a divisão usa números inteiros que somam exatamente a meta.
@@ -201,6 +203,7 @@ supabase/
   013_meta_empresa.sql      Meta da empresa por indicador (Resumo da empresa)
   014_indicadores_resumo.sql Indicadores escolhidos para o Resumo da empresa
   015_quantidade_e_receita.sql Metas e resultados em quantidade e em receita
+  016_historico_equipes.sql Histórico de equipe por mês (troca de equipe)
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado
