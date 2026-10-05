@@ -34,7 +34,7 @@ export default async function DetalheColaborador({ params, searchParams }) {
     const l = ls.find((x) => x.colaborador.id === id);
     const temMetaGrupo = an.meta(colab.grupo_id, produto.id) !== null;
     return l ? { produto, ...l, temMetaGrupo } : { produto, meta: 0, realizado: 0, realizadoBruto: null, pct: null, esperado: 0, status: 'sem-meta', falta: 0, faltaBruta: 0, porDia: 0, semanaAtual: null, fixo: null, temMetaGrupo };
-  }).filter((l) => l.temMetaGrupo || l.realizado > 0);
+  }).filter((l) => l.temMetaGrupo || (!an.ehComposto(l.produto.id) && l.realizado > 0));
 
   return (
     <>

@@ -27,7 +27,7 @@ export default async function Painel({ searchParams }) {
   const grupos = canal ? [{ ...canal, nivel: 0 }, ...base.achatar(canal.id, 1, true)] : [];
   const secoes = grupos.map((g) => ({
     grupo: g,
-    linhas: produtos.map((p) => an.indicador(g.id, p)).filter((i) => i && (i.temMeta || i.realizado > 0)),
+    linhas: produtos.map((p) => an.indicador(g.id, p)).filter((i) => i && (i.temMeta || (!an.ehComposto(i.produto.id) && i.realizado > 0))),
   })).filter((s) => s.linhas.length);
 
   const cicloGeral = base.ciclos[0];

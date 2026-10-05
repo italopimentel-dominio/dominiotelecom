@@ -30,7 +30,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
   const an = analisar(base);
 
   const produtos = base.produtos.filter((p) => p.ativo);
-  const comDados = produtos.filter((p) => an.meta(id, p.id) !== null || an.realizado(id, p.id) > 0);
+  const comDados = produtos.filter((p) => an.meta(id, p.id) !== null || (!an.ehComposto(p.id) && an.realizado(id, p.id) > 0));
   const lista = comDados.length ? comDados : produtos;
   const produto = lista.find((p) => p.id === sp.prod) || lista[0];
   const caminho = base.caminho(id);
