@@ -99,8 +99,12 @@ export async function criarGrupo(_prev, fd) {
   if (!db) return SEM_PERMISSAO;
   const nome = txt(fd, 'nome');
   if (!nome) return { erro: 'Informe o nome.' };
-  const { error } = await db.from('grupos').insert({ nome, parent_id: ou(txt(fd, 'parent_id')), ordem: Number(txt(fd, 'ordem')) || 0 });
+  const { data: novo, error } = await db.from('grupos').insert({ nome, parent_id: ou(txt(fd, 'parent_id')), ordem: Number(txt(fd, 'ordem')) || 0 }).select('id').single();
   if (error) return { erro: error.message };
+  if (txt(fd, 'abrir') === '1') {
+    revalidatePath('/', 'layout');
+    redirect(`/estrutura/${novo.id}?criada=1`);
+  }
   return pronto(`${nome} criado.`);
 }
 
@@ -135,6 +139,10 @@ export async function criarColaborador(_prev, fd) {
   if (!grupo_id) return { erro: 'Escolha a equipe.' };
   const { error } = await db.from('colaboradores').insert(nomes.map((nome) => ({ nome, grupo_id, peso, data_admissao })));
   if (error) return { erro: error.message };
+  if (txt(fd, 'abrir') === '1') {
+    revalidatePath('/', 'layout');
+    redirect(`/estrutura/${grupo_id}?admitidos=${nomes.length}`);
+  }
   return pronto(nomes.length === 1 ? `${nomes[0]} adicionado.` : `${nomes.length} colaboradores adicionados.`);
 }
 
