@@ -3,22 +3,53 @@ import { revalidatePath } from 'next/cache';
 import { sessao, podeEditar } from '@/lib/auth';
 import { normalizar } from '@/lib/nomes';
 
-// Recebe o resultado já conferido na tela de importação e grava tudo.
+// Chave dos valores: "produto_id|medida" (medida = qtd ou brl). Sem medida = qtd.
+function separar(item) {
+  const [pid, medida = 'qtd'] = String(item).split('|');
+  return [pid, medida === 'brl' ? 'brl' : 'qtd'];
+}
+
+async function gravar(db, tabela, campo, periodo_id, modo, mapa) {
+  // mapa: "id|produto|medida" -> valor
+  if (!mapa.size) return null;
+  if (modo === 'somar') {
+    const ids = [...new Set([...mapa.keys()].map((k) => k.split('|')[0]))];
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await db.from(tabela).select(`${campo}, produto_id, valor, medida`)
+        .eq('periodo_id', periodo_id).in(campo, ids.slice(i, i + 200));
+      if (error) return error.message;
+      (data || []).forEach((r) => {
+        const k = `${r[campo]}|${r.produto_id}|${r.medida || 'qtd'}`;
+        if (mapa.has(k)) mapa.set(k, mapa.get(k) + Number(r.valor));
+      });
+    }
+  }
+  const registros = [...mapa.entries()].map(([k, valor]) => {
+    const [id, produto_id, medida] = k.split('|');
+    return { periodo_id, [campo]: id, produto_id, medida, valor: Math.round(valor * 100) / 100 };
+  });
+  for (let i = 0; i < registros.length; i += 500) {
+    const { error } = await db.from(tabela).upsert(registros.slice(i, i + 500));
+    if (error) return error.message;
+  }
+  return null;
+}
+
 // dados = {
-//   periodo_id, modo: 'substituir' | 'somar',
+//   modo: 'substituir' | 'somar',
 //   novos: [{ chave, nome, grupo_id }],
-//   linhas: [{ colaborador_id?, chave?, apelido?, valores: { [produto_id]: numero } }]
+//   lotes: [{ periodo_id, pessoas: [{ colaborador_id?, chave?, apelido?, valores: { "produto|medida": n } }],
+//             grupos: [{ grupo_id, valores }] }]
 // }
-export async function importarRealizados(dados) {
+export async function importarLotes(dados) {
   const s = await sessao();
   if (!podeEditar(s.perfil)) return { erro: 'Seu usuário só tem permissão para visualizar.' };
   const db = s.supabase;
-  const { periodo_id, modo, novos = [], linhas = [] } = dados || {};
-  if (!periodo_id) return { erro: 'Escolha o período.' };
-  if (!linhas.length) return { erro: 'Nenhum colaborador marcado para importar.' };
+  const { modo, novos = [], lotes = [] } = dados || {};
+  if (!lotes.length) return { erro: 'Nada para importar.' };
+  if (lotes.some((l) => !l.periodo_id)) return { erro: 'Escolha o período.' };
   if (novos.some((n) => !n.grupo_id || !n.nome?.trim())) return { erro: 'Escolha a equipe de todos os colaboradores novos.' };
 
-  // 1) cadastra os novos
   const idDaChave = new Map();
   if (novos.length) {
     const registros = novos.map((n) => {
@@ -30,56 +61,52 @@ export async function importarRealizados(dados) {
     if (error) return { erro: `Não foi possível cadastrar os colaboradores novos: ${error.message}` };
   }
 
-  // 2) junta os valores por colaborador e produto
-  const valores = new Map();
   const apelidos = new Map();
-  for (const l of linhas) {
-    const cid = l.colaborador_id || idDaChave.get(l.chave);
-    if (!cid) continue;
-    if (l.apelido) apelidos.set(normalizar(l.apelido), cid);
-    for (const [item, v] of Object.entries(l.valores || {})) {
-      if (v === null || v === undefined || !isFinite(v)) continue;
-      const [pid, medida = 'qtd'] = item.split('|');
-      const k = `${cid}|${pid}|${medida === 'brl' ? 'brl' : 'qtd'}`;
-      valores.set(k, (valores.get(k) || 0) + Number(v));
+  let total = 0, pessoasTotal = new Set();
+  for (const lote of lotes) {
+    const mapaP = new Map(), mapaG = new Map();
+    for (const p of lote.pessoas || []) {
+      const cid = p.colaborador_id || idDaChave.get(p.chave);
+      if (!cid) continue;
+      if (p.apelido) apelidos.set(normalizar(p.apelido), cid);
+      for (const [item, v] of Object.entries(p.valores || {})) {
+        if (v === null || v === undefined || !isFinite(v)) continue;
+        const [pid, m] = separar(item);
+        const k = `${cid}|${pid}|${m}`;
+        mapaP.set(k, (mapaP.get(k) || 0) + Number(v));
+        pessoasTotal.add(cid);
+      }
     }
-  }
-  if (!valores.size) return { erro: 'Nenhum valor numérico encontrado nas colunas escolhidas.' };
-
-  // 3) no modo "somar", soma ao que já estava lançado
-  if (modo === 'somar') {
-    const ids = [...new Set([...valores.keys()].map((k) => k.split('|')[0]))];
-    for (let i = 0; i < ids.length; i += 200) {
-      const { data, error } = await db.from('realizados').select('colaborador_id, produto_id, valor, medida')
-        .eq('periodo_id', periodo_id).in('colaborador_id', ids.slice(i, i + 200));
-      if (error) return { erro: error.message };
-      (data || []).forEach((r) => {
-        const k = `${r.colaborador_id}|${r.produto_id}|${r.medida || 'qtd'}`;
-        if (valores.has(k)) valores.set(k, valores.get(k) + Number(r.valor));
-      });
+    for (const g of lote.grupos || []) {
+      if (!g.grupo_id) continue;
+      for (const [item, v] of Object.entries(g.valores || {})) {
+        if (v === null || v === undefined || !isFinite(v)) continue;
+        const [pid, m] = separar(item);
+        const k = `${g.grupo_id}|${pid}|${m}`;
+        mapaG.set(k, (mapaG.get(k) || 0) + Number(v));
+      }
     }
+    const e1 = await gravar(db, 'realizados', 'colaborador_id', lote.periodo_id, modo, mapaP);
+    if (e1) return { erro: `Erro ao gravar os resultados: ${e1}` };
+    const e2 = await gravar(db, 'realizados_grupo', 'grupo_id', lote.periodo_id, modo, mapaG);
+    if (e2) return { erro: `Erro ao gravar os resultados das equipes: ${e2}` };
+    total += mapaP.size + mapaG.size;
   }
+  if (!total) return { erro: 'Nenhum valor numérico encontrado.' };
 
-  // 4) grava
-  const registros = [...valores.entries()].map(([k, valor]) => {
-    const [colaborador_id, produto_id, medida] = k.split('|');
-    return { periodo_id, colaborador_id, produto_id, medida, valor: Math.round(valor * 100) / 100 };
-  });
-  for (let i = 0; i < registros.length; i += 500) {
-    const { error } = await db.from('realizados').upsert(registros.slice(i, i + 500));
-    if (error) return { erro: `Erro ao gravar os resultados: ${error.message}` };
-  }
-
-  // 5) lembra os nomes diferentes do cadastro para a próxima importação
   if (apelidos.size) {
-    await db.from('colaborador_apelidos').upsert(
-      [...apelidos.entries()].map(([apelido, colaborador_id]) => ({ apelido, colaborador_id }))
-    );
+    await db.from('colaborador_apelidos').upsert([...apelidos.entries()].map(([apelido, colaborador_id]) => ({ apelido, colaborador_id })));
   }
-
   revalidatePath('/', 'layout');
-  const qtdColabs = new Set(registros.map((r) => r.colaborador_id)).size;
   return {
-    ok: `${registros.length} resultados importados para ${qtdColabs} colaboradores${novos.length ? `, ${novos.length} cadastrados agora` : ''}.`,
+    ok: `${total} resultados importados (${pessoasTotal.size} colaboradores${lotes.length > 1 ? `, ${lotes.length} meses` : ''}${novos.length ? `, ${novos.length} cadastrados agora` : ''}).`,
   };
+}
+
+// Importação simples (uma planilha, um mês)
+export async function importarRealizados(dados) {
+  const { periodo_id, modo, novos, linhas = [] } = dados || {};
+  if (!periodo_id) return { erro: 'Escolha o período.' };
+  if (!linhas.length) return { erro: 'Nenhum colaborador marcado para importar.' };
+  return importarLotes({ modo, novos, lotes: [{ periodo_id, pessoas: linhas, grupos: [] }] });
 }

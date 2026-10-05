@@ -39,6 +39,15 @@ Há duas visões: **Por liderança** (padrão, quando há cargos cadastrados) e 
 
 **Colaboradores.** Na tela de cada equipe, o nome do colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto.
 
+**Importar o relatório da operadora (vários arquivos de uma vez).** Em Importar resultados > aba "Relatório da operadora": selecione todos os arquivos exportados do BI (ex.: alta_movel_qtd.xlsx, alta_movel_receita.xlsx...). O sistema:
+- lê o formato do relatório (CANAL, mCANAL2 unidade, mCANAL3 setor, mCANAL4 equipe, CONSULTOR, EXECUTADO, M-1, M-2, M-3), ignorando as linhas "Total";
+- descobre o produto pelo nome do arquivo (entende "básica" = fibra e "renova" = reno) e a medida (quantidade/receita) e o mês pelo rodapé "Filtros aplicados";
+- inclui consultores independentes e põe o total dos canais sem consultor (ex.: CANAL INDIRETO) direto numa equipe;
+- sugere a equipe de quem não está cadastrado pelo nome do supervisor ("EQUIPE VITOR HENRIQUE");
+- opcionalmente traz o histórico dos 3 meses anteriores (M-1, M-2, M-3) para os meses que existem no sistema;
+- mostra a conferência "total do relatório x total que vai entrar" de cada arquivo antes de gravar.
+No modo Substituir, quem aparece no relatório sem número fica com zero no mês (a base fica igual ao relatório).
+
 **Importar resultados (Excel/CSV).** Menu Importar resultados, só para Editor e Administrador:
 1. Escolha o período e o arquivo (.xlsx, .xls ou .csv, inclusive CSV com ponto e vírgula).
 2. O sistema acha sozinho a linha do cabeçalho, a coluna de nome, a de equipe (opcional) e a coluna de cada produto, comparando os nomes (ex.: "ALTAS MÓVEIS" = "Alta Móvel"). Tudo pode ser ajustado.
@@ -155,7 +164,7 @@ app/
   (app)/            telas que exigem login
     page.js         Painel (por canal, com todos os níveis)
     colaboradores/[id]/  Página do colaborador
-    importar/       Importação de resultados por Excel/CSV
+    importar/       Importação: planilha simples e relatório da operadora
     organograma/    Organograma comercial
     indireto/       Controle Indireto (lista, novo, [id] = página do parceiro)
     grupos/[id]/    Detalhe da equipe: semanas, colaboradores, realizado
@@ -169,6 +178,8 @@ lib/
   calc.js           Dias úteis, semanas, indicadores, divisão da meta
   feriados.js       Feriados nacionais (cálculo da Páscoa)
   nomes.js          Comparação de nomes (sem acento, nomes parecidos)
+  relatorio.js      Leitura do relatório da operadora
+  conferenciaNomes.js Reconhece colaboradores e equipes pelos nomes
   indireto.js       Status, tipos de treinamento, CNPJ
   dados.js          Leitura do banco e montagem da árvore
   datas.js  formato.js  auth.js  supabase/

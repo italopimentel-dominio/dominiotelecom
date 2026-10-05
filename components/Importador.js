@@ -2,6 +2,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { normalizar, similaridade } from '@/lib/nomes';
+import { nomeProdutoComparavel } from '@/lib/relatorio';
 import { numero, fmtValor } from '@/lib/formato';
 
 const PALAVRAS_NOME = ['nome', 'colaborador', 'vendedor', 'consultor', 'atendente', 'funcionario', 'operador', 'executivo'];
@@ -43,7 +44,7 @@ function mapearProdutos(cabecalho, produtos, ocupadas) {
       if (usadas.has(String(i)) || !h) return;
       const ehValor = RE_VALOR.test(h);
       if (p.ambos && (p.unidade === 'brl') !== ehValor) return;
-      const s = similaridade(h.replace(RE_VALOR_G, ' '), p.nome);
+      const s = similaridade(nomeProdutoComparavel(h.replace(RE_VALOR_G, ' ')), nomeProdutoComparavel(p.nome));
       if (s > nota) { nota = s; melhor = i; }
     });
     if (melhor >= 0 && nota >= 0.7) { mapa[p.id] = String(melhor); usadas.add(String(melhor)); }
