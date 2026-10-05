@@ -1,4 +1,5 @@
 import { fmtValor } from '@/lib/formato';
+import InfoDica from './InfoDica';
 
 const CORES = ['#6b40e7', '#e0457b', '#1b7446', '#d97706', '#2563a8', '#0f766e', '#8a3fb3', '#c2410c'];
 
@@ -10,7 +11,10 @@ export default function Composicao({ itens, compacta = false }) {
   const total = lista.reduce((s, x) => s + x.conta, 0);
   const rotulo = (x) => `${fmtValor(x.valor, x.produto.unidade, 1)} ${x.produto.nome}${x.peso !== 1 ? ` (x${String(x.peso).replace('.', ',')})` : ''}`;
   if (compacta) {
-    return <span className="nome-sub comp-texto">{comValor.length ? comValor.map(rotulo).join(', ') : 'nada lançado ainda'}</span>;
+    const linhas = comValor.length
+      ? comValor.map((x) => `${rotulo(x)}${total > 0 ? ` (${Math.round((x.conta / total) * 100)}%)` : ''}`)
+      : ['Nada lançado ainda'];
+    return <InfoDica titulo="Do que é feito este resultado" linhas={linhas} />;
   }
   return (
     <div className="comp">
