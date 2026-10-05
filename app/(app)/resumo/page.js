@@ -4,6 +4,8 @@ import { listarPeriodos, escolherPeriodo, carregarBase, carregarEstrutura, anali
 import { fmtValor, fmtPct } from '@/lib/formato';
 import { salvarMetaEmpresa, copiarMetasEmpresa, salvarIndicadoresResumo } from '@/app/actions/dados';
 import CampoNumero from '@/components/CampoNumero';
+import BarraRitmo from '@/components/BarraRitmo';
+import { STATUS } from '@/lib/formato';
 import FormAcao from '@/components/FormAcao';
 import { lerMedida } from '@/lib/medidaServidor';
 import { produtosDaMedida } from '@/lib/medida';
@@ -29,7 +31,16 @@ async function buscarTodos(consulta, medida) {
   return (medida && (await ler(true))) || (await ler(false)) || [];
 }
 
-const corAting = (v, esperado) => (v === null ? '' : v >= 1 ? 'rz-ok' : v >= esperado * 0.85 ? 'rz-md' : 'rz-bx');
+// Mesma régua do Painel: bateu, no ritmo, atenção (até 15% abaixo do esperado) ou abaixo do ritmo
+function statusRitmo(pct, esperado) {
+  if (pct === null || pct === undefined) return 'sem-meta';
+  if (pct >= 1) return 'batida';
+  if (!esperado) return 'inicio';
+  const razao = pct / esperado;
+  return razao >= 1 ? 'em-dia' : razao >= 0.85 ? 'atencao' : 'risco';
+}
+const CLASSE = { batida: 'rz-ok', 'em-dia': 'rz-ok', atencao: 'rz-md', risco: 'rz-bx', inicio: '', 'sem-meta': '' };
+const corAting = (v, esperado) => (v === null ? '' : CLASSE[statusRitmo(v, esperado)]);
 
 // Indicadores do resumo: os escolhidos (na ordem dos produtos) ou, se ninguém escolheu,
 // as somas (classes) e os produtos que não fazem parte de nenhuma soma
@@ -205,18 +216,28 @@ export default async function Resumo({ searchParams }) {
             <div key={p.id} className="hc-cartao">
               <span>{p.nome}</span>
               <b className={pct === null ? '' : corAting(pct, t.esperado)}>{fmtPct(pct)}</b>
-              <div className="cp-barra" style={{ margin: '4px 0' }}><span style={{ width: `${Math.min(pct || 0, 1) * 100}%` }} /></div>
+              {pct !== null && (
+                <>
+                  <BarraRitmo pct={pct} esperado={t.esperado} status={statusRitmo(pct, t.esperado)} compacta />
+                  <small className={`rz-status ${corAting(pct, t.esperado)}`}>{STATUS[statusRitmo(pct, t.esperado)]}, deveria estar em {fmtPct(t.esperado)}</small>
+                </>
+              )}
               <small>{fmtValor(t.real, p.unidade)} de {meta !== null ? fmtValor(meta, p.unidade) : '—'}{t.emp === null && meta !== null ? ' (distribuída)' : ''}</small>
               {t.emp !== null && t.dist !== null && <small>distribuída: {fmtValor(t.dist, p.unidade)} ({t.dist >= t.emp ? '+' : ''}{fmtPct(t.dist / t.emp - 1)})</small>}
             </div>
           );
         })}
       </div>
-      <p className="dica" style={{ marginTop: 6 }}>Esperado até hoje: {fmtPct(totais.get(indicadores[0]?.id)?.esperado ?? 0)} do mês (dias úteis).</p>
+      <div className="legenda" style={{ marginTop: 10 }}>
+        <span><i style={{ background: 'var(--ok)' }} />No ritmo</span>
+        <span><i style={{ background: 'var(--atencao)' }} />Atenção</span>
+        <span><i style={{ background: 'var(--risco)' }} />Abaixo do ritmo</span>
+        <span><i className="marca-leg" />Onde deveria estar hoje ({fmtPct(totais.get(indicadores[0]?.id)?.esperado ?? 0)} do mês em dias úteis)</span>
+      </div>
 
       <section className="secao">
         <h2 style={{ marginBottom: 6 }}>% de atingimento por canal</h2>
-        <p className="dica" style={{ marginBottom: 10 }}>Realizado do canal sobre a meta distribuída para ele.</p>
+        <p className="dica" style={{ marginBottom: 10 }}>Realizado do canal sobre a meta distribuída para ele. O tracinho mostra onde deveria estar hoje.</p>
         <div className="tabela-wrap">
           <table className="rz-tabela">
             <thead><tr><th>Canal</th>{indicadores.map((p) => <th key={p.id}>{p.nome}</th>)}</tr></thead>
@@ -228,7 +249,12 @@ export default async function Resumo({ searchParams }) {
                     const m = metaDist(g.id, p);
                     const r = an.realizado(g.id, p.id);
                     const v = m ? r / m : null;
-                    return <td key={p.id} className={corAting(v, totais.get(p.id).esperado)} title={`${fmtValor(r, p.unidade)} de ${m !== null ? fmtValor(m, p.unidade) : 'sem meta'}`}>{v === null ? '—' : fmtPct(v)}</td>;
+                    const esp = totais.get(p.id).esperado;
+                    return (
+                      <td key={p.id} className="esq" title={`${fmtValor(r, p.unidade)} de ${m !== null ? fmtValor(m, p.unidade) : 'sem meta'}`}>
+                        {v === null ? <span className="fraco">—</span> : <BarraRitmo pct={v} esperado={esp} status={statusRitmo(v, esp)} compacta />}
+                      </td>
+                    );
                   })}
                 </tr>
               ))}

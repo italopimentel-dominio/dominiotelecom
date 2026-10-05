@@ -666,3 +666,6 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .acao-desligar .acao-painel { background: var(--risco-fundo); border-color: #f2c9c4; }
 .pessoa-linha:has(details[open]) { align-items: flex-start; }
 .pessoa-linha:has(details[open]) .pessoa-acoes { flex-basis: 100%; }
+.rz-status { font-weight: 600; }
+.hc-cartao .ritmo { margin: 4px 0 2px; }
+.rz-tabela td .ritmo.compacta { min-width: 130px; }
