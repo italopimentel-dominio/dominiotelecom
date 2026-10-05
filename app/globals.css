@@ -632,3 +632,37 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .info-caixa { position: fixed; z-index: 50; width: 260px; background: var(--tinta); color: #fff; border-radius: 8px; padding: 10px 12px;
   display: flex; flex-direction: column; gap: 4px; font-size: 13px; text-align: left; white-space: normal; box-shadow: 0 10px 28px rgba(0,0,0,.25); }
 .info-caixa strong { font-size: 12px; color: #b9a6f7; font-weight: 600; margin-bottom: 2px; }
+
+/* ---------- pessoas (equipes e colaboradores) ---------- */
+.pessoas-cartoes { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); margin-bottom: 14px; }
+.admitir { border: 1.5px solid var(--acento); background: var(--acento-fundo); }
+.admitir > summary { cursor: pointer; font-weight: 650; color: var(--acento); list-style: none; display: flex; align-items: center; gap: 8px; font-size: 16px; }
+.admitir > summary::-webkit-details-marker { display: none; }
+.admitir-mais { width: 26px; height: 26px; border-radius: 50%; background: var(--acento); color: #fff; display: grid; place-items: center; font-size: 18px; line-height: 1; }
+.admitir[open] { background: #fff; }
+.filtro-pessoas { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 18px 0 6px; }
+.filtro-pessoas input[type=text] { flex: 1 1 220px; }
+.pessoas-equipe { margin-top: 20px; }
+.pessoas-titulo { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 15px; font-weight: 500; color: var(--suave); margin-bottom: 8px; }
+.pessoas-titulo i { font-style: normal; margin: 0 6px; color: var(--linha-forte); }
+.pessoas-titulo .ultimo { color: var(--tinta); font-weight: 650; }
+.pessoas-lista { list-style: none; margin: 0; padding: 0; background: var(--branco); border: 1px solid var(--linha); border-radius: 10px; }
+.pessoas-lista > li { border-bottom: 1px solid var(--linha); }
+.pessoas-lista > li:last-child { border-bottom: 0; }
+.pessoas-lista > li.desligado { background: #fbfafc; }
+.pessoas-lista > li.desligado strong { color: var(--suave); }
+.pessoa-linha { display: flex; align-items: center; gap: 12px; padding: 10px 14px; flex-wrap: wrap; }
+.pessoa-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--acento-fundo); color: var(--acento); display: grid; place-items: center; font-weight: 700; flex: none; object-fit: cover; }
+.pessoa-info { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; }
+.pessoa-info strong { font-weight: 600; }
+.pessoa-info > span { font-size: 13px; color: var(--suave); }
+.pessoa-acoes { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+.acao-pessoa > summary { list-style: none; cursor: pointer; border: 1px solid var(--linha-forte); border-radius: var(--raio); padding: 4px 12px; font-size: 13.5px; font-weight: 550; background: #fff; }
+.acao-pessoa > summary::-webkit-details-marker { display: none; }
+.acao-pessoa[open] > summary { border-color: var(--acento); color: var(--acento); }
+.acao-desligar > summary { color: var(--risco); }
+.acao-desligar[open] > summary { border-color: var(--risco); color: var(--risco); }
+.acao-painel { margin-top: 8px; padding: 12px; border-radius: 8px; background: #faf9fc; border: 1px solid var(--linha); }
+.acao-desligar .acao-painel { background: var(--risco-fundo); border-color: #f2c9c4; }
+.pessoa-linha:has(details[open]) { align-items: flex-start; }
+.pessoa-linha:has(details[open]) .pessoa-acoes { flex-basis: 100%; }
