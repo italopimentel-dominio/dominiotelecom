@@ -18,6 +18,7 @@ const desenhos = {
   campanhas: <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3" />,
   headcount: <><circle cx="12" cy="7" r="3" /><path d="M6 21v-2a6 6 0 0 1 12 0v2M3 11h3M18 11h3" /></>,
   quadro: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11M15 9v11" /></>,
+  resumo: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   recolher: <path d="M15 18l-6-6 6-6" />,
   expandir: <path d="M9 18l6-6-6-6" />,
 };

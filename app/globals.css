@@ -595,3 +595,23 @@ img.cp-avatar-mini { display: inline-block; }
 .comp-zero { opacity: .5; }
 .comp-texto { white-space: normal; max-width: 260px; }
 .tag-soma { background: var(--acento-fundo); color: var(--acento); font-size: 11px; padding: 0 6px; border-radius: 99px; font-weight: 600; margin-left: 4px; }
+
+/* ---------- resumo da empresa ---------- */
+.rz-ok { color: var(--ok); font-weight: 650; }
+.rz-md { color: var(--atencao); font-weight: 650; }
+.rz-bx { color: var(--risco); font-weight: 650; }
+td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-fundo); } td.rz-bx { background: var(--risco-fundo); }
+.hc-cartao b.rz-ok, .hc-cartao b.rz-md, .hc-cartao b.rz-bx { background: none; }
+.rz-tabela th { white-space: normal; min-width: 96px; }
+.rz-part { min-width: 140px; }
+.rz-par { display: flex; align-items: center; gap: 6px; height: 16px; }
+.rz-par em { font-style: normal; font-size: 12.5px; min-width: 54px; text-align: right; }
+.rz-b { display: block; height: 7px; border-radius: 99px; min-width: 2px; max-width: 80px; }
+.rz-par { position: relative; }
+.rz-par .rz-b { flex: 0 0 auto; }
+.rz-par::before { content: ''; flex: 0 0 80px; order: -1; display: none; }
+.rz-b-meta { background: var(--acento); }
+.rz-b-real { background: var(--ok); }
+.rz-leg { display: inline-block; width: 18px; height: 7px; border-radius: 99px; margin-right: 6px; vertical-align: 1px; }
+.rz-leg-meta { background: var(--acento); } .rz-leg-real { background: var(--ok); }
+.linha-soma-leve td { font-weight: 600; }

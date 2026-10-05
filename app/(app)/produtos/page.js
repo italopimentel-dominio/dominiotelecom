@@ -9,7 +9,7 @@ export default async function Produtos() {
   const { supabase, perfil } = await exigirSessao();
   const editar = podeEditar(perfil);
   const { produtos } = await carregarEstrutura(supabase);
-  const simplesQtd = produtos.filter((p) => p.tipo !== 'composto' && p.unidade === 'qtd' && p.ativo);
+  const simples = produtos.filter((p) => p.tipo !== 'composto' && p.ativo);
   const nome = new Map(produtos.map((p) => [p.id, p.nome]));
   const somas = produtos.filter((p) => p.tipo === 'composto');
 
@@ -36,7 +36,7 @@ export default async function Produtos() {
                           <input type="hidden" name="id" value={p.id} />
                           <input type="text" name="nome" defaultValue={p.nome} aria-label="Nome" style={{ width: 200 }} />
                           {p.tipo === 'composto'
-                            ? <><input type="hidden" name="unidade" value="qtd" /><span className="tag tag-acento" style={{ minWidth: 150 }}>Soma de produtos</span></>
+                            ? <><input type="hidden" name="unidade" value={p.unidade} /><span className="tag tag-acento" style={{ minWidth: 150 }}>Soma ({p.unidade === 'brl' ? 'R$' : 'quantidade'})</span></>
                             : (
                               <select name="unidade" defaultValue={p.unidade} aria-label="Medida">
                                 {Object.entries(UNIDADES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -83,7 +83,8 @@ export default async function Produtos() {
                 <FormAcao key={s.id} acao={salvarComposicao} className="bloco">
                   <h3 style={{ marginBottom: 8 }}>{s.nome}</h3>
                   <input type="hidden" name="produto_id" value={s.id} />
-                  {simplesQtd.map((p) => (
+                  <p className="dica" style={{ marginBottom: 6 }}>Só aparecem produtos em {s.unidade === 'brl' ? 'R$' : 'quantidade'}, a mesma medida da soma.</p>
+                  {simples.filter((p) => p.unidade === s.unidade).map((p) => (
                     <div key={p.id} className="campos" style={{ alignItems: 'center', marginBottom: 4, flexWrap: 'nowrap' }}>
                       <label className="check" style={{ flex: 1 }}><input type="checkbox" name="comp" value={p.id} defaultChecked={marcados.has(p.id)} /> {p.nome}</label>
                       <label className="dica" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>peso
@@ -118,7 +119,7 @@ export default async function Produtos() {
               <label className="campo">Ordem<input type="number" name="ordem" defaultValue={produtos.length + 1} style={{ width: 70 }} /></label>
               <button className="btn" type="submit">Criar produto</button>
             </div>
-            <p className="dica" style={{ marginTop: 8 }}>Soma de produtos é sempre em quantidade. Depois de criar, escolha os produtos que entram nela no quadro "O que entra em cada soma".</p>
+            <p className="dica" style={{ marginTop: 8 }}>Uma soma junta produtos da mesma medida (ex.: Receitas altas em R$ = Alta Móvel + Alta Básica + VADA). Depois de criar, escolha os produtos no quadro "O que entra em cada soma".</p>
           </FormAcao>
         </section>
       )}

@@ -45,6 +45,24 @@ export async function salvarRealizadoGrupo(periodo_id, grupo_id, produto_id, val
   return gravarValor('realizados_grupo', { periodo_id, grupo_id, produto_id }, valor);
 }
 
+export async function salvarMetaEmpresa(periodo_id, produto_id, valor) {
+  return gravarValor('metas_empresa', { periodo_id, produto_id }, valor);
+}
+
+export async function copiarMetasEmpresa(_prev, fd) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const origem = txt(fd, 'origem');
+  const destino = txt(fd, 'destino');
+  if (!origem || origem === destino) return { erro: 'Escolha outro mês.' };
+  const { data, error } = await db.from('metas_empresa').select('produto_id, valor').eq('periodo_id', origem);
+  if (error) return { erro: error.message };
+  if (!data.length) return { erro: 'Esse mês não tem meta da empresa.' };
+  const { error: e2 } = await db.from('metas_empresa').upsert(data.map((m) => ({ ...m, periodo_id: destino })));
+  if (e2) return { erro: e2.message };
+  return pronto(`${data.length} metas copiadas.`);
+}
+
 export async function copiarMetas(_prev, fd) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
@@ -137,7 +155,7 @@ export async function criarProduto(_prev, fd) {
   if (!nome) return { erro: 'Informe o nome.' };
   const tipo = txt(fd, 'tipo') === 'composto' ? 'composto' : 'simples';
   const { error } = await db.from('produtos').insert({
-    nome, tipo, unidade: tipo === 'composto' ? 'qtd' : txt(fd, 'unidade') || 'qtd', ciclo: (txt(fd, 'ciclo') || 'GERAL').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
+    nome, tipo, unidade: txt(fd, 'unidade') === 'brl' ? 'brl' : 'qtd', ciclo: (txt(fd, 'ciclo') || 'GERAL').toUpperCase(), ordem: Number(txt(fd, 'ordem')) || 0,
   });
   if (error) return { erro: error.message };
   return pronto(tipo === 'composto' ? `${nome} criado. Agora escolha quais produtos entram na soma.` : `${nome} criado.`);

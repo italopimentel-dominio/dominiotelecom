@@ -8,7 +8,7 @@ export default function Composicao({ itens, compacta = false }) {
   const lista = itens.map((x, i) => ({ ...x, cor: CORES[i % CORES.length], conta: x.valor * x.peso }));
   const comValor = lista.filter((x) => x.valor > 0).sort((a, b) => b.conta - a.conta);
   const total = lista.reduce((s, x) => s + x.conta, 0);
-  const rotulo = (x) => `${fmtValor(x.valor, 'qtd', 1)} ${x.produto.nome}${x.peso !== 1 ? ` (x${String(x.peso).replace('.', ',')})` : ''}`;
+  const rotulo = (x) => `${fmtValor(x.valor, x.produto.unidade, 1)} ${x.produto.nome}${x.peso !== 1 ? ` (x${String(x.peso).replace('.', ',')})` : ''}`;
   if (compacta) {
     return <span className="nome-sub comp-texto">{comValor.length ? comValor.map(rotulo).join(', ') : 'nada lançado ainda'}</span>;
   }
@@ -23,7 +23,7 @@ export default function Composicao({ itens, compacta = false }) {
         {lista.map((x) => (
           <li key={x.produto.id} className={x.valor > 0 ? '' : 'comp-zero'}>
             <i style={{ background: x.cor }} />
-            <b>{fmtValor(x.valor, 'qtd', 1)}</b> {x.produto.nome}
+            <b>{fmtValor(x.valor, x.produto.unidade, 1)}</b> {x.produto.nome}
             {x.peso !== 1 && <span className="dica"> vale x{String(x.peso).replace('.', ',')}</span>}
             {total > 0 && x.valor > 0 && <span className="dica"> ({Math.round((x.conta / total) * 100)}%)</span>}
           </li>

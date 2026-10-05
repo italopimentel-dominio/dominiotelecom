@@ -47,6 +47,19 @@ Há duas visões: **Por liderança** (padrão, quando há cargos cadastrados) e 
 
 O arquivo é lido no navegador; só os números conferidos são enviados ao banco.
 
+## Resumo da empresa
+
+Menu Metas > Resumo da empresa. Junta a visão geral sem duplicar dados:
+- **Meta da empresa** (a meta "de cima", por indicador e mês): único número novo, lançado na própria tela (com cópia do mês anterior).
+- **Meta distribuída**: soma do Quadro de metas dos canais. Para um produto soma sem meta própria, é a soma das metas dos produtos que o compõem.
+- **Folga**: quanto a distribuída está acima/abaixo da meta da empresa.
+- **% de atingimento por canal**: realizado ÷ meta distribuída do canal (verde: bateu; amarelo: perto do ritmo; vermelho: abaixo).
+- **% de participação**: parte da meta da empresa que está com o canal (exigência) x parte do resultado que veio dele; ▲ quando traz mais do que a parte dele.
+- Botão para abrir unidades/equipes de cada canal (Campinas, São Paulo, Inbound, Hunter, Farmer...).
+- **Histórico**: % atingido de cada indicador nos últimos 12 meses (sobre a meta da empresa, ou a distribuída com *). Clicar num mês abre o resumo dele para ajustar.
+
+Os indicadores são as somas (ex.: Receitas altas em R$ = Alta Móvel + Alta Básica + VADA) e os produtos que não estão dentro de nenhuma soma. Somas podem ser em quantidade ou em R$.
+
 ## Headcount
 
 Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado da **meta geral** (média do % atingido em cada produto com meta, juntando quantidade e R$) e de quantos colaboradores estão dentro da meta geral (% geral igual ou acima do esperado até hoje), em número e %. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. Filtro por supervisor com várias escolhas (equipes da ponta; quando a equipe tem líder cadastrado no organograma, aparece o nome dele). A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.
@@ -170,6 +183,7 @@ supabase/
   010_campanhas.sql         Campanhas comerciais
   011_personalizacao.sql    Visual das campanhas, fotos e pasta de imagens
   012_produto_soma.sql      Produto soma (meta de total de produtos)
+  013_meta_empresa.sql      Meta da empresa por indicador (Resumo da empresa)
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado

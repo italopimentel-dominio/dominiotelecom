@@ -10,6 +10,7 @@ export default async function LayoutApp({ children }) {
   const cookieStore = await cookies();
 
   const metas = [
+    { href: '/resumo', rotulo: 'Resumo da empresa', icone: 'resumo' },
     { href: '/', rotulo: 'Painel', icone: 'painel' },
     { href: '/metas', rotulo: 'Quadro de metas', icone: 'quadro' },
   ];
