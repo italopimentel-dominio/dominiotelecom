@@ -127,14 +127,14 @@ export default function ImportadorRelatorio({ periodos, periodoInicial, produtos
 
   const pendencias = pessoas.filter((p) => {
     const d = decisao(p);
-    return (d.acao === 'novo' && (!d.grupo_id || !d.nome?.trim())) || (d.acao === 'vincular' && !d.colaborador_id);
+    return (d.acao === 'novo' && (!d.grupo_id || !d.nome?.trim())) || (d.acao === 'vincular' && !d.colaborador_id) || (d.acao === 'equipe' && !d.grupo_id);
   }).length;
 
   // conferência: total do arquivo x total que será gravado (mês principal)
   const conferencia = validos.map((a) => {
     const item = `${a.produto_id}|${a.medida}`;
     const totalArq = a.rel.total?.m0 ?? 0;
-    const pessoasOk = pessoas.filter((p) => decisao(p).acao !== 'ignorar').reduce((s, p) => s + (p.valores.m0[item] || 0), 0);
+    const pessoasOk = pessoas.filter((p) => decisao(p).acao !== 'ignorar' && (decisao(p).acao !== 'equipe' || decisao(p).grupo_id)).reduce((s, p) => s + (p.valores.m0[item] || 0), 0);
     const gruposOk = linhasGrupo.filter((g) => grupoEscolhido(g.nome)).reduce((s, g) => s + (g.valores.m0[item] || 0), 0);
     return { a, totalArq, importado: pessoasOk + gruposOk };
   });
@@ -142,9 +142,11 @@ export default function ImportadorRelatorio({ periodos, periodoInicial, produtos
   function importar() {
     const novos = [];
     const base = [];
+    const diretos = []; // { grupo_id, p }
     pessoas.forEach((p) => {
       const d = decisao(p);
       if (d.acao === 'ignorar') return;
+      if (d.acao === 'equipe') { diretos.push({ grupo_id: d.grupo_id, p }); return; }
       if (d.acao === 'novo') { novos.push({ chave: p.chave, nome: d.nome, grupo_id: d.grupo_id }); base.push({ p, ref: { chave: p.chave } }); }
       else {
         const c = colabPorId.get(d.colaborador_id);
@@ -154,7 +156,10 @@ export default function ImportadorRelatorio({ periodos, periodoInicial, produtos
     const lotes = mesesUsados.map((k) => ({
       periodo_id: periodoDoMes(k).id,
       pessoas: base.map(({ p, ref }) => ({ ...ref, valores: p.valores[k] })).filter((x) => Object.keys(x.valores).length),
-      grupos: linhasGrupo.map((g) => ({ grupo_id: grupoEscolhido(g.nome), valores: g.valores[k] })).filter((x) => x.grupo_id && Object.keys(x.valores).length),
+      grupos: [
+        ...linhasGrupo.map((g) => ({ grupo_id: grupoEscolhido(g.nome), valores: g.valores[k] })),
+        ...diretos.map(({ grupo_id, p }) => ({ grupo_id, valores: p.valores[k] })),
+      ].filter((x) => x.grupo_id && Object.keys(x.valores).length),
     }));
     iniciar(async () => {
       const r = await acao({ modo, novos, lotes });
@@ -287,11 +292,18 @@ export default function ImportadorRelatorio({ periodos, periodoInicial, produtos
                         <td className="esq"><span className={`tag ${SITUACAO[p.situacao].classe}`}>{SITUACAO[p.situacao].rotulo}</span></td>
                         <td className="esq">
                           <div className="campos" style={{ flexWrap: 'nowrap' }}>
-                            <select value={d.acao} onChange={(e) => mudar(p.chave, e.target.value === 'novo' ? { acao: 'novo', nome: d.nome || p.original, grupo_id: d.grupo_id || p.grupoSugerido || '' } : { acao: e.target.value }, d)} aria-label={`Ação para ${p.original}`}>
+                            <select value={d.acao} onChange={(e) => mudar(p.chave, e.target.value === 'novo' ? { acao: 'novo', nome: d.nome || p.original, grupo_id: d.grupo_id || p.grupoSugerido || '' } : e.target.value === 'equipe' ? { acao: 'equipe', grupo_id: d.grupo_id || p.grupoSugerido || '' } : { acao: e.target.value }, d)} aria-label={`Ação para ${p.original}`}>
                               <option value="vincular">Vincular a</option>
                               <option value="novo">Cadastrar novo</option>
+                              <option value="equipe">Lançar direto numa equipe</option>
                               <option value="ignorar">Ignorar</option>
                             </select>
+                            {d.acao === 'equipe' && (
+                              <select value={d.grupo_id || ''} onChange={(e) => mudar(p.chave, { grupo_id: e.target.value }, d)} aria-label="Equipe" style={{ maxWidth: 260 }}>
+                                <option value="">Escolha a equipe</option>
+                                {grupos.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
+                              </select>
+                            )}
                             {d.acao === 'vincular' && (
                               <select value={d.colaborador_id || ''} onChange={(e) => mudar(p.chave, { colaborador_id: e.target.value }, d)} aria-label="Colaborador" style={{ maxWidth: 300 }}>
                                 <option value="">Escolha o colaborador</option>

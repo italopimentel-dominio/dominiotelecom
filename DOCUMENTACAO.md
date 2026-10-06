@@ -70,6 +70,7 @@ Menu Metas > Fonte de dados (Editor/Administrador). Liga uma planilha do Google 
 3. **Gravar no sistema**: nos meses marcados, os produtos da fonte passam a ser exatamente o que está na planilha (quem tinha resultado e não aparece fica zerado). Antes de gravar, os valores atuais são guardados.
 4. **Registro de gravações** com **Desfazer** (a mais recente de cada fonte).
 5. **Meses fechados**: mês fechado nunca é alterado pela planilha.
+6. **Nomes não cadastrados**: para cada um (ou todos de uma vez) dá para **cadastrar agora numa equipe** (com data de admissão, já vem o 1º dia do mês em que a pessoa aparece) ou **lançar direto numa equipe sem cadastrar** (o resultado soma só na equipe, como no Indireto). Os nomes lançados direto ficam guardados (tabela `apelidos_equipe`) e nas próximas leituras já vão sozinhos para a mesma equipe. A importação do relatório da operadora também tem a opção "Lançar direto numa equipe".
 
 Modelo "Pedidos móvel": só GRUPO STATUS = EXECUTADO, no mês de MÊS/ANO CONCLUSÃO; Alta = ALTA ou MIGRAÇÃO PRÉ/PÓS; Renovação = RENOVAÇÃO ou RENOVAÇÃO POSITIVA (quantidade em QUANTIDADE LINHAS, receita em VALOR TERMO SMP); Aparelhos = QTD APARELHOS e VALOR APARELHO; NÃO CONTABILIZA nunca conta; NEO repetido soma todas as linhas; a equipe vem do sistema (histórico de equipes), não da planilha.
 
@@ -224,6 +225,7 @@ supabase/
   015_quantidade_e_receita.sql Metas e resultados em quantidade e em receita
   016_historico_equipes.sql Histórico de equipe por mês (troca de equipe)
   017_fonte_dados.sql       Fonte de dados (planilha do Google), registro com desfazer e meses fechados
+  018_nome_para_equipe.sql  Nomes de planilha que entram direto numa equipe
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado

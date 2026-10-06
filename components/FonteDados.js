@@ -8,6 +8,7 @@ const SITUACAO = {
   parecido: { rotulo: 'Nome parecido, confira', classe: 'tag-atencao' },
   ambiguo: { rotulo: 'Mais de um com esse nome', classe: 'tag-atencao' },
   novo: { rotulo: 'Não cadastrado', classe: 'tag-risco' },
+  equipe: { rotulo: 'Entra direto na equipe', classe: 'tag-acento' },
 };
 const nomeMes = (m) => { const [a, n] = m.split('-'); return `${['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(n) - 1]}/${a}`; };
 
@@ -17,6 +18,7 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
   const [decisoes, setDecisoes] = useState({});
   const [marcados, setMarcados] = useState({});
   const [resultado, setResultado] = useState(null);
+  const [lote, setLote] = useState('');
   const [lendo, iniciarLeitura] = useTransition();
   const [gravando, iniciarGravacao] = useTransition();
 
@@ -32,69 +34,116 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
   }
 
   const colabPorId = useMemo(() => new Map((dados?.colaboradores || []).map((c) => [c.id, c])), [dados]);
-  const decisao = (p) => decisoes[p.chave] || { colaborador_id: p.situacao === 'novo' ? '' : p.sugerido || '', ignorar: false };
+  const grupoPorId = useMemo(() => new Map((dados?.grupos || []).map((g) => [g.id, g])), [dados]);
+  const primeiroMes = (p) => { const ms = Object.keys(p.meses).sort(); return ms.length ? `${ms[0]}-01` : ''; };
+  // decisão de cada nome: colab (é alguém do cadastro), novo (cadastrar agora), grupo (direto na equipe), ignorar
+  const decisao = (p) => {
+    if (decisoes[p.chave]) return decisoes[p.chave];
+    if (p.situacao === 'equipe') return { tipo: 'grupo', grupo_id: p.grupoDireto };
+    if (p.situacao === 'novo') return { tipo: '', grupo_id: p.grupoSugerido || '' };
+    return { tipo: 'colab', colaborador_id: p.sugerido || '' };
+  };
+  const mudar = (p, novo) => setDecisoes((x) => ({ ...x, [p.chave]: novo }));
   const destinos = dados ? Object.entries(dados.destinos) : [];
   const mesesGravar = dados ? dados.meses.filter((m) => marcados[m.mes] && m.periodo && !m.periodo.fechado) : [];
 
-  // valores que serão gravados e comparação com o que existe
+  function aplicarLote(tipo) {
+    setDecisoes((x) => {
+      const n = { ...x };
+      dados.pessoas.filter((p) => p.situacao === 'novo').forEach((p) => {
+        n[p.chave] = tipo === 'ignorar' ? { tipo: 'ignorar' }
+          : tipo === 'grupo' ? { tipo: 'grupo', grupo_id: lote }
+          : { tipo: 'novo', nome: capitalizar(p.nome), grupo_id: lote, data_admissao: primeiroMes(p) };
+      });
+      return n;
+    });
+  }
+
   const calc = useMemo(() => {
     if (!dados) return null;
     const escopo = [];
     destinos.forEach(([, d]) => { if (d.produto) { if (d.produto.qtd) escopo.push({ produto_id: d.produto.id, medida: 'qtd' }); if (d.produto.brl) escopo.push({ produto_id: d.produto.id, medida: 'brl' }); } });
-    const novos = new Map();
-    const apelidos = [];
+    const valores = [], apelidos = [], novos = [], equipes = [];
+    const novosMap = new Map(); // chave da comparação -> valor
     dados.pessoas.forEach((p) => {
       const dc = decisao(p);
-      if (dc.ignorar || !dc.colaborador_id) return;
-      const c = colabPorId.get(dc.colaborador_id);
-      if (c && normalizar(c.nome) !== p.chave) apelidos.push({ apelido: p.nome, colaborador_id: c.id });
+      let alvo = null, ref = null;
+      if (dc.tipo === 'colab' && dc.colaborador_id) {
+        alvo = { tipo: 'colab', id: dc.colaborador_id }; ref = `c|${dc.colaborador_id}`;
+        const c = colabPorId.get(dc.colaborador_id);
+        if (c && normalizar(c.nome) !== p.chave) apelidos.push({ apelido: p.nome, colaborador_id: c.id });
+      } else if (dc.tipo === 'novo' && dc.grupo_id) {
+        alvo = { tipo: 'novo', chave: p.chave }; ref = `n|${p.chave}`;
+        novos.push({ chave: p.chave, nome: dc.nome || capitalizar(p.nome), grupo_id: dc.grupo_id, data_admissao: dc.data_admissao || primeiroMes(p) });
+      } else if (dc.tipo === 'grupo' && dc.grupo_id) {
+        alvo = { tipo: 'grupo', id: dc.grupo_id }; ref = `g|${dc.grupo_id}`;
+        equipes.push({ apelido: p.nome, grupo_id: dc.grupo_id });
+      }
+      if (!alvo) return;
       mesesGravar.forEach((m) => {
         const doMes = p.meses[m.mes] || {};
         destinos.forEach(([k, d]) => {
           if (!d.produto || !doMes[k]) return;
-          const add = (medida, v) => { const ch = `${m.periodo.id}|${dc.colaborador_id}|${d.produto.id}|${medida}`; novos.set(ch, (novos.get(ch) || 0) + v); };
+          const add = (medida, v) => {
+            valores.push({ periodo_id: m.periodo.id, alvo, produto_id: d.produto.id, medida, valor: v });
+            const ch = `${m.periodo.id}|${ref}|${d.produto.id}|${medida}`;
+            novosMap.set(ch, (novosMap.get(ch) || 0) + v);
+          };
           if (d.produto.qtd) add('qtd', doMes[k].qtd);
           if (d.produto.brl) add('brl', doMes[k].valor);
         });
       });
     });
     const perIds = new Set(mesesGravar.map((m) => m.periodo.id));
-    const atuais = new Map(dados.atuais.filter((a) => perIds.has(a.periodo_id) && escopo.some((e) => e.produto_id === a.produto_id && e.medida === a.medida))
-      .map((a) => [`${a.periodo_id}|${a.colaborador_id}|${a.produto_id}|${a.medida}`, Number(a.valor)]));
+    const naEscopo = (a) => perIds.has(a.periodo_id) && escopo.some((e) => e.produto_id === a.produto_id && e.medida === a.medida);
+    const gruposFonte = new Set([...(dados.gruposDiretos || []), ...equipes.map((e) => e.grupo_id)]);
+    const atuais = new Map([
+      ...dados.atuais.filter(naEscopo).map((a) => [`${a.periodo_id}|c|${a.colaborador_id}|${a.produto_id}|${a.medida}`, Number(a.valor)]),
+      ...(dados.atuaisGrupo || []).filter((a) => naEscopo(a) && gruposFonte.has(a.grupo_id)).map((a) => [`${a.periodo_id}|g|${a.grupo_id}|${a.produto_id}|${a.medida}`, Number(a.valor)]),
+    ]);
     const mudancas = [];
     let iguais = 0;
-    new Set([...novos.keys(), ...atuais.keys()]).forEach((ch) => {
-      const n = Math.round((novos.get(ch) || 0) * 100) / 100;
+    new Set([...novosMap.keys(), ...atuais.keys()]).forEach((ch) => {
+      const n = Math.round((novosMap.get(ch) || 0) * 100) / 100;
       const a = atuais.has(ch) ? atuais.get(ch) : null;
       if (a !== null && Math.abs(a - n) < 0.005) { iguais++; return; }
       if (a === null && n === 0) return;
-      const [pid, cid, prod, medida] = ch.split('|');
-      mudancas.push({ pid, cid, prod, medida, antes: a, depois: n });
+      const [pid, tipo, id, prod, medida] = ch.split('|');
+      mudancas.push({ pid, tipo, id, prod, medida, antes: a, depois: n });
     });
-    const valores = [...novos.entries()].map(([ch, valor]) => { const [periodo_id, colaborador_id, produto_id, medida] = ch.split('|'); return { periodo_id, colaborador_id, produto_id, medida, valor }; });
-    return { escopo, valores, apelidos, mudancas, iguais };
+    return { escopo, valores, apelidos, novos, equipes, mudancas, iguais };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dados, decisoes, marcados]);
 
-  const pendentes = dados ? dados.pessoas.filter((p) => { const d = decisao(p); return !d.ignorar && !d.colaborador_id; }).length : 0;
+  const pendentes = dados ? dados.pessoas.filter((p) => {
+    const d = decisao(p);
+    if (d.tipo === 'ignorar') return false;
+    if (d.tipo === 'colab') return !d.colaborador_id;
+    if (d.tipo === 'novo' || d.tipo === 'grupo') return !d.grupo_id;
+    return true;
+  }).length : 0;
   const nomeProd = (id) => destinos.find(([, d]) => d.produto?.id === id)?.[1].produto.nome || '';
   const nomePer = (id) => dados?.meses.find((m) => m.periodo?.id === id)?.periodo.nome || '';
+  const nomeAlvo = (m) => (m.tipo === 'c' ? capitalizar(colabPorId.get(m.id)?.nome || '—') : m.tipo === 'g' ? `Equipe ${grupoPorId.get(m.id)?.nome.split(' / ').pop() || ''}` : `${capitalizar(dados.pessoas.find((p) => p.chave === m.id)?.nome || '')} (novo)`);
 
   function gravar() {
     if (!calc) return;
     const zerados = calc.mudancas.filter((m) => m.depois === 0).length;
-    if (!window.confirm(`Gravar ${mesesGravar.map((m) => m.periodo.nome).join(', ')}? ${calc.mudancas.length} valores vão mudar${zerados ? ` (${zerados} ficam zerados)` : ''}. Dá para desfazer depois.`)) return;
+    if (!window.confirm(`Gravar ${mesesGravar.map((m) => m.periodo.nome).join(', ')}? ${calc.mudancas.length} valores vão mudar${zerados ? ` (${zerados} ficam zerados)` : ''}${calc.novos.length ? ` e ${calc.novos.length} pessoas serão cadastradas` : ''}. Dá para desfazer os resultados depois.`)) return;
     iniciarGravacao(async () => {
       const r = await aplicarFonte({
         fonte_id: fonte.id, url: fonte.url,
         periodos: mesesGravar.map((m) => m.periodo.id),
-        valores: calc.valores, escopo: calc.escopo, apelidos: calc.apelidos,
+        valores: calc.valores, escopo: calc.escopo, apelidos: calc.apelidos, novos: calc.novos, equipes: calc.equipes,
+        gruposDiretos: dados.gruposDiretos || [],
         resumo: { mudancas: calc.mudancas.length, iguais: calc.iguais, contagem: dados.contagem },
       });
       setResultado(r);
       if (r?.ok) setDados(null);
     });
   }
+
+  const paraConferir = dados ? dados.pessoas.filter((p) => p.situacao !== 'encontrado') : [];
 
   return (
     <div className="fonte-previa">
@@ -112,7 +161,6 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
             Lido agora: {dados.contagem.total} linhas na planilha, <b>{dados.contagem.contadas} contadas</b> (EXECUTADO),
             {' '}{dados.contagem.naoExecutadas} ainda não executadas e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
           </p>
-
           {destinos.some(([, d]) => !d.produto) && <p className="msg msg-erro">Escolha o produto do sistema de cada resultado (em "Configurar a fonte") antes de gravar.</p>}
           {destinos.filter(([, d]) => d.produto && !d.produto.brl).map(([k, d]) => <p key={k} className="dica">{d.produto.nome} está só em quantidade no cadastro: a receita da planilha será ignorada. Para guardar a receita, marque o produto como "Quantidade e receita".</p>)}
 
@@ -135,26 +183,64 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
             </table>
           </div>
 
-          {dados.pessoas.some((p) => p.situacao !== 'encontrado') && (
+          {paraConferir.length > 0 && (
             <>
               <h3 style={{ margin: '16px 0 8px' }}>Nomes para conferir</h3>
+              {dados.pessoas.some((p) => p.situacao === 'novo') && (
+                <div className="bloco campos" style={{ marginBottom: 10 }}>
+                  <label className="campo">Todos os não cadastrados
+                    <select value={lote} onChange={(e) => setLote(e.target.value)}>
+                      <option value="">Escolha a equipe</option>
+                      {dados.grupos.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
+                    </select>
+                  </label>
+                  <button type="button" className="btn btn-sec" disabled={!lote} onClick={() => aplicarLote('novo')}>Cadastrar todos nessa equipe</button>
+                  <button type="button" className="btn btn-sec" disabled={!lote} onClick={() => aplicarLote('grupo')}>Lançar todos direto nessa equipe</button>
+                  <button type="button" className="btn btn-sec" onClick={() => aplicarLote('ignorar')}>Ignorar todos</button>
+                </div>
+              )}
               <div className="tabela-wrap">
                 <table>
-                  <thead><tr><th>Nome na planilha</th><th className="esq">Situação</th><th className="esq">É quem no sistema</th></tr></thead>
+                  <thead><tr><th>Nome na planilha</th><th className="esq">Situação</th><th className="esq">O que fazer</th></tr></thead>
                   <tbody>
-                    {dados.pessoas.filter((p) => p.situacao !== 'encontrado').map((p) => {
+                    {paraConferir.map((p) => {
                       const d = decisao(p);
                       return (
-                        <tr key={p.chave} className={d.ignorar ? 'inativo' : ''}>
+                        <tr key={p.chave} className={d.tipo === 'ignorar' ? 'inativo' : ''}>
                           <td>{p.nome}<span className="nome-sub">{p.equipe}</span></td>
-                          <td className="esq"><span className={`tag ${SITUACAO[p.situacao].classe}`}>{SITUACAO[p.situacao].rotulo}</span></td>
+                          <td className="esq"><span className={`tag ${SITUACAO[p.situacao]?.classe || ''}`}>{SITUACAO[p.situacao]?.rotulo}</span></td>
                           <td className="esq">
-                            <div className="campos" style={{ flexWrap: 'nowrap' }}>
-                              <select value={d.ignorar ? '__ignorar' : d.colaborador_id} onChange={(e) => setDecisoes((x) => ({ ...x, [p.chave]: e.target.value === '__ignorar' ? { ignorar: true, colaborador_id: '' } : { ignorar: false, colaborador_id: e.target.value } }))} aria-label={`Quem é ${p.nome}`} style={{ maxWidth: 320 }}>
-                                <option value="">Escolha o colaborador</option>
-                                <option value="__ignorar">Ignorar (não gravar)</option>
-                                {dados.colaboradores.map((c) => <option key={c.id} value={c.id}>{capitalizar(c.nome)}{c.ativo ? '' : ' (desligado)'}</option>)}
+                            <div className="campos" style={{ flexWrap: 'wrap' }}>
+                              <select value={d.tipo} onChange={(e) => {
+                                const t = e.target.value;
+                                mudar(p, t === 'colab' ? { tipo: 'colab', colaborador_id: p.sugerido || '' }
+                                  : t === 'novo' ? { tipo: 'novo', nome: capitalizar(p.nome), grupo_id: d.grupo_id || p.grupoSugerido || '', data_admissao: primeiroMes(p) }
+                                  : t === 'grupo' ? { tipo: 'grupo', grupo_id: d.grupo_id || p.grupoSugerido || '' }
+                                  : { tipo: t });
+                              }} aria-label={`O que fazer com ${p.nome}`}>
+                                <option value="" disabled>Escolha</option>
+                                <option value="colab">É alguém do cadastro</option>
+                                <option value="novo">Cadastrar agora numa equipe</option>
+                                <option value="grupo">Lançar direto numa equipe (sem cadastrar)</option>
+                                <option value="ignorar">Ignorar</option>
                               </select>
+                              {d.tipo === 'colab' && (
+                                <select value={d.colaborador_id || ''} onChange={(e) => mudar(p, { ...d, colaborador_id: e.target.value })} aria-label="Colaborador" style={{ maxWidth: 280 }}>
+                                  <option value="">Escolha o colaborador</option>
+                                  {dados.colaboradores.map((c) => <option key={c.id} value={c.id}>{capitalizar(c.nome)}{c.ativo ? '' : ' (desligado)'}</option>)}
+                                </select>
+                              )}
+                              {(d.tipo === 'novo' || d.tipo === 'grupo') && (
+                                <select value={d.grupo_id || ''} onChange={(e) => mudar(p, { ...d, grupo_id: e.target.value })} aria-label="Equipe" style={{ maxWidth: 280 }}>
+                                  <option value="">Escolha a equipe</option>
+                                  {dados.grupos.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
+                                </select>
+                              )}
+                              {d.tipo === 'novo' && (
+                                <label className="dica" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>admissão
+                                  <input type="date" value={d.data_admissao || ''} onChange={(e) => mudar(p, { ...d, data_admissao: e.target.value })} aria-label="Data de admissão" />
+                                </label>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -163,7 +249,9 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
                   </tbody>
                 </table>
               </div>
-              <p className="dica" style={{ marginTop: 6 }}>Quem não está cadastrado precisa ser admitido em Equipes e colaboradores (com a data de admissão) para entrar; até lá, escolha "Ignorar". O vínculo de nomes diferentes fica guardado para as próximas leituras.</p>
+              <p className="dica" style={{ marginTop: 6 }}>
+                <b>Cadastrar agora</b> cria a pessoa na equipe (aparece no painel, nas metas e no organograma). <b>Lançar direto na equipe</b> soma o resultado só na equipe, sem criar a pessoa (bom para o Indireto); o sistema lembra disso nas próximas leituras.
+              </p>
             </>
           )}
 
@@ -184,16 +272,16 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
             <>
               <h3 style={{ margin: '16px 0 8px' }}>O que vai mudar no sistema</h3>
               <p className="dica" style={{ marginBottom: 8 }}>
-                {calc.mudancas.length} valores mudam, {calc.iguais} ficam iguais. Nos meses marcados, {destinos.filter(([, d]) => d.produto).map(([, d]) => d.produto.nome).join(', ')} passam a ser exatamente o que está na planilha: quem tinha resultado lançado e não aparece nela fica zerado.
+                {calc.mudancas.length} valores mudam, {calc.iguais} ficam iguais{calc.novos.length ? `, ${calc.novos.length} pessoas serão cadastradas` : ''}. Nos meses marcados, {destinos.filter(([, d]) => d.produto).map(([, d]) => d.produto.nome).join(', ')} passam a ser exatamente o que está na planilha: quem tinha resultado lançado e não aparece nela fica zerado.
               </p>
               {calc.mudancas.length > 0 && (
                 <div className="tabela-wrap" style={{ maxHeight: 360 }}>
                   <table>
-                    <thead><tr><th>Colaborador</th><th className="esq">Mês</th><th className="esq">Produto</th><th>Antes</th><th>Depois</th></tr></thead>
+                    <thead><tr><th>Quem</th><th className="esq">Mês</th><th className="esq">Produto</th><th>Antes</th><th>Depois</th></tr></thead>
                     <tbody>
                       {calc.mudancas.slice(0, 300).map((m, i) => (
                         <tr key={i}>
-                          <td>{capitalizar(colabPorId.get(m.cid)?.nome || '—')}</td>
+                          <td>{nomeAlvo(m)}</td>
                           <td className="esq">{nomePer(m.pid)}</td>
                           <td className="esq">{nomeProd(m.prod)} ({m.medida === 'brl' ? 'R$' : 'qtd'})</td>
                           <td className="fraco">{m.antes === null ? '—' : fmtValor(m.antes, m.medida, 2)}</td>
