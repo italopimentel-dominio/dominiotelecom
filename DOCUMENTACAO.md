@@ -1,257 +1,287 @@
-# Metas da Equipe: documentação
+# Duomni | Metas e Controle: documentação
 
-Sistema para cadastrar e acompanhar as metas de Televendas, Consultivo e Indireto, substituindo a planilha "Meta [mês]".
+> **Para continuar em uma conversa nova:** envie este arquivo e o último `metas-equipe.zip`. Tudo o que é preciso para continuar de onde parou está aqui: como o sistema funciona, onde fica cada coisa, regras de negócio, banco e forma de publicar.
 
-Stack: Next.js 15 (App Router) + Supabase (banco e login) + Vercel (hospedagem) + GitHub (código, deploy automático a cada commit na `main`).
+Sistema web da Duomni (Vivo, canal direto e indireto) para metas e resultados das equipes **Consultivo, Televendas e Indireto**. Substituiu a planilha "Meta [mês]".
 
-## Como o sistema é organizado
+---
 
-**Canais e equipes (árvore).** Tudo é um "grupo" que pode ficar dentro de outro: `Televendas > São Paulo > Paloma SP`. Não há limite de níveis. A meta é lançada só nas equipes da ponta (ex.: supervisores, Indireto). Quem tem equipes ativas abaixo (regionais e canais) tem a meta calculada como **soma** delas: Campinas = soma dos supervisores de Campinas, Televendas = Campinas + São Paulo + Inbound. Na tela Metas essas linhas aparecem em negrito, sem campo para digitar.
+## 1. Visão geral
 
-**Tela Equipes e colaboradores.** A página inicial mostra só as equipes, em cartões por canal (pessoas ativas e entradas/saídas do mês), a busca de pessoa e os botões **+ Cadastrar pessoa** e **+ Nova equipe** (cada um abre uma tela própria). Clicando numa equipe abre a página dela: pessoas (Ativos/Desligados, com Editar para corrigir ou transferir e Desligar com data), equipes que ficam dentro dela, botão Admitir nesta equipe e ⚙ Configurar a equipe (nome, onde fica, ordem, criar equipe dentro, inativar). A cota da meta aparece como Cota cheia, Meia cota ou Sem meta (peso 1, 0,5 e 0).
-
-**Troca de equipe com histórico.** Na página da equipe, cada pessoa tem **Trocar de equipe** (nova equipe + mês em que começa) e há **Trocar várias pessoas de equipe** para mudanças em lote. A troca vale a partir do mês escolhido: os meses anteriores continuam contando para a equipe antiga (metas e resultados não mudam de lugar), e do mês escolhido em diante a pessoa conta na equipe nova. Trocas futuras aparecem como "→ vai para Felipe a partir de nov/2026", com opção de desfazer. O histórico fica na tabela `colaborador_equipes`; telas de um mês usam a equipe daquele mês e as demais usam a equipe de hoje. (Editar não troca mais a equipe, para não mexer no passado.)
-
-**Admissão e desligamento.** Desligar um colaborador pede a data de desligamento. Em cada mês, o colaborador só aparece se esteve na casa em algum dia daquele mês (entre admissão e desligamento); meses anteriores continuam mostrando a pessoa e os resultados dela normalmente. Quem entra ou sai no meio do fechamento recebe meta proporcional aos dias úteis em que esteve na casa (ex.: entrou dia 16, 11 de 21 dias úteis = 52% da cota), sem precisar mexer no peso. O realizado de quem saiu continua somando na equipe. Reativar apaga a data de desligamento.
-
-**Colaboradores.** Pertencem a um grupo, têm data de admissão (o sistema mostra o tempo de casa no cadastro, na tela da equipe e na página do colaborador; quem tem menos de 3 meses aparece como "novo") e têm um **peso** (1 = cota cheia, 0,5 = meia cota, 0 = sem meta). A meta do grupo é dividida entre os colaboradores ativos do próprio grupo, proporcional ao peso. Na tela da equipe dá para **fixar** a meta de alguém; o restante é dividido entre os outros. Em produtos de quantidade a divisão usa números inteiros que somam exatamente a meta.
-
-**Realizado.** Lançado por colaborador (tela da equipe). Para grupos sem colaboradores (ex.: Indireto) é lançado direto no grupo. O realizado de um grupo é a soma de tudo que está abaixo dele.
-
-**Quantidade e receita.** Cada produto pode ser medido em quantidade, em receita (R$) ou nas duas. Metas, metas fixas, resultados (à mão e na importação) e a meta da empresa são guardados separados por medida. O botão **# Quantidade | R$ Receita** no topo do Painel, Quadro de metas, tela da equipe, do colaborador, Headcount e Resumo da empresa troca a visão de todas essas telas de uma vez (a escolha fica salva no navegador). Na visão de quantidade aparecem os produtos com quantidade; na de receita, os produtos com receita. Na importação, um produto com as duas medidas aparece duas vezes (quantidade e R$); a coluna de receita é reconhecida quando o cabeçalho tem "receita", "valor" ou "R$".
-
-**Produtos.** Têm medida (quantidade, receita ou as duas) e um código de **fechamento** (ex.: `GERAL`, `FIBRA`).
-
-**Produto soma (ex.: Total de produtos).** Um produto do tipo "Soma de produtos" recebe uma meta única (ex.: 200) e o realizado dele é calculado sozinho somando os produtos escolhidos (ex.: Alta Móvel + Alta Fibra + Reno Móvel), com peso opcional (2 = conta em dobro). Não se lança realizado nele: lança-se nos produtos de origem (à mão ou pela importação). Painel, tela da equipe e do colaborador mostram a composição (ex.: 10 Alta Fibra, 40 Reno Móvel, 30 Alta Móvel) e, na equipe, uma barra colorida com a participação de cada produto. Dá para usar só a soma no Televendas (deixando as metas por produto em branco) ou as duas coisas juntas.
-
-**Novo mês.** Na tela Metas, em "Criar metas de outro mês": escolha o mês e de qual mês copiar as metas (inclusive as metas fixas de colaboradores); o sistema cria e já abre o mês novo. Também dá para copiar metas de outro mês para o mês aberto. Na grade, o cabeçalho dos produtos e a coluna de equipes ficam fixos ao rolar.
-
-**Dentro/fora da meta.** Na tela da equipe, abaixo da quantidade de colaboradores ativos, aparece quantos estão dentro da meta (já bateram ou estão no ritmo esperado até hoje) e fora (abaixo do ritmo), em quantidade e percentual, no produto selecionado, contando também as equipes abaixo.
-
-**Períodos e fechamentos.** Cada mês é um período. Ao criar o mês, o sistema cria um fechamento para cada código usado pelos produtos, do dia 1 ao último dia do mês; ajuste as datas se Fibra fechar em outro dia. O acréscimo da necessidade bruta (padrão 30%) é configurado por mês.
-
-**Feriados.** Os nacionais são calculados automaticamente para qualquer ano (incluindo Sexta-feira Santa, Carnaval e Corpus Christi, que dependem da Páscoa, e Consciência Negra). Em "Feriados" é possível:
-- ligar/desligar Carnaval e Corpus Christi e considerar sábado como dia útil;
-- cadastrar feriados estaduais/municipais para todos ou só para uma equipe (vale também para as equipes abaixo dela);
-- cadastrar "dia útil extra" (sábado trabalhado, feriado em que a operação funciona).
-
-**Menu lateral.** O grupo **Metas** reúne Painel, Quadro de metas, Importar resultados e Headcount. O botão no topo do menu recolhe a barra para uma faixa só de ícones (passe o mouse para ver o nome); a escolha fica salva no navegador. Os cadastros (equipes, produtos, períodos, feriados, usuários) ficam agrupados em "Cadastros", que abre e fecha. Minha senha e Sair ficam no rodapé, ao lado do nome.
-
-**Organograma.** Menu próprio com a estrutura comercial desenhada: Comercial Duomni > canais > regionais > equipes, com os colaboradores ativos dentro de cada equipe (primeiro e último nome, cor por pessoa, etiqueta "novo" para menos de 3 meses). Abas por canal, zoom (−, +, ajustar à tela) e impressão (Ctrl+P esconde o menu). Clicar numa equipe ou pessoa abre as metas dela. É montado automaticamente a partir do cadastro de equipes e colaboradores.
-
-Há duas visões: **Por liderança** (padrão, quando há cargos cadastrados) e **Por canal** (estrutura de metas). Na visão por liderança, em **Editar cargos** (Editor/Administrador) você cadastra as pessoas de liderança (nome, cargo, a quem responde, admissão) e marca quais equipes cada uma lidera diretamente; os colaboradores dessas equipes aparecem dentro do cartão do líder. Exemplo: Diretor comercial > Gerente de Campinas > (Supervisor consultivo, que lidera Consultivo/Campinas) e (Coordenador de televendas > Supervisores de televendas, cada um liderando a sua equipe). Os cargos não mexem nas metas. Equipes com gente e sem líder vinculado aparecem numa lista abaixo do desenho para não ficarem esquecidas.
-
-**Colaboradores.** Na tela de cada equipe, o nome do colaborador abre a página dele, com meta individual, realizado e ritmo de cada produto.
-
-**Importar o relatório da operadora (vários arquivos de uma vez).** Em Importar resultados > aba "Relatório da operadora": selecione todos os arquivos exportados do BI (ex.: alta_movel_qtd.xlsx, alta_movel_receita.xlsx...). O sistema:
-- lê o formato do relatório (CANAL, mCANAL2 unidade, mCANAL3 setor, mCANAL4 equipe, CONSULTOR, EXECUTADO, M-1, M-2, M-3), ignorando as linhas "Total";
-- descobre o produto pelo nome do arquivo (entende "básica" = fibra e "renova" = reno) e a medida (quantidade/receita) e o mês pelo rodapé "Filtros aplicados";
-- inclui consultores independentes e põe o total dos canais sem consultor (ex.: CANAL INDIRETO) direto numa equipe;
-- sugere a equipe de quem não está cadastrado pelo nome do supervisor ("EQUIPE VITOR HENRIQUE");
-- opcionalmente traz o histórico dos 3 meses anteriores (M-1, M-2, M-3) para os meses que existem no sistema;
-- mostra a conferência "total do relatório x total que vai entrar" de cada arquivo antes de gravar.
-No modo Substituir, quem aparece no relatório sem número fica com zero no mês (a base fica igual ao relatório).
-
-**Importar resultados (Excel/CSV).** Menu Importar resultados, só para Editor e Administrador:
-1. Escolha o período e o arquivo (.xlsx, .xls ou .csv, inclusive CSV com ponto e vírgula).
-2. O sistema acha sozinho a linha do cabeçalho, a coluna de nome, a de equipe (opcional) e a coluna de cada produto, comparando os nomes (ex.: "ALTAS MÓVEIS" = "Alta Móvel"). Tudo pode ser ajustado.
-3. Escolha entre substituir o realizado (planilha com o acumulado do mês) ou somar (planilha de um dia/semana).
-4. Cada nome da planilha aparece como Encontrado, Nome parecido (confira), Mais de um com esse nome ou Não cadastrado. Para cada um: vincular a um colaborador existente, cadastrar como novo (escolhendo a equipe) ou ignorar. Há atalho para cadastrar todos os não cadastrados numa equipe.
-5. Linhas repetidas do mesmo nome são somadas; linhas que começam com "Total" são ignoradas.
-6. Quando um nome diferente é vinculado (ex.: "JOAO S." a "João Silva"), o sistema guarda esse apelido e reconhece sozinho na próxima importação (tabela `colaborador_apelidos`).
-
-O arquivo é lido no navegador; só os números conferidos são enviados ao banco.
-
-## Fonte de dados (planilha do Google)
-
-Menu Metas > Fonte de dados (Editor/Administrador). Liga uma planilha do Google (compartilhada como "qualquer pessoa com o link pode ver") ao sistema, sem upload manual:
-1. **Cadastrar a fonte**: nome, link e em qual produto do sistema entra cada resultado (Alta, Renovação, Aparelhos). O link pode ser trocado quando a planilha mudar.
-2. **Ler planilha agora (prévia)**: o servidor baixa a planilha na hora e mostra, sem gravar: meses encontrados (e se existem/estão fechados), totais por produto em quantidade e R$, nomes para conferir (vincular ou ignorar; vínculos ficam guardados), pendências (executadas sem valor, sem mês) e a lista do que muda (antes → depois).
-3. **Gravar no sistema**: nos meses marcados, os produtos da fonte passam a ser exatamente o que está na planilha (quem tinha resultado e não aparece fica zerado). Antes de gravar, os valores atuais são guardados.
-4. **Registro de gravações** com **Desfazer** (a mais recente de cada fonte).
-5. **Meses fechados**: mês fechado nunca é alterado pela planilha.
-6. **Nomes não cadastrados**: para cada um (ou todos de uma vez) dá para **cadastrar agora numa equipe** (com data de admissão, já vem o 1º dia do mês em que a pessoa aparece) ou **lançar direto numa equipe sem cadastrar** (o resultado soma só na equipe, como no Indireto). Os nomes lançados direto ficam guardados (tabela `apelidos_equipe`) e nas próximas leituras já vão sozinhos para a mesma equipe. A importação do relatório da operadora também tem a opção "Lançar direto numa equipe".
-
-Modelo "Pedidos móvel": só GRUPO STATUS = EXECUTADO, no mês de MÊS/ANO CONCLUSÃO; Alta = ALTA ou MIGRAÇÃO PRÉ/PÓS; Renovação = RENOVAÇÃO ou RENOVAÇÃO POSITIVA (quantidade em QUANTIDADE LINHAS, receita em VALOR TERMO SMP); Aparelhos = QTD APARELHOS e VALOR APARELHO; NÃO CONTABILIZA nunca conta; NEO repetido soma todas as linhas; a equipe vem do sistema (histórico de equipes), não da planilha.
-
-## Resumo da empresa
-
-Menu Metas > Resumo da empresa. Junta a visão geral sem duplicar dados:
-- **Meta da empresa** (a meta "de cima", por indicador e mês): único número novo, lançado na própria tela (com cópia do mês anterior).
-- **Meta distribuída**: soma do Quadro de metas dos canais. Para um produto soma sem meta própria, é a soma das metas dos produtos que o compõem.
-- **Folga**: quanto a distribuída está acima/abaixo da meta da empresa.
-- **% de atingimento por canal**: realizado ÷ meta distribuída do canal (verde: bateu; amarelo: perto do ritmo; vermelho: abaixo).
-- **% de participação**: parte da meta da empresa que está com o canal (exigência) x parte do resultado que veio dele; ▲ quando traz mais do que a parte dele.
-- Botão para abrir unidades/equipes de cada canal (Campinas, São Paulo, Inbound, Hunter, Farmer...).
-- **Histórico**: % atingido de cada indicador nos últimos 12 meses (sobre a meta da empresa, ou a distribuída com *). Clicar num mês abre o resumo dele para ajustar.
-
-Os indicadores podem ser escolhidos na própria tela (⚙ Escolher os indicadores deste resumo, Editor/Administrador, vale para todos). Sem escolha, aparecem automaticamente as somas (ex.: Receitas altas em R$ = Alta Móvel + Alta Básica + VADA) e os produtos que não estão dentro de nenhuma soma. Somas podem ser em quantidade ou em R$.
-
-## Preparador de material (só Administrador)
-
-Menu Preparador de material. Sobe-se a base de clientes (ex.: 50 mil linhas) e tudo é processado no navegador, sem enviar a planilha ao servidor nem gravar no Supabase.
-- **Filtros prontos** para as colunas usadas: Situação na Receita (já vem só ATIVA), Produtos, Meses de contrato móvel/fixa (entre X e Y, tem, não tem), Apto a renovação, Pedidos em andamento, Linhas móveis, Consultor da última venda, Porte, Fibra (QT_BASICA_BL), Velocidade, Débito móvel/fixa, BL B2C, Disponibilidade de fibra, VVN e Crédito de aparelho. Dá para adicionar filtro por qualquer outra coluna. Os filtros se somam (todos precisam ser verdadeiros) e o contador mostra quantos clientes sobram.
-- **Filtros salvos**: dá para salvar uma combinação com nome (fica guardada no navegador) e reaplicar no mês seguinte.
-- **Material**: colunas de identificação (CNPJ formatado, cliente, capital social, faturamento, funcionários, contato, endereço montado numa célula só, e-mail e telefones formatados), opção de juntar todos os telefones numa coluna sem repetidos e de incluir as colunas dos filtros.
-- **Separar**: tudo numa aba, uma aba para cada valor de uma coluna (ex.: por consultor) com aba de resumo, ou lotes de N clientes. Baixa em Excel (com aba "Filtros usados") ou CSV.
-
-## Headcount
-
-Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado da **meta geral** (média do % atingido em cada produto com meta, juntando quantidade e R$) e de quantos colaboradores estão dentro da meta geral (% geral igual ou acima do esperado até hoje), em número e %. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. Filtro por supervisor com várias escolhas (equipes da ponta; quando a equipe tem líder cadastrado no organograma, aparece o nome dele). A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.
-
-## Campanhas
-
-Menu Campanhas, para desafios com regras próprias (independentes das metas):
-- **Cadastro:** nome, datas, prêmio, regras (texto), quem participa (colaboradores ou equipes), se o alvo é de cada participante ou a soma de todos (coletiva), e os itens com alvo (ex.: Móveis 10, Fibras 5). Itens são texto livre.
-- **Participantes:** inclua uma equipe inteira (pega todos os ativos dela e das de baixo) ou pessoa por pessoa.
-- **Resultados:** lançados à mão numa grade participante x item (acumulado).
-- **Visuais (troca com um clique, sem perder nada):** 🏁 Corrida (carrinhos numa pista até a bandeira quadriculada), 🚀 Foguete (foguetes subindo até a lua), 🏆 Pódio (top 3 com medalhas e ranking), 🌡️ Termômetro (meta coletiva enchendo). Confete quando alguém completa. O progresso de cada um é a média do % atingido em cada item.
-- **Personalizar o visual** (Editor/Administrador, na página da campanha): imagem de capa (banner), foto do prêmio (vira a linha de chegada, a lua do foguete, o topo do pódio e do termômetro), cor da campanha, personagens (carros, motos, cavalos, bichos, corredores, naves ou um emoji próprio), frase de motivação e fotos dos participantes (a foto fica no cadastro do colaborador e aparece também no organograma). As imagens ficam na pasta pública `midia` do Supabase Storage (até 5 MB cada).
-- **Modo TV:** tela cheia para deixar numa TV da operação, atualiza sozinha a cada minuto.
-
-Permissão: todos veem; Editor e Administrador criam e lançam.
-
-## Controle Indireto
-
-Menu próprio para acompanhar os parceiros do canal Indireto.
-
-- **Parceiros:** nome fantasia, razão social/nome completo, CPF ou CNPJ (validado; o sistema reconhece pelo número de dígitos), data de ativação (preenchida com a data do dia ao marcar como Ativo, se estiver vazia), código/PDV, status (prospecção, em onboarding, ativo, inativo), cidade/UF, endereço, contato, telefone, e-mail, ponto focal responsável, início da parceria e observações.
-- **Treinamentos:** onboarding, telecom e serviços, cada um com data, status (agendado, realizado, cancelado), quem aplicou e observação. A situação de cada tipo aparece como Realizado, Agendado, Sem registro (agendado com data passada) ou Pendente.
-- **Apontamentos:** histórico de anotações do ponto focal, com autor, data e hora. Não dá para editar depois; só quem escreveu (ou um administrador) pode apagar.
-- **Histórico de alterações:** toda mudança no cadastro fica registrada no banco (quem, quando, campo, antes e depois), inclusive as feitas pelo formulário. Fica no fim da página do parceiro.
-- **Lista:** filtros por busca (nome, cidade, CPF/CNPJ, contato), status, validação, mês de ativação, formulário respondido, ponto focal ("só os meus") e treinamento pendente; resumo no topo e agenda dos próximos 14 dias.
-
-- **Formulário Google de treinamento:** um Apps Script no formulário envia cada resposta para `/api/forms`. O sistema acha o parceiro pelo CPF/CNPJ (ou pelo e-mail) nas respostas e então: marca "Formulário: Respondeu", registra o treinamento como realizado e **valida o parceiro automaticamente**. O gerente pode **desvalidar** depois. Respostas sem parceiro encontrado aparecem na lista, em "Respostas do formulário sem parceiro", para vincular ou ignorar.
-- **Validação pelo gerente:** todo parceiro cadastrado por um ponto focal entra como "Aguardando validação". O gerente aprova ou reprova (com motivo obrigatório); a decisão fica registrada nos apontamentos. Se o ponto focal alterar um cadastro já validado ou reprovado, ele volta sozinho para "Aguardando validação". Essas regras ficam no banco: só gerente/administrador consegue mudar a validação.
-
-Permissão própria (tela Usuários, coluna Controle Indireto), independente da permissão de metas:
-
-| Permissão | Pode |
+| Item | Valor |
 |---|---|
-| Sem acesso | não vê o menu |
-| Visualiza | consulta |
-| Ponto focal (cadastra) | cadastra parceiros, treinamentos e apontamentos |
-| Gerente (valida) | tudo do ponto focal + aprova ou reprova cadastros |
+| Site | `https://dominiotelecom.vercel.app` |
+| Código | GitHub, repositório `dominiotelecom` (conta italopimentel-dominio) |
+| Banco e login | Supabase, projeto `ggtmjlklfmggdtrlnews` (plano gratuito: pausa após 7 dias sem uso) |
+| Hospedagem | Vercel (plano Hobby), deploy automático a cada commit na `main` |
+| Tecnologia | Next.js 15.5 (App Router, JavaScript, Server Actions), React 19, `@supabase/ssr`, SheetJS (`xlsx` 0.18.5), CSS próprio (sem Tailwind) |
+| Identidade | Roxo `#6B40E7`, menu `#121018`, fontes Outfit (títulos) e Archivo (texto). Logos em `public/` |
 
-Administrador pode tudo, inclusive excluir parceiros.
+### 1.1 Como o dono do projeto publica
 
-### Configurar o Formulário Google
+O usuário **não usa terminal**. O fluxo é:
 
-1. Na Vercel, crie a variável `FORMS_WEBHOOK_SECRET` com um texto longo inventado (ex.: `duomni-forms-8f3k2...`) e faça Redeploy.
-2. No formulário, garanta uma pergunta de **CPF ou CNPJ** (é por ela que o parceiro é encontrado).
-3. No editor do formulário: ⋮ > **Editor de scripts**. Apague o conteúdo e cole o arquivo `integracoes-google-forms.gs`. Troque `SEGREDO` pelo mesmo texto do passo 1 e, se precisar, `TIPO_TREINAMENTO` (onboarding, telecom ou servicos) e `URL_SISTEMA`. Salve.
-4. Em **Acionadores** (relógio): Adicionar acionador > função `aoEnviar` > origem "Do formulário" > evento "Ao enviar formulário". Autorize com a conta dona do formulário.
-5. Para as respostas que já existem: selecione `enviarTodas` e clique em Executar uma vez. Respostas repetidas são ignoradas.
+1. Claude entrega um `metas-equipe.zip` com o projeto inteiro (sem `node_modules` e `.next`) e, quando houver, um arquivo `supabase/0NN_*.sql`.
+2. **SQL primeiro:** o usuário roda o SQL novo no SQL Editor do Supabase.
+3. **Depois o zip:** o usuário sobe o zip no GitHub ("Add file > Upload files"). Uma GitHub Action (`.github/workflows/descompactar.yml`, criada pelo usuário, **não vem no zip**) descompacta, apaga o zip e faz commit. A Vercel publica sozinha.
+4. Arquivos que existem no GitHub e não estão no zip (a Action, `vercel.json` com `{ "framework": "nextjs" }`) **continuam lá**: a Action só copia por cima.
 
-Se houver um formulário para cada treinamento, repita os passos em cada um, mudando `TIPO_TREINAMENTO`.
+Regras de trabalho para Claude:
+- Sempre rodar `next build` antes de entregar, com variáveis falsas. Testar regras de negócio com scripts Node em `/tmp`. Testar SQL num Postgres local com um mock de `auth.users`, `auth.uid()` e dos papéis `authenticated`, `anon` e `service_role` (com `bypassrls`), rodando duas vezes para garantir que pode repetir.
+- SQL sempre **aditivo e repetível** (`if not exists`, `drop policy if exists`). Nunca apagar dados existentes.
+- Dizer claramente se a entrega tem SQL e em que ordem. O usuário sempre pergunta se "vai desconfigurar algo": responder com o que muda na tela e o que muda nos dados.
+- Respostas em português, diretas.
 
-## Cálculos
+### 1.2 Variáveis de ambiente (Vercel)
 
-Para cada grupo e produto, dentro do fechamento do produto:
-
-| Indicador | Fórmula |
+| Variável | Uso |
 |---|---|
-| Dias úteis | dias entre início e fim do fechamento, sem domingo, sábado (se não for útil) e feriados |
-| Decorridos / restantes | dias úteis antes de hoje / a partir de hoje (hoje conta como restante) |
-| % realizado | realizado ÷ meta |
-| Esperado até hoje | dias úteis decorridos ÷ dias úteis totais (o tracinho preto na barra) |
-| Falta (necessidade líquida) | meta − realizado (mínimo 0) |
-| Falta bruta | falta × fator do mês (ex.: 1,30), arredondado para cima em quantidade |
-| Por dia útil | falta ÷ dias úteis restantes |
-| Necessidade da semana | falta repartida pelos dias úteis restantes de cada semana (seg a dom) |
-| Planejado da semana | meta repartida pelos dias úteis de cada semana (visão do início do mês) |
-| Projeção | realizado ÷ dias decorridos × dias totais |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://ggtmjlklfmggdtrlnews.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | chave publishable/anon |
+| `SUPABASE_SERVICE_ROLE_KEY` | chave secreta (só servidor; usada para usuários, upload de imagens e webhook) |
+| `LOGIN_EMAIL_DOMAIN` | opcional; domínio do e-mail interno de quem não tem e-mail (padrão `metas.local`) |
+| `FORMS_WEBHOOK_SECRET` | segredo combinado com o Apps Script do Formulário Google |
 
-Status da barra: **No ritmo** (% realizado ≥ esperado), **Atenção** (≥ 85% do esperado), **Abaixo do ritmo** (< 85%), **Meta batida**.
+### 1.3 SQL (ordem de execução, todos já rodados até o 018)
 
-Fuso horário: "hoje" é sempre o dia em São Paulo.
+| Arquivo | O que faz |
+|---|---|
+| 001_estrutura | tabelas base, RLS, perfis, produtos e grupos iniciais, grants |
+| 002_exemplo_outubro | opcional: período de exemplo com metas da planilha antiga |
+| 003_importacao | `colaborador_apelidos` (nome da planilha → colaborador) |
+| 004_controle_indireto | parceiros, treinamentos, apontamentos, `profiles.perm_indireto` |
+| 005_validacao_parceiros | validação pelo gerente (permissão `validar`) |
+| 006_formulario_historico | CPF, data de ativação, histórico de parceiro, respostas do Formulário Google |
+| 007_admissao | `colaboradores.data_admissao` |
+| 008_liderancas | cargos de liderança do organograma |
+| 009_desligamento | `colaboradores.data_desligamento` |
+| 010_campanhas | campanhas comerciais |
+| 011_personalizacao | visual das campanhas, `colaboradores.foto_url`, bucket público `midia` |
+| 012_produto_soma | produto do tipo soma + `produto_componentes` |
+| 013_meta_empresa | `metas_empresa` (meta "de cima" por indicador e mês) |
+| 014_indicadores_resumo | `config.resumo_produtos` (indicadores escolhidos no Resumo) |
+| 015_quantidade_e_receita | coluna `medida` (qtd/brl) nas tabelas de valores; `produtos.medidas` |
+| 016_historico_equipes | `colaborador_equipes` (equipe por mês) |
+| 017_fonte_dados | `fontes_dados`, `sincronizacoes`, `periodos.fechado` |
+| 018_nome_para_equipe | `apelidos_equipe` (nome da planilha lançado direto numa equipe) |
 
-## Permissões
+O próximo SQL deve ser o **019**.
+
+---
+
+## 2. Permissões
+
+**Metas** (`profiles.papel`):
 
 | Papel | Pode |
 |---|---|
-| Visualizador (padrão) | ver tudo |
-| Editor | ver + lançar metas, realizado, cadastrar equipes, colaboradores, produtos, períodos e feriados |
-| Administrador | tudo do Editor + criar, inativar/reativar usuários, mudar permissões e redefinir senhas |
+| `viewer` (Visualizador, padrão) | ver |
+| `editor` (Editor) | ver e lançar: metas, resultados, cadastros, importações, fonte de dados, campanhas, organograma |
+| `admin` (Administrador) | tudo, mais usuários e o Preparador de material |
 
-- Login por **usuário** e senha. Se não informar e-mail, o sistema cria um interno (`usuario@metas.local`), só para o Supabase.
-- O primeiro usuário (criado em `/setup`) vira Administrador automaticamente. A tela `/setup` só funciona enquanto não existir nenhum usuário.
-- Inativar um usuário bloqueia o login no Supabase na hora e esconde os dados dele.
-- As permissões são garantidas no banco (Row Level Security), não só na tela.
-- Contas criadas fora do painel (cadastro público do Supabase) entram inativas. Mesmo assim, desligue o cadastro público (passo 1 abaixo).
+**Controle Indireto** (`profiles.perm_indireto`, independente do papel de metas): `nenhum`, `ver`, `editar` (ponto focal, cadastra) e `validar` (gerente, aprova ou reprova). O administrador pode tudo.
 
-## Pastas
+Funções SQL usadas nas regras de segurança (RLS): `usuario_ativo()`, `pode_editar()`, `eh_admin()`, `pode_ver_indireto()`, `pode_editar_indireto()`, `pode_validar_indireto()` e `papel_requisicao()` (lê a role do JWT). Padrão das tabelas: leitura para usuário ativo, escrita para `pode_editar()`.
+
+**Login:** usuário e senha. O e-mail interno é `usuario@LOGIN_EMAIL_DOMAIN`, achado pela RPC `email_do_usuario`. O primeiro usuário criado em `/setup` vira administrador. Contas criadas fora do painel entram inativas, e o cadastro público fica desligado no Supabase. Inativar um usuário aplica um *ban* no Auth.
+
+---
+
+## 3. Menu e telas
+
+```
+▾ Metas
+    Resumo da empresa      /resumo
+    Painel                 /            (canais > equipes > produtos)
+    Quadro de metas        /metas
+    Importar resultados    /importar    (editor)
+    Fonte de dados         /fontes      (editor)
+    Headcount              /headcount
+  Campanhas                /campanhas   (+ /tv/campanha/[id] modo TV)
+  Organograma              /organograma (+ /organograma/editar)
+  Controle Indireto        /indireto    (se tiver permissão)
+  Preparador de material   /preparador  (só admin)
+▸ Cadastros
+    Equipes e colaboradores /estrutura  (+ /estrutura/[id], /estrutura/nova-pessoa, /estrutura/nova-equipe)
+    Produtos               /produtos
+    Períodos e fechamentos /periodos
+    Feriados               /feriados
+    Usuários               /usuarios    (admin)
+  rodapé: Minha senha /conta, Sair
+```
+
+Outras rotas: `/grupos/[id]` (tela da equipe: semanas, colaboradores, realizado), `/colaboradores/[id]`, `/login`, `/setup`, `/api/forms` (webhook do Formulário Google, público, protegido por segredo).
+
+O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `menu_recolhido`. O botão **# Quantidade | R$ Receita** fica no topo das telas de metas, com a escolha no cookie `medida`.
+
+---
+
+## 4. Modelo de dados (principais)
+
+- **`grupos`**: árvore de canal, unidade e equipe (`parent_id`). Quem tem equipes ativas abaixo tem meta = **soma** das filhas. Só as equipes da ponta recebem meta digitada.
+- **`colaboradores`**: `grupo_id` (equipe "base"/atual), `peso` (cota: 1 cheia, 0,5 meia, 0 sem meta), `data_admissao`, `data_desligamento`, `ativo`, `foto_url`.
+- **`colaborador_equipes`**: histórico de equipe. "A partir de `desde` (1º dia do mês) a pessoa é do grupo X." A equipe de uma pessoa num mês é o vínculo mais recente com `desde ≤ 1º dia do mês`. Sem vínculos, vale `grupo_id`.
+- **`produtos`**: `medidas` (`qtd`, `brl` ou `ambos`), `ciclo` (código do fechamento, ex.: `GERAL`, `FIBRA`), `tipo` (`simples` ou `composto` = soma), `ordem`, `ativo`. **`produto_componentes`** (produto soma → componente, peso).
+- **`periodos`** (um por mês, `referencia` = dia 1, `fator_bruto` ex.: 1,30, `fechado`) e **`ciclos`** (fechamentos com datas por código).
+- **Valores, todos com `medida` qtd/brl na chave primária:** `metas` (periodo, grupo, produto), `metas_individuais` (meta fixa de colaborador), `realizados` (periodo, colaborador, produto), `realizados_grupo` (resultado lançado direto numa equipe), `metas_empresa` (periodo, produto).
+- **`feriados`** (tipo `feriado` ou `dia_util`; `grupo_id` opcional vale para a subárvore) e **`config`** (sábado útil, carnaval, corpus christi, `resumo_produtos`).
+- **Nomes:** `colaborador_apelidos` e `apelidos_equipe`.
+- **Outros módulos:** `liderancas` + `lideranca_grupos`; `campanhas`, `campanha_itens`, `campanha_participantes`, `campanha_resultados`; `parceiros`, `parceiro_treinamentos`, `parceiro_apontamentos`, `parceiro_historico`, `parceiro_respostas_form`; `fontes_dados`, `sincronizacoes`.
+
+---
+
+## 5. Regras de cálculo (`lib/calc.js`, `lib/dados.js`)
+
+- **Leitura:** `carregarBase(supabase, periodo, medida)` lê tudo de um mês numa medida (com paginação de 1000 linhas) e aplica a equipe daquele mês. `analisar(base)` devolve as funções `meta`, `realizado`, `indicador`, `individuais`, `geralGrupos`, `geralColaboradores`, `composicao` e outras.
+- **Dias úteis:** segunda a sexta, menos feriados nacionais (calculados, inclusive Páscoa, Carnaval e Corpus Christi), menos feriados cadastrados, mais "dias úteis extras". Sábado é configurável. "Hoje" é sempre no fuso de São Paulo.
+- **Indicadores:**
+  - **Falta** = meta − realizado;
+  - **Falta bruta** = falta × fator do mês;
+  - **Por dia** = falta ÷ dias úteis restantes;
+  - **Necessidade por semana** = falta repartida pelos dias úteis restantes de cada semana;
+  - **Esperado até hoje** = dias úteis decorridos ÷ dias úteis totais.
+- **Status:** **batida** (≥100%); **no ritmo** (% ≥ esperado); **atenção** (≥85% do esperado); **abaixo do ritmo**. A mesma régua vale no Painel, no Resumo e no Headcount.
+- **Meta individual:** a meta da equipe é dividida entre os colaboradores **ativos no período**. Cada um recebe pelo peso × parte dos dias úteis em que esteve na casa (admissão e desligamento no meio do mês ficam proporcionais). Metas fixas saem primeiro. Em quantidade, a divisão usa inteiros que somam a meta exata.
+- **Colaborador no mês:** aparece se esteve na casa em algum dia do mês. Inativado sem data de desligamento (forma antiga) não aparece em nenhum mês.
+- **Produto soma:** o realizado é a soma (com peso) dos componentes. A meta é digitada nele. No Resumo, sem meta própria, a meta distribuída é a soma das metas dos componentes. No Painel, soma **sem meta não aparece**.
+- **Meta geral** (Headcount e Resumo): média do % atingido de cada produto com meta, para juntar quantidade e R$ na mesma conta.
+
+---
+
+## 6. Módulos
+
+### Resumo da empresa (`/resumo`)
+- **O que mostra:** meta da empresa × meta distribuída (soma do Quadro de metas por canal), folga, % de atingimento por canal com barra de ritmo, e **% de participação** (parte da meta × parte do resultado de cada canal, com ▲ quando traz mais que a parte dele). Um botão abre as unidades e equipes de cada canal.
+- **Indicadores:** escolhidos em "⚙ Escolher os indicadores" (vale para todos); sem escolha, aparecem as somas e os produtos fora de soma.
+- **Aba Histórico:** últimos 12 meses.
+
+### Painel, Quadro de metas e equipe
+- **Quadro de metas:** cabeçalho e primeira coluna fixos; somas em negrito, sem digitação; "Criar metas de outro mês" (cria o mês e copia metas e metas fixas).
+- **Tela da equipe (`/grupos/[id]`):** dentro e fora da meta (quantidade e %), headcount resumido, semanas, colaboradores com tempo de casa, meta fixa e realizado editáveis, e composição da soma no ícone ⓘ.
+
+### Importar resultados (`/importar`)
+- **Relatório da operadora** (vários arquivos do BI de uma vez):
+  - **Formato:** colunas CANAL, mCANAL2 (unidade), mCANAL3 (setor), mCANAL4 (equipe), CONSULTOR, EXECUTADO, M-1, M-2, M-3; linhas "Total" ignoradas.
+  - **Detecção automática:** mês e medida pelo rodapé "Filtros aplicados"; produto pelo nome do arquivo ("básica" = fibra, "renova" = reno).
+  - **Casos especiais:** inclui consultores independentes; canal sem consultor (CANAL INDIRETO) entra direto numa equipe.
+  - **Histórico:** opção de trazer M-1, M-2 e M-3.
+  - **Conferência:** "total do relatório × total que entra" antes de gravar.
+- **Planilha simples:** uma linha por colaborador, colunas por produto (o cabeçalho com "receita", "valor" ou "R$" vira medida R$).
+- **Nomes:** vincular, cadastrar novo, **lançar direto numa equipe** ou ignorar. Os vínculos ficam guardados.
+
+### Fonte de dados (`/fontes`): planilha do Google
+- **Fonte:** nome, link (precisa estar "qualquer pessoa com o link pode ver") e em qual produto do sistema entra cada resultado.
+- **Leitura:** o servidor baixa em CSV (`/export?format=csv&gid=`) e mostra uma **prévia sem gravar**: meses, totais, nomes para conferir, pendências e a lista "antes → depois".
+- **Gravar:** nos meses marcados, os produtos da fonte passam a ser **exatamente** o que está na planilha. Quem não aparece fica zerado, inclusive nas equipes que a fonte alimenta direto. Os valores de antes ficam em `sincronizacoes`.
+- **Desfazer:** só a gravação mais recente de cada fonte. **Mês fechado** (`periodos.fechado`) nunca é alterado.
+- **Nomes não cadastrados:** "É alguém do cadastro", "Cadastrar agora numa equipe" (com admissão), "Lançar direto numa equipe" (fica lembrado em `apelidos_equipe`) ou "Ignorar". Também há ações em lote.
+- **Modelo `pedidos_movel`** (`lib/fontes.js`), da planilha "Cópia Planilha Gerencial":
+  - **Colunas:** CONSULTOR, NEO, QUANTIDADE LINHAS, VALOR TERMO SMP (valor da linha), QTD APARELHOS, VALOR APARELHO, EQUIPE CANAL DIRETO, GRUPO CLASSE, GRUPO STATUS, MÊS/ANO CONCLUSÃO (`outubro_2026`).
+  - **O que conta:** só `GRUPO STATUS = EXECUTADO`, no mês de MÊS/ANO CONCLUSÃO.
+  - **Alta** = ALTA ou MIGRAÇÃO PRÉ/PÓS; **Renovação** = qualquer classe que comece com RENOVAÇÃO (prefixo; quantidade = linhas, receita = VALOR TERMO SMP).
+  - **Aparelhos:** QTD APARELHOS e VALOR APARELHO, em qualquer classe, exceto NÃO CONTABILIZA.
+  - **NÃO CONTABILIZA** nunca conta. **NEO repetido** soma todas as linhas.
+  - **Sem valor:** linha com quantidade e sem valor conta a quantidade e vai para "pendências".
+  - **Equipe:** vem **do sistema**, nunca da planilha. A coluna EQUIPE só sugere a equipe de quem é novo.
+- **Modelo `pedidos_fibra`** (aba "Básica" da mesma planilha; cada aba é uma fonte, escolhida pelo `gid` do link):
+  - **Colunas:** CONSULTOR, NEO, Quant., VALOR TOTAL, TIPO PRODUTO, EQUIPE CANAL DIRETO, GRUPO CLASSE, GRUPO STATUS, MÊS CONCLUSÃO.
+  - **O que conta:** `GRUPO STATUS = EXECUTADO` e `TIPO PRODUTO` = BANDA LARGA, TV ou VOZ.
+  - **Alta Fibra** = ALTA ou qualquer classe que comece com MIGRAÇÃO; **Reno Fibra** = qualquer classe que comece com RENOVAÇÃO. Quantidade = Quant., receita = VALOR TOTAL.
+- **Regras com prefixo:** `regras[].prefixos` pega qualquer classe que comece com o texto. A prévia lista as classes executadas encontradas e para onde cada uma foi ("não conta" em vermelho), para pegar classes novas.
+- **Mês:** aceita `outubro_2026`, `out/2026`, `10/2026`, `01/10/2026` e `2026-10`.
+- **Próximos passos combinados:** outras planilhas por produto (VADA, energia etc., com novos modelos em `MODELOS`) e, depois de validado, leitura automática (cron da Vercel) só para o mês aberto.
+
+### Headcount (`/headcount`)
+- **O que mostra:** fotografia do mês: começou com, admissões, desligamentos, fecha com, % perdido, e a meta geral com quem está dentro da meta (quantidade e %).
+- **Detalhe:** tabela por canal e equipe e lista de quem entrou e saiu.
+- **Filtro de supervisores:** várias escolhas; mostra o nome do líder quando houver.
+
+### Equipes e colaboradores (`/estrutura`)
+- **Página inicial:** cartões de equipes por canal, busca de pessoa, "+ Cadastrar pessoa" e "+ Nova equipe" (cada um em tela própria).
+- **Página da equipe:**
+  - pessoas (ativos e desligados) com **Editar** (nome, admissão, cota), **Trocar de equipe** (nova equipe + mês de início; o passado fica na equipe antiga; trocas futuras podem ser desfeitas) e **Desligar** (com data);
+  - troca em lote e ⚙ Configurar a equipe.
+
+### Organograma (`/organograma`)
+- **Por liderança** (cargos em `/organograma/editar`: nome, cargo, a quem responde, equipes que lidera) e **Por canal**.
+- **Visual:** zoom, abas por gerente, fotos, etiqueta "novo" para menos de 3 meses de casa.
+
+### Campanhas (`/campanhas`)
+- **Cadastro:** regras próprias; itens com alvo (texto livre); participantes colaboradores ou equipes; alvo individual ou coletivo; resultados lançados à mão.
+- **Visuais:** Corrida, Foguete, Pódio e Termômetro, com confete.
+- **Personalização:** capa, foto do prêmio, cor, personagens, frase e fotos dos participantes, guardadas no bucket `midia` (upload pelo servidor com a chave secreta).
+- **Modo TV:** atualiza a cada minuto.
+
+### Controle Indireto (`/indireto`)
+- **Parceiros:** CPF ou CNPJ validado, status, data de ativação, ponto focal, contatos.
+- **Treinamentos e apontamentos:** treinamentos de onboarding, telecom e serviços; apontamentos sem edição posterior; histórico de alterações por gatilho.
+- **Validação pelo gerente:** volta para pendente se o ponto focal editar. **Validação automática** quando o parceiro responde o Formulário Google (`integracoes-google-forms.gs`, um script por formulário com `TIPO_TREINAMENTO`; webhook `/api/forms`; o parceiro é achado pelo CPF/CNPJ das respostas). O gerente pode desvalidar.
+- **Filtros:** mês de ativação, formulário respondido, validação e treinamento pendente.
+
+### Preparador de material (`/preparador`, só admin)
+- **Processamento:** a base de clientes (ex.: 50 mil linhas) é lida **no navegador**; nada vai para o servidor.
+- **Filtros prontos:** Situação (padrão ATIVA), produtos, M Móvel e M Fixa (entre/tem/não tem), apto a renovação, pedidos, linhas, consultor, porte, fibra, velocidade, débito, BL B2C, disponibilidade, VVN e crédito de aparelho, mais qualquer outra coluna.
+- **Filtros salvos:** ficam no `localStorage` do navegador.
+- **Saída:** CNPJ formatado, endereço numa célula, telefones formatados (opção de juntar sem repetidos); separação por aba de um valor de coluna ou em lotes; Excel (com aba "Filtros usados") ou CSV.
+
+### Outros
+- **Produtos:** lista com colunas alinhadas; medida (quantidade, receita ou as duas); somas e o que entra nelas.
+- **Períodos e fechamentos:** datas de cada ciclo e fator da necessidade bruta.
+- **Feriados:** nacionais automáticos; cadastrados por equipe; dia útil extra.
+- **Usuários:** criar, permissões de metas e do Indireto, inativar, redefinir senha.
+
+---
+
+## 7. Estrutura de pastas
 
 ```
 app/
-  actions/indireto.js  Gravação do Controle Indireto
-  (app)/            telas que exigem login
-    page.js         Painel (por canal, com todos os níveis)
-    colaboradores/[id]/  Página do colaborador
-    importar/       Importação: planilha simples e relatório da operadora
-    organograma/    Organograma comercial
-    indireto/       Controle Indireto (lista, novo, [id] = página do parceiro)
-    grupos/[id]/    Detalhe da equipe: semanas, colaboradores, realizado
-    metas/          Grade de metas do mês (grupo x produto)
-    estrutura/      Canais, equipes e colaboradores
-    produtos/  periodos/  feriados/  usuarios/  conta/
-  actions/          Server actions (gravação): auth.js, dados.js, usuarios.js
-  login/  setup/
-components/         FormAcao, CampoNumero (salva ao sair do campo), BarraRitmo, MenuLateral, Importador, FormParceiro...
+  layout.js, globals.css, icon.png
+  login/, setup/
+  api/forms/route.js            webhook do Formulário Google
+  tv/campanha/[id]/             modo TV
+  actions/                      server actions (gravação)
+    auth.js usuarios.js dados.js importacao.js fontes.js
+    indireto.js campanhas.js midia.js liderancas.js
+  (app)/                        telas com login (layout com MenuLateral)
+    page.js (Painel) resumo/ metas/ importar/ fontes/ headcount/
+    grupos/[id]/ colaboradores/[id]/
+    estrutura/ ([id], nova-pessoa, nova-equipe)
+    produtos/ periodos/ feriados/ usuarios/ conta/
+    organograma/ (editar) campanhas/ ([id]) indireto/ ([id], novo, dados.js) preparador/
+components/
+  MenuLateral Icones FormAcao CampoNumero SeletorPeriodo AlternarMedida
+  BarraRitmo Composicao InfoDica TempoCasa SemPeriodo Pessoas
+  Importador ImportadorRelatorio FonteDados Preparador
+  PainelCampanha FormCampanha AutoAtualizar ZoomOrganograma FormParceiro
 lib/
-  calc.js           Dias úteis, semanas, indicadores, divisão da meta
-  feriados.js       Feriados nacionais (cálculo da Páscoa)
-  nomes.js          Comparação de nomes (sem acento, nomes parecidos)
-  relatorio.js      Leitura do relatório da operadora
-  conferenciaNomes.js Reconhece colaboradores e equipes pelos nomes
-  indireto.js       Status, tipos de treinamento, CNPJ
-  dados.js          Leitura do banco e montagem da árvore
-  datas.js  formato.js  auth.js  supabase/
-supabase/
-  001_estrutura.sql         Tabelas, segurança, dados iniciais (rodar 1 vez)
-  002_exemplo_outubro.sql   Opcional: Outubro/2026 com as metas da planilha
-  003_importacao.sql        Tabela de apelidos usada na importação
-  004_controle_indireto.sql Parceiros, treinamentos, apontamentos e permissão do módulo
-  005_validacao_parceiros.sql Validação dos cadastros pelo gerente
-  006_formulario_historico.sql CPF, data de ativação, histórico e Formulário Google
-  007_admissao.sql          Data de admissão dos colaboradores
-  008_liderancas.sql        Cargos de liderança do organograma
-  009_desligamento.sql      Data de desligamento dos colaboradores
-  010_campanhas.sql         Campanhas comerciais
-  011_personalizacao.sql    Visual das campanhas, fotos e pasta de imagens
-  012_produto_soma.sql      Produto soma (meta de total de produtos)
-  013_meta_empresa.sql      Meta da empresa por indicador (Resumo da empresa)
-  014_indicadores_resumo.sql Indicadores escolhidos para o Resumo da empresa
-  015_quantidade_e_receita.sql Metas e resultados em quantidade e em receita
-  016_historico_equipes.sql Histórico de equipe por mês (troca de equipe)
-  017_fonte_dados.sql       Fonte de dados (planilha do Google), registro com desfazer e meses fechados
-  018_nome_para_equipe.sql  Nomes de planilha que entram direto numa equipe
-integracoes-google-forms.gs  Script para colar no Formulário Google
-app/api/forms/route.js       Recebe as respostas do formulário
-middleware.js       Redireciona para /login quem não está logado
+  dados.js (carregarEstrutura, carregarBase, analisar)  calc.js  datas.js  feriados.js
+  formato.js (numero, fmtValor, fmtPct...)  nomes.js (normalizar, similaridade, capitalizar)
+  medida.js / medidaServidor.js  auth.js  supabase/server.js, admin.js
+  relatorio.js (relatório da operadora)  fontes.js (planilha Google)  conferenciaNomes.js
+  headcount.js  campanhas.js  campanhasDados.js  indireto.js  preparador.js
+supabase/  001 … 018 (.sql)
+public/    logo-duomni.png, logo-duomni-branco.png, simbolo-duomni.png
+integracoes-google-forms.gs     script para os Formulários Google
+middleware.js                   exige login (exceto /login, /setup, /api/forms)
 ```
 
-## Banco (Supabase)
+### Padrões de código
 
-`profiles` (usuários), `config` (regras do calendário), `produtos`, `grupos`, `colaboradores`, `periodos`, `ciclos` (fechamentos), `metas`, `metas_individuais` (metas fixadas), `realizados`, `realizados_grupo`, `feriados`. Metas e realizados guardam `atualizado_em` e `atualizado_por`.
+- **Gravação:** server actions em `app/actions`; formulários usam `<FormAcao acao={...}>` e as ações devolvem `{ ok }` ou `{ erro }`.
+- **Edição em grade:** `<CampoNumero acao={acao.bind(null, ...)} />` salva ao sair do campo.
+- **Permissões:** checadas na action (`podeEditar`, `ehAdmin`) **e** no banco (RLS).
+- **Leitura grande:** paginar de 1000 em 1000 linhas (limite do Supabase).
+- **Datas:** como texto `AAAA-MM-DD`, com contas em UTC.
+- **Nomes de colunas** de planilhas são comparados com `normalizar` (sem acento ou maiúsculas).
+- **Visual:** estilos em `app/globals.css` com variáveis (`--acento`, `--menu` etc.). Não usar `localStorage` para dados do sistema; usar só para conveniências do navegador.
 
-## Colocar no ar (sem terminal)
+---
 
-1. **Supabase**: criar projeto (região São Paulo). Em *SQL Editor*, colar e rodar `supabase/001_estrutura.sql`; depois, se quiser, `002_exemplo_outubro.sql`. Em *Authentication > Sign In / Providers*, **desligar "Allow new users to sign up"**. Em *Project Settings > API* copiar: Project URL, chave anon/publishable e chave service_role/secret.
-2. **GitHub**: criar repositório privado, clicar em *uploading an existing file* e arrastar o conteúdo da pasta do projeto.
-3. **Vercel**: *Add New > Project*, importar o repositório e cadastrar as variáveis:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `SUPABASE_SERVICE_ROLE_KEY` (secreta, nunca com prefixo NEXT_PUBLIC)
-   - `LOGIN_EMAIL_DOMAIN` (opcional)
-   - `FORMS_WEBHOOK_SECRET` (para o Formulário Google)
-4. Abrir `https://SEU-SITE.vercel.app/setup` e criar o administrador.
+## 8. Ideias e pendências conhecidas
 
-Se o Supabase recusar o e-mail interno ao criar usuário, preencha o campo e-mail ou troque `LOGIN_EMAIL_DOMAIN` por um domínio real da empresa (nenhum e-mail é enviado).
-
-## Ideias para próximas versões
-
-- Lançamento diário do realizado (histórico dia a dia e gráfico de evolução).
-- Colaborador com login próprio vendo só a própria meta.
-- Histórico de equipe do colaborador (hoje, se mudar de equipe, o realizado de meses antigos acompanha a equipe nova).
-- Exportar o painel para Excel/PDF.
+- Fonte de dados: modelos para as demais planilhas (VADA, energia...) e leitura automática agendada.
+- Permissão "Gestor de pessoas": supervisor admite, edita e desliga só nas equipes que lidera (pelo vínculo de cargos).
+- Trocas de equipe feitas antes da versão com histórico moveram o passado junto; ajustar manualmente se algum caso importar.
+- Filtros salvos do Preparador no banco (hoje ficam no navegador).
+- Considerar o plano Pro do Supabase se o sistema virar ferramenta oficial (o plano gratuito pausa após 7 dias sem uso).

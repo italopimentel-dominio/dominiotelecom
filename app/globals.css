@@ -602,14 +602,16 @@ img.cp-avatar-mini { display: inline-block; }
 .rz-bx { color: var(--risco); font-weight: 650; }
 td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-fundo); } td.rz-bx { background: var(--risco-fundo); }
 .hc-cartao b.rz-ok, .hc-cartao b.rz-md, .hc-cartao b.rz-bx { background: none; }
-.rz-tabela th { white-space: normal; min-width: 96px; }
-.rz-part { min-width: 140px; }
-.rz-par { display: flex; align-items: center; gap: 6px; height: 16px; }
-.rz-par em { font-style: normal; font-size: 12.5px; min-width: 54px; text-align: right; }
-.rz-b { display: block; height: 7px; border-radius: 99px; min-width: 2px; max-width: 80px; }
-.rz-par { position: relative; }
-.rz-par .rz-b { flex: 0 0 auto; }
-.rz-par::before { content: ''; flex: 0 0 80px; order: -1; display: none; }
+/* tabelas do resumo: colunas iguais e conteúdo centralizado */
+.rz-tabela { table-layout: fixed; width: 100%; }
+.rz-tabela th:first-child, .rz-tabela td:first-child { width: 190px; text-align: left; }
+.rz-tabela th, .rz-tabela td { text-align: center; white-space: normal; }
+.rz-tabela td .ritmo.compacta { min-width: 0; max-width: 200px; margin: 0 auto; }
+.rz-part { min-width: 0; }
+.rz-par { display: flex; align-items: center; justify-content: center; gap: 8px; height: 17px; }
+.rz-par em { font-style: normal; font-size: 12.5px; width: 62px; text-align: left; white-space: nowrap; }
+.rz-trilho { position: relative; flex: 0 0 90px; height: 7px; border-radius: 99px; background: #ebe9f1; overflow: hidden; }
+.rz-b { display: block; height: 100%; border-radius: 99px; min-width: 2px; }
 .rz-b-meta { background: var(--acento); }
 .rz-b-real { background: var(--ok); }
 .rz-leg { display: inline-block; width: 18px; height: 7px; border-radius: 99px; margin-right: 6px; vertical-align: 1px; }
@@ -668,7 +670,6 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .pessoa-linha:has(details[open]) .pessoa-acoes { flex-basis: 100%; }
 .rz-status { font-weight: 600; }
 .hc-cartao .ritmo { margin: 4px 0 2px; }
-.rz-tabela td .ritmo.compacta { min-width: 130px; }
 
 /* ---------- lista de equipes ---------- */
 .canal-cab { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; margin-bottom: 10px; }

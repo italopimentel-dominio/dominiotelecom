@@ -159,8 +159,21 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
         <>
           <p className="dica" style={{ marginTop: 12 }}>
             Lido agora: {dados.contagem.total} linhas na planilha, <b>{dados.contagem.contadas} contadas</b> (EXECUTADO),
-            {' '}{dados.contagem.naoExecutadas} ainda não executadas e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
+            {' '}{dados.contagem.naoExecutadas} ainda não executadas{dados.contagem.tipoFora ? `, ${dados.contagem.tipoFora} com tipo de produto fora da regra` : ''} e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
           </p>
+          {dados.contagem.classes && Object.keys(dados.contagem.classes).length > 0 && (
+            <p className="dica" style={{ marginTop: 4 }}>
+              Classes encontradas (executadas):{' '}
+              {Object.entries(dados.contagem.classes).sort((a, b) => b[1].linhas - a[1].linhas).map(([c, info], i) => (
+                <span key={c}>
+                  {i > 0 && ' · '}
+                  {c} ({info.linhas}) → {info.destinos.length
+                    ? info.destinos.map((d) => dados.destinos[d]?.produto?.nome || dados.destinos[d]?.rotulo || d).join(', ')
+                    : <b style={{ color: 'var(--risco)' }}>não conta</b>}
+                </span>
+              ))}
+            </p>
+          )}
           {destinos.some(([, d]) => !d.produto) && <p className="msg msg-erro">Escolha o produto do sistema de cada resultado (em "Configurar a fonte") antes de gravar.</p>}
           {destinos.filter(([, d]) => d.produto && !d.produto.brl).map(([k, d]) => <p key={k} className="dica">{d.produto.nome} está só em quantidade no cadastro: a receita da planilha será ignorada. Para guardar a receita, marque o produto como "Quantidade e receita".</p>)}
 

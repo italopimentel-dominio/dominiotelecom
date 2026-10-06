@@ -8,14 +8,15 @@ import { salvarFonte, excluirFonte, lerFonte, aplicarFonte, desfazerSincronizaca
 
 const dataHora = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
 
-function FormFonte({ f = {}, produtos, botao }) {
-  const modelo = MODELOS[f.modelo] || MODELOS.pedidos_movel;
+function FormFonte({ f = {}, chaveModelo, produtos, botao }) {
+  const chaveM = MODELOS[f.modelo] ? f.modelo : MODELOS[chaveModelo] ? chaveModelo : 'pedidos_movel';
+  const modelo = MODELOS[chaveM];
   return (
     <FormAcao acao={salvarFonte}>
       {f.id && <input type="hidden" name="id" value={f.id} />}
-      <input type="hidden" name="modelo" value="pedidos_movel" />
+      <input type="hidden" name="modelo" value={chaveM} />
       <div className="grade-form">
-        <label className="campo">Nome<input type="text" name="nome" defaultValue={f.nome || 'Planilha gerencial móvel'} required /></label>
+        <label className="campo">Nome<input type="text" name="nome" defaultValue={f.nome || modelo.nomePadrao} required /></label>
         <label className="campo campo-largo">Link da planilha do Google<input type="url" name="url" defaultValue={f.url || ''} required placeholder="https://docs.google.com/spreadsheets/d/..." /></label>
         {Object.entries(modelo.destinos).map(([d, rotulo]) => (
           <label key={d} className="campo">{rotulo} da planilha entra em
@@ -27,8 +28,7 @@ function FormFonte({ f = {}, produtos, botao }) {
         ))}
       </div>
       <p className="dica" style={{ marginTop: 8 }}>
-        Regras: só GRUPO STATUS = EXECUTADO, no mês de MÊS/ANO CONCLUSÃO. Alta = ALTA ou MIGRAÇÃO PRÉ/PÓS; Renovação = RENOVAÇÃO ou RENOVAÇÃO POSITIVA (quantidade em QUANTIDADE LINHAS, receita em VALOR TERMO SMP);
-        Aparelhos = QTD APARELHOS e VALOR APARELHO. "NÃO CONTABILIZA" nunca conta. A equipe de cada pessoa vem do sistema, não da planilha.
+        Modelo: {modelo.nome}. Regras: {modelo.regrasTexto} A equipe de cada pessoa vem do sistema, não da planilha.
       </p>
       <button className="btn" type="submit" style={{ marginTop: 10 }}>{botao}</button>
     </FormAcao>
@@ -114,8 +114,16 @@ export default async function Fontes() {
 
       <details className="bloco secao" open={!(fontes || []).length}>
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>+ Ligar uma planilha</summary>
-        <div style={{ marginTop: 12 }}><FormFonte produtos={prods} botao="Cadastrar fonte" /></div>
-        <p className="dica" style={{ marginTop: 8 }}>A planilha precisa estar compartilhada como "Qualquer pessoa com o link pode ver". Se o link mudar no mês seguinte, é só colar o novo em Configurar a fonte.</p>
+        <p className="dica" style={{ marginTop: 8 }}>
+          A planilha precisa estar compartilhada como "Qualquer pessoa com o link pode ver". Abra a aba que quer ler e copie o link com ela aberta:
+          o final do link (#gid=...) diz qual aba o sistema baixa. Se o link mudar no mês seguinte, é só colar o novo em Configurar a fonte.
+        </p>
+        {Object.entries(MODELOS).map(([k, m]) => (
+          <details key={k} className="recolhivel" style={{ marginTop: 10 }}>
+            <summary>{m.nome}</summary>
+            <div style={{ marginTop: 8 }}><FormFonte chaveModelo={k} produtos={prods} botao="Cadastrar fonte" /></div>
+          </details>
+        ))}
       </details>
 
       <section className="secao">

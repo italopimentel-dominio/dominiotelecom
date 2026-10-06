@@ -251,7 +251,7 @@ export default async function Resumo({ searchParams }) {
                     const v = m ? r / m : null;
                     const esp = totais.get(p.id).esperado;
                     return (
-                      <td key={p.id} className="esq" title={`${fmtValor(r, p.unidade)} de ${m !== null ? fmtValor(m, p.unidade) : 'sem meta'}`}>
+                      <td key={p.id} title={`${fmtValor(r, p.unidade)} de ${m !== null ? fmtValor(m, p.unidade) : 'sem meta'}`}>
                         {v === null ? <span className="fraco">—</span> : <BarraRitmo pct={v} esperado={esp} status={statusRitmo(v, esp)} compacta />}
                       </td>
                     );
@@ -286,8 +286,8 @@ export default async function Resumo({ searchParams }) {
                     if (pm === null && !pr) return <td key={p.id} className="fraco">—</td>;
                     return (
                       <td key={p.id} className="rz-part">
-                        <div className="rz-par"><span className="rz-b rz-b-meta" style={{ width: `${(pm || 0) * 100}%` }} /><em>{fmtPct(pm || 0)}</em></div>
-                        <div className="rz-par"><span className="rz-b rz-b-real" style={{ width: `${(pr || 0) * 100}%` }} /><em>{fmtPct(pr || 0)}{pr !== null && pm !== null && (pr > pm ? ' ▲' : pr < pm ? ' ▼' : '')}</em></div>
+                        <div className="rz-par"><span className="rz-trilho"><span className="rz-b rz-b-meta" style={{ width: `${Math.min(pm || 0, 1) * 100}%` }} /></span><em>{fmtPct(pm || 0)}</em></div>
+                        <div className="rz-par"><span className="rz-trilho"><span className="rz-b rz-b-real" style={{ width: `${Math.min(pr || 0, 1) * 100}%` }} /></span><em>{fmtPct(pr || 0)}{pr !== null && pm !== null && (pr > pm ? ' ▲' : pr < pm ? ' ▼' : '')}</em></div>
                       </td>
                     );
                   })}
