@@ -62,6 +62,17 @@ No modo Substituir, quem aparece no relatório sem número fica com zero no mês
 
 O arquivo é lido no navegador; só os números conferidos são enviados ao banco.
 
+## Fonte de dados (planilha do Google)
+
+Menu Metas > Fonte de dados (Editor/Administrador). Liga uma planilha do Google (compartilhada como "qualquer pessoa com o link pode ver") ao sistema, sem upload manual:
+1. **Cadastrar a fonte**: nome, link e em qual produto do sistema entra cada resultado (Alta, Renovação, Aparelhos). O link pode ser trocado quando a planilha mudar.
+2. **Ler planilha agora (prévia)**: o servidor baixa a planilha na hora e mostra, sem gravar: meses encontrados (e se existem/estão fechados), totais por produto em quantidade e R$, nomes para conferir (vincular ou ignorar; vínculos ficam guardados), pendências (executadas sem valor, sem mês) e a lista do que muda (antes → depois).
+3. **Gravar no sistema**: nos meses marcados, os produtos da fonte passam a ser exatamente o que está na planilha (quem tinha resultado e não aparece fica zerado). Antes de gravar, os valores atuais são guardados.
+4. **Registro de gravações** com **Desfazer** (a mais recente de cada fonte).
+5. **Meses fechados**: mês fechado nunca é alterado pela planilha.
+
+Modelo "Pedidos móvel": só GRUPO STATUS = EXECUTADO, no mês de MÊS/ANO CONCLUSÃO; Alta = ALTA ou MIGRAÇÃO PRÉ/PÓS; Renovação = RENOVAÇÃO ou RENOVAÇÃO POSITIVA (quantidade em QUANTIDADE LINHAS, receita em VALOR TERMO SMP); Aparelhos = QTD APARELHOS e VALOR APARELHO; NÃO CONTABILIZA nunca conta; NEO repetido soma todas as linhas; a equipe vem do sistema (histórico de equipes), não da planilha.
+
 ## Resumo da empresa
 
 Menu Metas > Resumo da empresa. Junta a visão geral sem duplicar dados:
@@ -212,6 +223,7 @@ supabase/
   014_indicadores_resumo.sql Indicadores escolhidos para o Resumo da empresa
   015_quantidade_e_receita.sql Metas e resultados em quantidade e em receita
   016_historico_equipes.sql Histórico de equipe por mês (troca de equipe)
+  017_fonte_dados.sql       Fonte de dados (planilha do Google), registro com desfazer e meses fechados
 integracoes-google-forms.gs  Script para colar no Formulário Google
 app/api/forms/route.js       Recebe as respostas do formulário
 middleware.js       Redireciona para /login quem não está logado

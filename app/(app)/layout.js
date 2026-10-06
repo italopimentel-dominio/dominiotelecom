@@ -15,6 +15,7 @@ export default async function LayoutApp({ children }) {
     { href: '/metas', rotulo: 'Quadro de metas', icone: 'quadro' },
   ];
   if (podeEditar(perfil)) metas.push({ href: '/importar', rotulo: 'Importar resultados', icone: 'importar' });
+  if (podeEditar(perfil)) metas.push({ href: '/fontes', rotulo: 'Fonte de dados', icone: 'fonte' });
   metas.push({ href: '/headcount', rotulo: 'Headcount', icone: 'headcount' });
 
   const cadastros = [

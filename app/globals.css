@@ -732,3 +732,7 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .prep-mais { border-style: dashed; background: transparent; }
 .prep-colunas { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0 14px; }
 .prep-colunas .check { font-size: 13.5px; padding: 2px 0; }
+
+/* ---------- fonte de dados ---------- */
+.fonte-card h2 { margin-bottom: 2px; }
+.pend-lista { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--suave); max-height: 200px; overflow: auto; }
