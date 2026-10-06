@@ -28,6 +28,7 @@ O usuário **não usa terminal**. O fluxo é:
 
 Regras de trabalho para Claude:
 - Sempre rodar `next build` antes de entregar, com variáveis falsas. Testar regras de negócio com scripts Node em `/tmp`. Testar SQL num Postgres local com um mock de `auth.users`, `auth.uid()` e dos papéis `authenticated`, `anon` e `service_role` (com `bypassrls`), rodando duas vezes para garantir que pode repetir.
+- **Zip sempre com mais de um item na raiz** (ex.: `app/` + `DOCUMENTACAO.md`). Se o zip tiver uma pasta só na raiz, a Action tira essa pasta e os arquivos caem no lugar errado (aconteceu com `app/(app)/...` virando `(app)/...` na raiz).
 - SQL sempre **aditivo e repetível** (`if not exists`, `drop policy if exists`). Nunca apagar dados existentes.
 - Dizer claramente se a entrega tem SQL e em que ordem. O usuário sempre pergunta se "vai desconfigurar algo": responder com o que muda na tela e o que muda nos dados.
 - Respostas em português, diretas.

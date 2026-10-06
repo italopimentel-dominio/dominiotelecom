@@ -63,6 +63,36 @@ export default async function ControleIndireto({ searchParams }) {
     return true;
   });
 
+  // paginação (25 por página por padrão)
+  const POR_PAGINA = [25, 50, 100];
+  const porPagina = POR_PAGINA.includes(Number(sp.por)) ? Number(sp.por) : 25;
+  const totalPaginas = Math.max(1, Math.ceil(filtradas.length / porPagina));
+  const pagina = Math.min(Math.max(1, Number(sp.pag) || 1), totalPaginas);
+  const daPagina = filtradas.slice((pagina - 1) * porPagina, pagina * porPagina);
+  const linkPagina = (n, por = porPagina) => {
+    const q = new URLSearchParams(Object.entries(sp).filter(([k, v]) => v && k !== 'pag' && k !== 'por'));
+    if (n > 1) q.set('pag', String(n));
+    if (por !== 25) q.set('por', String(por));
+    const t = q.toString();
+    return t ? `/indireto?${t}` : '/indireto';
+  };
+  const paginacao = filtradas.length > 0 && (
+    <div className="paginacao">
+      <span className="dica">
+        {(pagina - 1) * porPagina + 1}–{Math.min(pagina * porPagina, filtradas.length)} de {filtradas.length} parceiros
+      </span>
+      <div className="paginacao-botoes">
+        {pagina > 1 ? <Link className="btn btn-sec btn-peq" href={linkPagina(pagina - 1)}>‹ Anterior</Link> : <span className="btn btn-sec btn-peq desligado">‹ Anterior</span>}
+        <span className="dica">Página {pagina} de {totalPaginas}</span>
+        {pagina < totalPaginas ? <Link className="btn btn-sec btn-peq" href={linkPagina(pagina + 1)}>Próxima ›</Link> : <span className="btn btn-sec btn-peq desligado">Próxima ›</span>}
+      </div>
+      <span className="dica">
+        Por página:{' '}
+        {POR_PAGINA.map((n) => (n === porPagina ? <b key={n} style={{ margin: '0 4px' }}>{n}</b> : <Link key={n} href={linkPagina(1, n)} style={{ margin: '0 4px' }}>{n}</Link>))}
+      </span>
+    </div>
+  );
+
   const ativos = linhas.filter((p) => !oculto(p));
   const boas = linhas.filter((p) => p.ativ?.estado === 'boa').length;
   const noPrazo = linhas.filter((p) => p.ativ?.estado === 'prazo').length;
@@ -137,6 +167,7 @@ export default async function ControleIndireto({ searchParams }) {
             {Object.entries(TIPOS_TREINAMENTO).map(([k, v]) => <option key={k} value={k}>Sem {v.toLowerCase()} realizado</option>)}
           </select>
         </label>
+        {porPagina !== 25 && <input type="hidden" name="por" value={porPagina} />}
         <button className="btn btn-sec" type="submit">Filtrar</button>
         {filtrando && <Link href="/indireto" className="dica">Limpar</Link>}
       </form>
@@ -148,7 +179,9 @@ export default async function ControleIndireto({ searchParams }) {
           {editar && <Link className="btn" href="/indireto/novo">Novo parceiro</Link>}
         </div>
       ) : (
-        <div className="tabela-wrap">
+        <>
+        {paginacao}
+        <div className="tabela-wrap tabela-fixa">
           <table>
             <thead>
               <tr>
@@ -158,7 +191,7 @@ export default async function ControleIndireto({ searchParams }) {
               </tr>
             </thead>
             <tbody>
-              {filtradas.map((p) => (
+              {daPagina.map((p) => (
                 <tr key={p.id} className={oculto(p) ? 'inativo' : ''}>
                   <td>
                     <Link href={`/indireto/${p.id}`}><strong>{p.nome_fantasia}</strong></Link>
@@ -190,6 +223,8 @@ export default async function ControleIndireto({ searchParams }) {
             </tbody>
           </table>
         </div>
+        {paginacao}
+        </>
       )}
 
       {semVinculo.length > 0 && (
