@@ -75,6 +75,14 @@ Menu Metas > Resumo da empresa. Junta a visão geral sem duplicar dados:
 
 Os indicadores podem ser escolhidos na própria tela (⚙ Escolher os indicadores deste resumo, Editor/Administrador, vale para todos). Sem escolha, aparecem automaticamente as somas (ex.: Receitas altas em R$ = Alta Móvel + Alta Básica + VADA) e os produtos que não estão dentro de nenhuma soma. Somas podem ser em quantidade ou em R$.
 
+## Preparador de material (só Administrador)
+
+Menu Preparador de material. Sobe-se a base de clientes (ex.: 50 mil linhas) e tudo é processado no navegador, sem enviar a planilha ao servidor nem gravar no Supabase.
+- **Filtros prontos** para as colunas usadas: Situação na Receita (já vem só ATIVA), Produtos, Meses de contrato móvel/fixa (entre X e Y, tem, não tem), Apto a renovação, Pedidos em andamento, Linhas móveis, Consultor da última venda, Porte, Fibra (QT_BASICA_BL), Velocidade, Débito móvel/fixa, BL B2C, Disponibilidade de fibra, VVN e Crédito de aparelho. Dá para adicionar filtro por qualquer outra coluna. Os filtros se somam (todos precisam ser verdadeiros) e o contador mostra quantos clientes sobram.
+- **Filtros salvos**: dá para salvar uma combinação com nome (fica guardada no navegador) e reaplicar no mês seguinte.
+- **Material**: colunas de identificação (CNPJ formatado, cliente, capital social, faturamento, funcionários, contato, endereço montado numa célula só, e-mail e telefones formatados), opção de juntar todos os telefones numa coluna sem repetidos e de incluir as colunas dos filtros.
+- **Separar**: tudo numa aba, uma aba para cada valor de uma coluna (ex.: por consultor) com aba de resumo, ou lotes de N clientes. Baixa em Excel (com aba "Filtros usados") ou CSV.
+
 ## Headcount
 
 Menu Headcount: fotografia do mês escolhido, calculada pelas datas de admissão e desligamento. Mostra quantos começaram o mês, admissões, desligamentos, com quantos fecha o mês e o % perdido (desligamentos ÷ início), ao lado da **meta geral** (média do % atingido em cada produto com meta, juntando quantidade e R$) e de quantos colaboradores estão dentro da meta geral (% geral igual ou acima do esperado até hoje), em número e %. Tabela por canal, regional e equipe, e a lista de nomes de quem entrou e saiu. Filtro por supervisor com várias escolhas (equipes da ponta; quando a equipe tem líder cadastrado no organograma, aparece o nome dele). A tela de cada equipe também mostra essa linha resumida. Limite: quem mudou de equipe aparece na equipe atual.

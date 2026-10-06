@@ -31,6 +31,7 @@ export default async function LayoutApp({ children }) {
     { href: '/organograma', rotulo: 'Organograma', icone: 'organograma' },
   ];
   if (podeVerIndireto(perfil)) menu.push({ href: '/indireto', rotulo: 'Controle Indireto', icone: 'indireto' });
+  if (ehAdmin(perfil)) menu.push({ href: '/preparador', rotulo: 'Preparador de material', icone: 'preparador' });
   menu.push({ rotulo: 'Cadastros', icone: 'cadastros', itens: cadastros });
 
   return (

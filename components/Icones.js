@@ -19,6 +19,7 @@ const desenhos = {
   headcount: <><circle cx="12" cy="7" r="3" /><path d="M6 21v-2a6 6 0 0 1 12 0v2M3 11h3M18 11h3" /></>,
   quadro: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11M15 9v11" /></>,
   resumo: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  preparador: <path d="M3 5h18l-7 8v6l-4 2v-8z" />,
   recolher: <path d="M15 18l-6-6 6-6" />,
   expandir: <path d="M9 18l6-6-6-6" />,
 };
