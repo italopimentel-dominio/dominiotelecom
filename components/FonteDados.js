@@ -158,12 +158,12 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
       {dados && (
         <>
           <p className="dica" style={{ marginTop: 12 }}>
-            Lido agora: {dados.contagem.total} linhas na planilha, <b>{dados.contagem.contadas} contadas</b> (EXECUTADO),
-            {' '}{dados.contagem.naoExecutadas} ainda não executadas{dados.contagem.tipoFora ? `, ${dados.contagem.tipoFora} com tipo de produto fora da regra` : ''} e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
+            Lido agora: {dados.contagem.total} linhas na planilha, <b>{dados.contagem.contadas} contadas</b> ({dados.statusConta || 'EXECUTADO'}),
+            {' '}{dados.contagem.naoExecutadas} com outro status{dados.contagem.tipoFora ? `, ${dados.contagem.tipoFora} com tipo de produto fora da regra` : ''} e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
           </p>
           {dados.contagem.classes && Object.keys(dados.contagem.classes).length > 0 && (
             <p className="dica" style={{ marginTop: 4 }}>
-              Classes encontradas (executadas):{' '}
+              Classes encontradas (no status que conta):{' '}
               {Object.entries(dados.contagem.classes).sort((a, b) => b[1].linhas - a[1].linhas).map(([c, info], i) => (
                 <span key={c}>
                   {i > 0 && ' · '}

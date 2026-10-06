@@ -187,9 +187,11 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
   - **Colunas:** CONSULTOR, NEO, Quant., VALOR TOTAL, TIPO PRODUTO, EQUIPE CANAL DIRETO, GRUPO CLASSE, GRUPO STATUS, MÊS CONCLUSÃO.
   - **O que conta:** `GRUPO STATUS = EXECUTADO` e `TIPO PRODUTO` = BANDA LARGA, TV ou VOZ.
   - **Alta Fibra** = ALTA ou qualquer classe que comece com MIGRAÇÃO; **Reno Fibra** = qualquer classe que comece com RENOVAÇÃO. Quantidade = Quant., receita = VALOR TOTAL.
+- **Modelo `pedidos_vada`** (aba "VADA"): colunas CONSULTOR, QTD, VALOR TOTAL, EQUIPE CANAL INTERNO, CLASSE, STATUS 1, MÊS/ANO F1.
+  - **O que conta:** `STATUS 1 = APROVADO - ENVIADO P/ INSTALAÇÃO`, no mês de MÊS/ANO F1, qualquer CLASSE menos NÃO CONTABILIZA. Vai tudo para **Alta VADA** (quantidade = QTD, receita = VALOR TOTAL). STATUS 2 (ex.: CANCELADO) não é olhado.
 - **Regras com prefixo:** `regras[].prefixos` pega qualquer classe que comece com o texto. A prévia lista as classes executadas encontradas e para onde cada uma foi ("não conta" em vermelho), para pegar classes novas.
 - **Mês:** aceita `outubro_2026`, `out/2026`, `10/2026`, `01/10/2026` e `2026-10`.
-- **Próximos passos combinados:** outras planilhas por produto (VADA, energia etc., com novos modelos em `MODELOS`) e, depois de validado, leitura automática (cron da Vercel) só para o mês aberto.
+- **Próximos passos combinados:** outras planilhas por produto (energia etc., com novos modelos em `MODELOS`) e, depois de validado, leitura automática (cron da Vercel) só para o mês aberto.
 
 ### Headcount (`/headcount`)
 - **O que mostra:** fotografia do mês: começou com, admissões, desligamentos, fecha com, % perdido, e a meta geral com quem está dentro da meta (quantidade e %).
@@ -280,7 +282,7 @@ middleware.js                   exige login (exceto /login, /setup, /api/forms)
 
 ## 8. Ideias e pendências conhecidas
 
-- Fonte de dados: modelos para as demais planilhas (VADA, energia...) e leitura automática agendada.
+- Fonte de dados: modelos para as demais planilhas (energia...) e leitura automática agendada.
 - Permissão "Gestor de pessoas": supervisor admite, edita e desliga só nas equipes que lidera (pelo vínculo de cargos).
 - Trocas de equipe feitas antes da versão com histórico moveram o passado junto; ajustar manualmente se algum caso importar.
 - Filtros salvos do Preparador no banco (hoje ficam no navegador).

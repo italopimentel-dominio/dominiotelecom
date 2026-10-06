@@ -122,7 +122,7 @@ export async function lerFonte(fonteId) {
     ok: true,
     lidoEm: new Date().toISOString(),
     pessoas, meses, destinos, atuais, atuaisGrupo,
-    pendencias: lido.pendencias, contagem: lido.contagem,
+    pendencias: lido.pendencias, contagem: lido.contagem, statusConta: modelo.statusConta,
     colaboradores: (colabs || []).map((c) => ({ id: c.id, nome: c.nome, ativo: c.ativo })).sort((a, b) => a.nome.localeCompare(b.nome)),
     grupos: listaGrupos,
     gruposDiretos: [...new Set(nomeParaEquipe.values())],
