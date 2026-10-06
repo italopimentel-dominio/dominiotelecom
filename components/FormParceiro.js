@@ -1,11 +1,14 @@
 import FormAcao from '@/components/FormAcao';
 import { salvarParceiro } from '@/app/actions/indireto';
-import { STATUS_PARCEIRO, documentoDe } from '@/lib/indireto';
+import { documentoDe } from '@/lib/indireto';
 
 const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
 
-export default function FormParceiro({ parceiro = {}, focais, textoBotao = 'Salvar' }) {
+export default function FormParceiro({ parceiro = {}, focais, statusLista = [], travarAtivacao = false, textoBotao = 'Salvar' }) {
   const p = parceiro;
+  // só aparecem os status ativos (e o atual, se o gerente tiver desativado)
+  const opcoes = statusLista.filter((st) => st.ativo || st.chave === p.status);
+  const padrao = p.status || opcoes[0]?.chave || 'aguardando_interacao';
   return (
     <FormAcao acao={salvarParceiro}>
       {p.id && <input type="hidden" name="id" value={p.id} />}
@@ -15,12 +18,15 @@ export default function FormParceiro({ parceiro = {}, focais, textoBotao = 'Salv
         <label className="campo">CPF ou CNPJ<input type="text" name="documento" defaultValue={documentoDe(p)} inputMode="numeric" placeholder="só números" /></label>
         <label className="campo">Código do parceiro / PDV<input type="text" name="codigo" defaultValue={p.codigo || ''} /></label>
         <label className="campo">Status
-          <select name="status" defaultValue={p.status || 'onboarding'}>
-            {Object.entries(STATUS_PARCEIRO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          <select name="status" defaultValue={padrao}>
+            {opcoes.map((st) => <option key={st.chave} value={st.chave}>{st.nome}</option>)}
           </select>
         </label>
         <label className="campo">Início da parceria<input type="date" name="data_inicio" defaultValue={p.data_inicio || ''} /></label>
-        <label className="campo">Data de ativação<input type="date" name="data_ativacao" defaultValue={p.data_ativacao || ''} /></label>
+        <label className="campo">Data de ativação
+          <input type="date" name="data_ativacao" defaultValue={p.data_ativacao || ''} readOnly={travarAtivacao} title={travarAtivacao ? 'Travada: cadastro validado ou prazo de 30 dias encerrado. Só o gerente ou um administrador altera.' : undefined} />
+          {travarAtivacao && <span className="nome-sub">🔒 travada (só gerente ou admin altera)</span>}
+        </label>
         <label className="campo">Ponto focal
           <select name="ponto_focal_id" defaultValue={p.ponto_focal_id || ''}>
             <option value="">Sem ponto focal</option>

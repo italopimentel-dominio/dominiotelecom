@@ -3,11 +3,11 @@ import { notFound, redirect } from 'next/navigation';
 import { exigirSessao, podeVerIndireto, podeEditarIndireto, podeValidarIndireto, ehAdmin } from '@/lib/auth';
 import { hojeSP } from '@/lib/datas';
 import { fmtData } from '@/lib/formato';
-import { STATUS_PARCEIRO, TIPOS_TREINAMENTO, STATUS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, CAMPOS_HISTORICO, situacaoTreinamento, documentoDe, fmtCnpj, fmtCpf } from '@/lib/indireto';
+import { classeStatus, situacaoAtivacao, ROTULO_ATIVACAO, ativacaoTravada, TIPOS_TREINAMENTO, STATUS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, CAMPOS_HISTORICO, situacaoTreinamento, documentoDe, fmtCnpj, fmtCpf } from '@/lib/indireto';
 import FormAcao from '@/components/FormAcao';
 import FormParceiro from '@/components/FormParceiro';
 import { criarTreinamento, atualizarTreinamento, excluirTreinamento, criarApontamento, excluirApontamento, excluirParceiro, validarParceiro } from '@/app/actions/indireto';
-import { listarFocais, nomesDosPerfis } from '../dados';
+import { listarFocais, nomesDosPerfis, listarStatus } from '../dados';
 
 const dataHora = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
 
@@ -20,7 +20,7 @@ export default async function Parceiro({ params }) {
   const validador = podeValidarIndireto(perfil);
   const hoje = hojeSP();
 
-  const [{ data: p }, { data: treinos = [] }, { data: apont = [] }, nomes, focais, { data: respostas = [] }, { data: historico = [] }] = await Promise.all([
+  const [{ data: p }, { data: treinos = [] }, { data: apont = [] }, nomes, focais, { data: respostas = [] }, { data: historico = [] }, statusLista] = await Promise.all([
     supabase.from('parceiros').select('*').eq('id', id).maybeSingle(),
     supabase.from('parceiro_treinamentos').select('*').eq('parceiro_id', id).order('data', { ascending: false }),
     supabase.from('parceiro_apontamentos').select('*').eq('parceiro_id', id).order('criado_em', { ascending: false }),
@@ -28,12 +28,16 @@ export default async function Parceiro({ params }) {
     listarFocais(supabase),
     supabase.from('parceiro_respostas_form').select('*').eq('parceiro_id', id).order('respondido_em', { ascending: false }),
     supabase.from('parceiro_historico').select('*').eq('parceiro_id', id).order('em', { ascending: false }).limit(300),
+    listarStatus(supabase),
   ]);
   if (!p) notFound();
+  const statusPor = new Map(statusLista.map((st) => [st.chave, st]));
+  const st = statusPor.get(p.status);
+  const ativ = situacaoAtivacao(p, hoje);
 
   const valorHist = (campo, v) => {
     if (v === null || v === undefined || v === '') return '—';
-    if (campo === 'status') return STATUS_PARCEIRO[v] || v;
+    if (campo === 'status') return statusPor.get(v)?.nome || v;
     if (campo === 'validacao') return VALIDACAO[v]?.texto || v;
     if (campo === 'ponto_focal_id') return nomes.get(v) || 'usuário removido';
     if (campo === 'cnpj') return fmtCnpj(v);
@@ -50,7 +54,9 @@ export default async function Parceiro({ params }) {
     ['Código / PDV', p.codigo],
     ['Ponto focal', p.ponto_focal_id && nomes.get(p.ponto_focal_id)],
     ['Início da parceria', p.data_inicio && fmtData(p.data_inicio, true)],
-    ['Data de ativação', p.data_ativacao && fmtData(p.data_ativacao, true)],
+    ['Data de ativação', p.data_ativacao && `${fmtData(p.data_ativacao, true)}${ativacaoTravada(p, hoje) ? ' 🔒' : ''}`],
+    ['Prazo para vender (30 dias)', ativ && `até ${fmtData(ativ.prazo, true)}`],
+    ['Venda vinculada', p.venda_mes && `${p.venda_produto || 'venda'} em ${p.venda_mes.slice(5)}/${p.venda_mes.slice(0, 4)} (${p.venda_qtd ?? '—'}${p.venda_valor ? `, R$ ${Number(p.venda_valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''})`],
     ['Cidade', [p.cidade, p.uf].filter(Boolean).join('/')],
     ['Endereço', p.endereco],
     ['Contato', p.contato_nome],
@@ -66,7 +72,8 @@ export default async function Parceiro({ params }) {
           <p className="dica"><Link href="/indireto">Controle Indireto</Link></p>
           <h1 style={{ marginTop: 6 }}>{p.nome_fantasia}</h1>
           <p className="sub">
-            <span className={`tag ${p.status === 'ativo' ? 'tag-ok' : p.status === 'onboarding' ? 'tag-acento' : ''}`}>{STATUS_PARCEIRO[p.status]}</span>{' '}
+            <span className={`tag ${classeStatus(st)}`}>{st?.nome || p.status}</span>{' '}
+            {ativ && <><span className={`tag ${ROTULO_ATIVACAO[ativ.estado].classe}`}>{ROTULO_ATIVACAO[ativ.estado].texto}</span>{' '}</>}
             {[documentoDe(p), p.data_ativacao && `ativado em ${fmtData(p.data_ativacao, true)}`, [p.cidade, p.uf].filter(Boolean).join('/'), p.ponto_focal_id && `ponto focal: ${nomes.get(p.ponto_focal_id)}`].filter(Boolean).join(', ')}
           </p>
         </div>
@@ -260,7 +267,7 @@ export default async function Parceiro({ params }) {
         {editar ? (
           <details className="bloco">
             <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Ver e editar os dados de {p.nome_fantasia}</summary>
-            <div style={{ marginTop: 14 }}><FormParceiro parceiro={p} focais={focais} /></div>
+            <div style={{ marginTop: 14 }}><FormParceiro parceiro={p} focais={focais} statusLista={statusLista} travarAtivacao={!validador && ativacaoTravada(p, hoje)} /></div>
           </details>
         ) : (
           <dl className="bloco ficha">

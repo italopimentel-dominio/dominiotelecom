@@ -8,3 +8,9 @@ export async function nomesDosPerfis(supabase) {
   const { data } = await supabase.from('profiles').select('id, nome, usuario');
   return new Map((data || []).map((p) => [p.id, p.nome || p.usuario]));
 }
+
+// Lista de status dos parceiros (editável pelo gerente), na ordem definida
+export async function listarStatus(supabase) {
+  const { data } = await supabase.from('parceiro_status').select('*').order('ordem').order('nome');
+  return data || [];
+}

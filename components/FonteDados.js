@@ -135,6 +135,10 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
         fonte_id: fonte.id, url: fonte.url,
         periodos: mesesGravar.map((m) => m.periodo.id),
         valores: calc.valores, escopo: calc.escopo, apelidos: calc.apelidos, novos: calc.novos, equipes: calc.equipes,
+        // vendas por nome, para vincular a primeira venda dos parceiros do Indireto
+        vendasParceiros: dados.pessoas.flatMap((p) => mesesGravar.flatMap((m) => destinos
+          .filter(([k, d]) => d.produto && p.meses[m.mes]?.[k]?.qtd > 0)
+          .map(([k, d]) => ({ nome: p.nome, mes: m.mes, produto: d.produto.nome, qtd: p.meses[m.mes][k].qtd, valor: p.meses[m.mes][k].valor })))),
         gruposDiretos: dados.gruposDiretos || [],
         resumo: { mudancas: calc.mudancas.length, iguais: calc.iguais, contagem: dados.contagem },
       });

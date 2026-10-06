@@ -737,3 +737,8 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 /* ---------- fonte de dados ---------- */
 .fonte-card h2 { margin-bottom: 2px; }
 .pend-lista { margin: 4px 0 0; padding-left: 18px; font-size: 13px; color: var(--suave); max-height: 200px; overflow: auto; }
+
+/* lista de status dos parceiros (gerente) */
+.linha-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--linha); }
+.linha-status.inativo { opacity: .6; }
+.linha-status input[type="text"] { flex: 1 1 180px; }

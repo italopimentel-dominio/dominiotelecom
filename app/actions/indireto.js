@@ -2,7 +2,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { sessao, podeEditarIndireto, podeValidarIndireto, ehAdmin } from '@/lib/auth';
-import { soDigitos, cnpjValido, cpfValido, STATUS_PARCEIRO, TIPOS_TREINAMENTO, STATUS_TREINAMENTO } from '@/lib/indireto';
+import { soDigitos, cnpjValido, cpfValido, TIPOS_TREINAMENTO, STATUS_TREINAMENTO } from '@/lib/indireto';
+import { normalizar } from '@/lib/nomes';
 import { hojeSP } from '@/lib/datas';
 
 const SEM_PERMISSAO = { erro: 'Seu usuário não tem permissão para editar o Controle Indireto.' };
@@ -25,7 +26,7 @@ export async function salvarParceiro(_prev, fd) {
     cnpj: doc.length === 14 ? doc : null,
     cpf: doc.length === 11 ? doc : null,
     codigo: ou(txt(fd, 'codigo')),
-    status: txt(fd, 'status') || 'onboarding',
+    status: txt(fd, 'status') || 'aguardando_interacao',
     cidade: ou(txt(fd, 'cidade')),
     uf: ou(txt(fd, 'uf').toUpperCase().slice(0, 2)),
     endereco: ou(txt(fd, 'endereco')),
@@ -42,14 +43,15 @@ export async function salvarParceiro(_prev, fd) {
   if (doc.length === 14 && !cnpjValido(doc)) return { erro: 'CNPJ inválido. Confira os números.' };
   if (doc.length === 11 && !cpfValido(doc)) return { erro: 'CPF inválido. Confira os números.' };
   if (dados.status === 'ativo' && !dados.data_ativacao) dados.data_ativacao = hojeSP();
-  if (!STATUS_PARCEIRO[dados.status]) return { erro: 'Status inválido.' };
   if (dados.contato_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dados.contato_email)) return { erro: 'E-mail do contato inválido.' };
 
   const db = s.supabase;
+  const erroBanco = (m) => (/parceiros_(cnpj|cpf)_unico/.test(m) ? 'Já existe um parceiro com esse CPF/CNPJ.'
+    : /parceiros_status_fkey/.test(m) ? 'Status inválido. Atualize a página e escolha de novo.' : m);
   if (id) {
     const { data: antes } = await db.from('parceiros').select('validacao').eq('id', id).maybeSingle();
     const { error } = await db.from('parceiros').update(dados).eq('id', id);
-    if (error) return { erro: /parceiros_(cnpj|cpf)_unico/.test(error.message) ? 'Já existe um parceiro com esse CPF/CNPJ.' : error.message };
+    if (error) return { erro: erroBanco(error.message) };
     revalidatePath('/indireto', 'layout');
     if (antes && antes.validacao !== 'pendente' && !podeValidarIndireto(s.perfil)) {
       return { ok: 'Dados salvos. O cadastro voltou para validação do gerente.' };
@@ -57,7 +59,7 @@ export async function salvarParceiro(_prev, fd) {
     return { ok: 'Dados salvos.' };
   }
   const { data, error } = await db.from('parceiros').insert(dados).select('id').single();
-  if (error) return { erro: /parceiros_(cnpj|cpf)_unico/.test(error.message) ? 'Já existe um parceiro com esse CPF/CNPJ.' : error.message };
+  if (error) return { erro: erroBanco(error.message) };
   revalidatePath('/indireto', 'layout');
   redirect(`/indireto/${data.id}`);
 }
@@ -177,4 +179,32 @@ export async function ignorarResposta(_prev, fd) {
   if (error) return { erro: error.message };
   revalidatePath('/indireto', 'layout');
   return { ok: true };
+}
+
+// Lista de status dos parceiros: só gerente (validar) ou administrador
+export async function salvarStatusParceiro(_prev, fd) {
+  const s = await sessao();
+  if (!podeValidarIndireto(s.perfil)) return { erro: 'Só o gerente ou um administrador altera a lista de status.' };
+  const chave = txt(fd, 'chave');
+  const nome = txt(fd, 'nome');
+  if (!nome) return { erro: 'Dê um nome para o status.' };
+  const dados = {
+    nome,
+    ordem: Number(txt(fd, 'ordem')) || 0,
+    cor: txt(fd, 'cor') || 'neutro',
+    oculto: fd.get('oculto') === 'on',
+    ativo: chave ? fd.get('ativo') === 'on' : true,
+  };
+  const db = s.supabase;
+  if (chave) {
+    const { error } = await db.from('parceiro_status').update(dados).eq('chave', chave);
+    if (error) return { erro: error.message.includes('parceiro_status') ? 'Rode o arquivo 019_status_venda_parceiros.sql no Supabase.' : error.message };
+  } else {
+    const nova = normalizar(nome).replace(/\s+/g, '_').slice(0, 40);
+    if (!nova) return { erro: 'Nome inválido.' };
+    const { error } = await db.from('parceiro_status').insert({ chave: nova, ...dados });
+    if (error) return { erro: /duplicate|unique/.test(error.message) ? 'Já existe um status com esse nome.' : error.message };
+  }
+  revalidatePath('/indireto', 'layout');
+  return { ok: chave ? 'Status salvo.' : 'Status criado.' };
 }

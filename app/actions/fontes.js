@@ -138,7 +138,7 @@ export async function aplicarFonte(dados) {
   const s = await editor();
   if (!s) return SEM_PERMISSAO;
   const db = s.supabase;
-  const { fonte_id, url, periodos: idsPer = [], valores = [], escopo = [], apelidos = [], novos = [], equipes = [], gruposDiretos = [], resumo = {} } = dados || {};
+  const { fonte_id, url, periodos: idsPer = [], valores = [], escopo = [], apelidos = [], novos = [], equipes = [], gruposDiretos = [], resumo = {}, vendasParceiros = [] } = dados || {};
   if (!idsPer.length) return { erro: 'Marque pelo menos um mês.' };
   if (!escopo.length) return { erro: 'Ligue os resultados aos produtos do sistema.' };
   if (novos.some((n) => !n.grupo_id || !n.nome?.trim())) return { erro: 'Escolha a equipe de todos os colaboradores novos.' };
@@ -220,8 +220,15 @@ export async function aplicarFonte(dados) {
     const { error } = await db.from('apelidos_equipe').upsert(equipes.map((e) => ({ apelido: normalizar(e.apelido), grupo_id: e.grupo_id })));
     if (error) return { erro: error.message.includes('apelidos_equipe') ? 'Gravado, mas rode o 018_nome_para_equipe.sql para o sistema lembrar dos nomes que vão direto para equipe.' : error.message };
   }
+  // 5) parceiros do Indireto: grava a primeira venda de quem ainda não tem (vínculo pelo nome)
+  let parceirosComVenda = 0, avisoParceiros = '';
+  if (vendasParceiros.length) {
+    const { data: n, error: ev } = await db.rpc('registrar_vendas_parceiros', { p_sinc: sinc.id, p_vendas: vendasParceiros });
+    if (ev) avisoParceiros = ev.message.includes('registrar_vendas_parceiros') ? ' (rode o 019_status_venda_parceiros.sql para vincular as vendas dos parceiros)' : ` (vendas dos parceiros: ${ev.message})`;
+    else parceirosComVenda = n || 0;
+  }
   revalidatePath('/', 'layout');
-  return { ok: `Gravado: ${depois.length} valores em ${(pers || []).map((p) => p.nome).join(', ')}${novos.length ? `, ${novos.length} colaboradores cadastrados` : ''}.`, id: sinc.id };
+  return { ok: `Gravado: ${depois.length} valores em ${(pers || []).map((p) => p.nome).join(', ')}${novos.length ? `, ${novos.length} colaboradores cadastrados` : ''}${parceirosComVenda ? `, ${parceirosComVenda} parceiros do Indireto com a primeira venda vinculada` : ''}.${avisoParceiros}`, id: sinc.id };
 }
 
 export async function desfazerSincronizacao(_prev, fd) {
@@ -249,6 +256,7 @@ export async function desfazerSincronizacao(_prev, fd) {
     }
   }
   await db.from('sincronizacoes').update({ desfeita_em: new Date().toISOString(), desfeita_por: s.user.id }).eq('id', sinc.id);
+  await db.rpc('desfazer_vendas_parceiros', { p_sinc: sinc.id }); // solta as vendas de parceiros que esta gravação vinculou
   revalidatePath('/', 'layout');
   return { ok: 'Desfeito: os valores voltaram a ser os de antes desta gravação.' };
 }

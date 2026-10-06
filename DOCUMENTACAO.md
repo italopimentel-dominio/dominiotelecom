@@ -64,6 +64,8 @@ Regras de trabalho para Claude:
 | 016_historico_equipes | `colaborador_equipes` (equipe por mês) |
 | 017_fonte_dados | `fontes_dados`, `sincronizacoes`, `periodos.fechado` |
 | 018_nome_para_equipe | `apelidos_equipe` (nome da planilha lançado direto numa equipe) |
+| 019_status_venda_parceiros | `parceiro_status` (lista editável), venda vinculada (`parceiros.venda_*`), `ativacao_travada_em`, `nome_normalizado()`, RPCs `registrar_vendas_parceiros` e `desfazer_vendas_parceiros` |
+| 020_importar_parceiros_indireto | importação única da planilha "Indireto - Acompanhamento Diário Parceiros" (101 parceiros, 190 treinamentos) |
 
 O próximo SQL deve ser o **019**.
 
@@ -218,7 +220,11 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Parceiros:** CPF ou CNPJ validado, status, data de ativação, ponto focal, contatos.
 - **Treinamentos e apontamentos:** treinamentos de onboarding, telecom e serviços; apontamentos sem edição posterior; histórico de alterações por gatilho.
 - **Validação pelo gerente:** volta para pendente se o ponto focal editar. **Validação automática** quando o parceiro responde o Formulário Google (`integracoes-google-forms.gs`, um script por formulário com `TIPO_TREINAMENTO`; webhook `/api/forms`; o parceiro é achado pelo CPF/CNPJ das respostas). O gerente pode desvalidar.
-- **Filtros:** mês de ativação, formulário respondido, validação e treinamento pendente.
+- **Status:** lista em `parceiro_status` (Aguardando interação, Em contato, Declinou, Ativo, Contato desatualizado, Base). O gerente (`validar`) ou admin cria, renomeia, ordena, escolhe a cor, desativa (some da escolha) e marca "esconder da lista" (Declinou). Status antigos migrados: prospecção → aguardando interação, onboarding → em contato, inativo → declinou.
+- **Venda vinculada:** ao gravar uma fonte de dados, a primeira venda de cada parceiro (nome do CONSULTOR = nome fantasia ou razão social, sem acento/maiúsculas) fica gravada em `venda_mes/produto/qtd/valor` e **não muda mais**. "Desfazer" a gravação solta as vendas que ela vinculou.
+- **Ativação boa:** venda até 30 dias da data de ativação. Como as planilhas só têm o mês, vale a venda até o mês em que o prazo termina. Estados: ativação boa, no prazo, vendeu fora do prazo, sem venda em 30 dias.
+- **Data de ativação travada** (no banco, `parceiro_trava_ativacao`): depois da primeira validação aprovada (`ativacao_travada_em`, fica mesmo se voltar para pendente) ou depois de 30 dias da ativação, só gerente/admin altera.
+- **Filtros:** mês de ativação, venda em 30 dias, formulário respondido, validação e treinamento pendente.
 
 ### Preparador de material (`/preparador`, só admin)
 - **Processamento:** a base de clientes (ex.: 50 mil linhas) é lida **no navegador**; nada vai para o servidor.
