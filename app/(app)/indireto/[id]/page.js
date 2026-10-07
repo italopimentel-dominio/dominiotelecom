@@ -6,6 +6,7 @@ import { fmtData } from '@/lib/formato';
 import { classeStatus, situacaoAtivacao, ROTULO_ATIVACAO, ativacaoTravada, TIPOS_TREINAMENTO, STATUS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, CAMPOS_HISTORICO, situacaoTreinamento, documentoDe, fmtCnpj, fmtCpf } from '@/lib/indireto';
 import FormAcao from '@/components/FormAcao';
 import FormParceiro from '@/components/FormParceiro';
+import LinksFormulario from '@/components/LinksFormulario';
 import { criarTreinamento, atualizarTreinamento, excluirTreinamento, criarApontamento, excluirApontamento, excluirParceiro, validarParceiro } from '@/app/actions/indireto';
 import { listarFocais, nomesDosPerfis, listarStatus } from '../dados';
 
@@ -30,6 +31,8 @@ export default async function Parceiro({ params }) {
     supabase.from('parceiro_historico').select('*').eq('parceiro_id', id).order('em', { ascending: false }).limit(300),
     listarStatus(supabase),
   ]);
+  const { data: linksAbertos } = await supabase.from('form_links').select('token, tipo, expira_em')
+    .eq('parceiro_id', id).is('respondido_em', null).gt('expira_em', new Date().toISOString());
   if (!p) notFound();
   const statusPor = new Map(statusLista.map((st) => [st.chave, st]));
   const st = statusPor.get(p.status);
@@ -139,6 +142,7 @@ export default async function Parceiro({ params }) {
 
       <section className="secao">
         <h2 style={{ marginBottom: 10 }}>Formulário de treinamento</h2>
+        <LinksFormulario parceiroId={p.id} nome={p.contato_nome || p.nome_fantasia} telefone={p.contato_telefone} links={linksAbertos || []} podeEditar={editar} />
         {respostas?.length ? (
           <div className="tabela-wrap">
             <table>
@@ -148,7 +152,10 @@ export default async function Parceiro({ params }) {
                   <tr key={r.id}>
                     <td>{dataHora(r.respondido_em)}</td>
                     <td className="esq">{r.formulario || '—'}</td>
-                    <td className="esq">{TIPOS_TREINAMENTO[r.tipo_treinamento]}</td>
+                    <td className="esq">
+                      {TIPOS_TREINAMENTO[r.tipo_treinamento]}
+                      {r.total_pontuavel ? <span className="nome-sub">acertou {r.acertos} de {r.total_pontuavel}</span> : null}
+                    </td>
                     <td className="esq" style={{ whiteSpace: 'normal' }}>
                       <details className="recolhivel">
                         <summary>Ver respostas</summary>

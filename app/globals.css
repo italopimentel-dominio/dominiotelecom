@@ -760,3 +760,16 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .comparativo-trilho { position: relative; flex: 1; height: 8px; border-radius: 99px; background: #ebe9f1; }
 .comparativo-trilho span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 99px; min-width: 2px; }
 .comparativo-trilho i { position: absolute; top: -3px; width: 2px; height: 14px; background: var(--tinta); }
+
+/* formulário público do parceiro (/f/[token]) */
+.cartao-form { max-width: 560px; width: 100%; text-align: left; }
+.form-publico { margin-top: 16px; display: flex; flex-direction: column; gap: 14px; }
+.form-publico .pergunta { border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px 14px; margin: 0; }
+.form-publico legend { font-weight: 600; padding: 0 4px; }
+.form-publico .obrig { color: var(--risco); }
+.form-publico textarea { width: 100%; margin-top: 6px; }
+.form-publico .opcoes { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.form-publico .notas { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+.form-publico .nota { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid var(--linha); border-radius: 8px; cursor: pointer; font-weight: 600; }
+.form-publico .nota input { position: absolute; opacity: 0; pointer-events: none; }
+.form-publico .nota.ativa { background: var(--acento); color: #fff; border-color: var(--acento); }

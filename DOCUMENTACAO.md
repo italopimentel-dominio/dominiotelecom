@@ -71,6 +71,7 @@ Regras de trabalho para Claude:
 | 021_vendas_linhas | `vendas_linhas`: vendas linha a linha (com CNPJ) gravadas pelas fontes de dados, base do cruzamento com os materiais enviados |
 | 023_materiais_meta | `materiais.conversao_esperada` (% de fechamento esperado, 0–100) e view `materiais_resumo` recriada |
 | 024_conversao_materiais | função `material_vendas(p_material)`: vendas creditadas a cada material (CNPJ do lead, mês do envio até o mês do fim dos 30 dias, envio mais recente leva o crédito) |
+| 025_formulario_link | `form_perguntas` (perguntas por tipo, editáveis pelo gerente; resposta certa opcional) e `form_links` (link individual por parceiro e tipo, 30 dias, uma resposta); `parceiro_respostas_form.acertos/total_pontuavel` |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -118,7 +119,7 @@ Funções SQL usadas nas regras de segurança (RLS): `usuario_ativo()`, `pode_ed
   rodapé: Minha senha /conta, Sair
 ```
 
-Outras rotas: `/grupos/[id]` (tela da equipe: semanas, colaboradores, realizado), `/colaboradores/[id]`, `/login`, `/setup`, `/api/forms` (webhook do Formulário Google, público, protegido por segredo).
+Outras rotas: `/f/[token]` (formulário público do parceiro), `/grupos/[id]` (tela da equipe: semanas, colaboradores, realizado), `/colaboradores/[id]`, `/login`, `/setup`, `/api/forms` (webhook do Formulário Google, público, protegido por segredo).
 
 O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `menu_recolhido`. O botão **# Quantidade | R$ Receita** fica no topo das telas de metas, com a escolha no cookie `medida`.
 
@@ -233,6 +234,7 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Venda vinculada:** ao gravar uma fonte de dados, a primeira venda de cada parceiro (nome do CONSULTOR = nome fantasia ou razão social, sem acento/maiúsculas) fica gravada em `venda_mes/produto/qtd/valor` e **não muda mais**. "Desfazer" a gravação solta as vendas que ela vinculou.
 - **Ativação boa:** venda até 30 dias da data de ativação. Como as planilhas só têm o mês, vale a venda até o mês em que o prazo termina. Estados: ativação boa, no prazo, vendeu fora do prazo, sem venda em 30 dias.
 - **Data de ativação travada** (no banco, `parceiro_trava_ativacao`): depois da primeira validação aprovada (`ativacao_travada_em`, fica mesmo se voltar para pendente) ou depois de 30 dias da ativação, só gerente/admin altera.
+- **Formulário por link (recomendado no lugar do Google Forms):** no parceiro, "Gerar link" por tipo (Onboarding, Telecom, Serviços) → copiar ou "Enviar no WhatsApp" (mensagem pronta, usa o telefone do contato). O parceiro responde em `/f/[token]` sem login (rota pública no middleware; lida com o cliente admin no servidor). Ao enviar: grava em `parceiro_respostas_form` (`resposta_id = link:<token>`), trava o link e chama `aplicar_resposta_form` (treinamento realizado + validação automática). Pontuação = perguntas com resposta certa. Perguntas em `/indireto/perguntas` (só gerente/admin); sem perguntas, o parceiro só confirma a participação.
 - **Importar lista** (`/indireto/importar`, só gerente/`validar` ou admin): planilha (acha as colunas Nome, CPF/CNPJ, e-mail, telefone, cidade, UF e observações pelo cabeçalho; dá para trocar) ou lista colada ("nome;documento"). Status, ponto focal e data de ativação valem para o lote (Ativo sem data = hoje). Pula quem já existe (mesmo CPF/CNPJ ou nome); documento inválido entra nas observações. Blocos de 500 (`importarParceiros`).
 - **Filtros:** mês de ativação, venda em 30 dias, formulário respondido, validação e treinamento pendente.
 
@@ -294,7 +296,7 @@ lib/
 supabase/  001 … 018 (.sql)
 public/    logo-duomni.png, logo-duomni-branco.png, simbolo-duomni.png
 integracoes-google-forms.gs     script para os Formulários Google
-middleware.js                   exige login (exceto /login, /setup, /api/forms)
+middleware.js                   exige login (exceto /login, /setup, /api/forms, /f/)
 ```
 
 ### Padrões de código

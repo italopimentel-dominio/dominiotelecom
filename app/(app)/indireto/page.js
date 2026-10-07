@@ -115,6 +115,7 @@ export default async function ControleIndireto({ searchParams }) {
         </div>
         {editar && (
           <div style={{ display: 'flex', gap: 8 }}>
+            {gerente && <Link className="btn btn-sec" href="/indireto/perguntas">Perguntas dos formulários</Link>}
             {gerente && <Link className="btn btn-sec" href="/indireto/importar">Importar lista</Link>}
             <Link className="btn" href="/indireto/novo">Novo parceiro</Link>
           </div>
