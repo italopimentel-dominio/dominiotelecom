@@ -76,6 +76,10 @@ export default async function TempoFalado({ searchParams }) {
             <div><b>{hms(dias ? total / dias : 0)}</b><span>média falando por dia trabalhado</span></div>
           </div>
 
+          <p className="dica" style={{ marginBottom: 6 }}>
+            "Copiar para o relatório" copia as 6 colunas do relatório oficial (Mês, Consultor, Falando, TMA, Dias trabalhados, Média Falando),
+            na ordem desta tabela e respeitando os filtros. É só colar na primeira célula vazia do relatório.
+          </p>
           <div className="tabela-wrap tabela-fixa">
             <table>
               <thead><tr><th>Consultor</th><th className="esq">Equipe</th><th>Falando</th><th>TMA</th><th>Dias trabalhados</th><th>Média falando</th><th className="esq">Origem</th><th className="esq">Alertas</th></tr></thead>
