@@ -9,22 +9,36 @@ export default async function LayoutApp({ children }) {
   const { perfil } = await exigirSessao();
   const cookieStore = await cookies();
 
+  const editor = podeEditar(perfil);
+  const admin = ehAdmin(perfil);
+
   const metas = [
     { href: '/resumo', rotulo: 'Resumo da empresa', icone: 'resumo' },
     { href: '/', rotulo: 'Painel', icone: 'painel' },
     { href: '/metas', rotulo: 'Quadro de metas', icone: 'quadro' },
+    { href: '/headcount', rotulo: 'Headcount', icone: 'headcount' },
   ];
-  if (podeEditar(perfil)) metas.push({ href: '/importar', rotulo: 'Importar resultados', icone: 'importar' });
-  if (podeEditar(perfil)) metas.push({ href: '/fontes', rotulo: 'Fonte de dados', icone: 'fonte' });
-  metas.push({ href: '/headcount', rotulo: 'Headcount', icone: 'headcount' });
 
-  const cadastros = [
+  const materiais = [];
+  if (admin) materiais.push({ href: '/preparador', rotulo: 'Preparador de material', icone: 'preparador' });
+  if (admin) materiais.push({ href: '/materiais', rotulo: 'Materiais enviados', icone: 'materiais' });
+
+  // Configurações: títulos de seção só aparecem se a pessoa tiver algum item daquela seção
+  const configuracoes = [];
+  const secao = (titulo, itens) => { if (itens.length) configuracoes.push({ secao: titulo }, ...itens); };
+  secao('Dados', editor ? [
+    { href: '/fontes', rotulo: 'Fonte de dados', icone: 'fonte' },
+    { href: '/importar', rotulo: 'Importar resultados', icone: 'importar' },
+  ] : []);
+  secao('Pessoas', [
     { href: '/estrutura', rotulo: 'Equipes e colaboradores', icone: 'equipes' },
-    { href: '/produtos', rotulo: 'Produtos', icone: 'produtos' },
+    ...(admin ? [{ href: '/usuarios', rotulo: 'Usuários', icone: 'usuarios' }] : []),
+  ]);
+  secao('Calendário', [
     { href: '/periodos', rotulo: 'Períodos e fechamentos', icone: 'periodos' },
     { href: '/feriados', rotulo: 'Feriados', icone: 'feriados' },
-  ];
-  if (ehAdmin(perfil)) cadastros.push({ href: '/usuarios', rotulo: 'Usuários', icone: 'usuarios' });
+  ]);
+  secao('Catálogo', [{ href: '/produtos', rotulo: 'Produtos', icone: 'produtos' }]);
 
   const menu = [
     { rotulo: 'Metas', icone: 'metas', itens: metas, aberto: true },
@@ -32,15 +46,14 @@ export default async function LayoutApp({ children }) {
     { href: '/organograma', rotulo: 'Organograma', icone: 'organograma' },
   ];
   if (podeVerIndireto(perfil)) menu.push({ href: '/indireto', rotulo: 'Controle Indireto', icone: 'indireto' });
-  if (ehAdmin(perfil)) menu.push({ href: '/preparador', rotulo: 'Preparador de material', icone: 'preparador' });
-  if (ehAdmin(perfil)) menu.push({ href: '/materiais', rotulo: 'Materiais enviados', icone: 'materiais' });
-  menu.push({ rotulo: 'Cadastros', icone: 'cadastros', itens: cadastros });
+  if (materiais.length) menu.push({ rotulo: 'Materiais', icone: 'materiais', itens: materiais });
+  menu.push({ rotulo: 'Configurações', icone: 'cadastros', itens: configuracoes });
 
   return (
     <div className="app">
       <MenuLateral
         menu={menu}
-        perfil={{ nome: perfil.nome || perfil.usuario, papel: `${NOME_PAPEL[perfil.papel]}${podeEditar(perfil) ? '' : ' (só leitura)'}` }}
+        perfil={{ nome: perfil.nome || perfil.usuario, papel: `${NOME_PAPEL[perfil.papel]}${editor ? '' : ' (só leitura)'}` }}
         recolhidoInicial={cookieStore.get('menu_recolhido')?.value === '1'}
         sair={sair}
       />

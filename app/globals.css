@@ -749,3 +749,7 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .paginacao { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0; }
 .paginacao-botoes { display: flex; align-items: center; gap: 10px; }
 .btn.desligado { opacity: .45; pointer-events: none; }
+
+/* títulos de seção dentro de um grupo do menu (ex.: Configurações → Dados) */
+.nav-secao { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.45); padding: 10px 8px 3px; }
+.sub-nav .nav-secao:first-child { padding-top: 4px; }

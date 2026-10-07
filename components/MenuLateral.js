@@ -9,10 +9,11 @@ function gravar(nome, valor) {
 }
 
 // menu: itens soltos { href, rotulo, icone } ou grupos { rotulo, icone, itens: [...] }
+// dentro de um grupo, { secao: 'Nome' } é um título pequeno (não clicável) que separa os itens
 export default function MenuLateral({ menu, perfil, recolhidoInicial, sair }) {
   const caminho = usePathname();
   const [recolhido, setRecolhido] = useState(recolhidoInicial);
-  const ativo = (href) => (href === '/' ? caminho === '/' || caminho.startsWith('/grupos') || caminho.startsWith('/colaboradores') : caminho.startsWith(href));
+  const ativo = (href) => (!href ? false : href === '/' ? caminho === '/' || caminho.startsWith('/grupos') || caminho.startsWith('/colaboradores') : caminho.startsWith(href));
   const [abertos, setAbertos] = useState(() => new Set(menu.filter((m) => m.itens && (m.aberto || m.itens.some((i) => ativo(i.href)))).map((m) => m.rotulo)));
   const alternarGrupo = (r) => setAbertos((a) => { const n = new Set(a); if (n.has(r)) n.delete(r); else n.add(r); return n; });
   const alternar = () => { setRecolhido((r) => { gravar('menu_recolhido', r ? '0' : '1'); return !r; }); };
@@ -39,16 +40,23 @@ export default function MenuLateral({ menu, perfil, recolhidoInicial, sair }) {
       <nav className="nav" aria-label="Principal">
         {menu.map((m) => {
           if (!m.itens) return <Item key={m.href} i={m} />;
-          if (recolhido) return <div key={m.rotulo} className="nav-separador">{m.itens.map((i) => <Item key={i.href} i={i} />)}</div>;
+          const links = m.itens.filter((i) => i.href);
+          if (recolhido) return <div key={m.rotulo} className="nav-separador">{links.map((i) => <Item key={i.href} i={i} />)}</div>;
           const aberto = abertos.has(m.rotulo);
-          const contem = m.itens.some((i) => ativo(i.href));
+          const contem = links.some((i) => ativo(i.href));
           return (
             <div key={m.rotulo} className="grupo-nav">
               <button type="button" className={`nav-item nav-grupo${contem ? ' contem-ativo' : ''}`} onClick={() => alternarGrupo(m.rotulo)} aria-expanded={aberto}>
                 <Icone nome={m.icone} /><span className="nav-rotulo">{m.rotulo}</span>
                 <span className={`seta-grupo${aberto ? ' aberto' : ''}`}>▶</span>
               </button>
-              {aberto && <div className="sub-nav">{m.itens.map((i) => <Item key={i.href} i={i} />)}</div>}
+              {aberto && (
+                <div className="sub-nav">
+                  {m.itens.map((i) => (i.secao
+                    ? <div key={`secao-${i.secao}`} className="nav-secao">{i.secao}</div>
+                    : <Item key={i.href} i={i} />))}
+                </div>
+              )}
             </div>
           );
         })}
