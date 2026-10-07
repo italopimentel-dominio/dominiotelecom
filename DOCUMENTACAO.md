@@ -67,6 +67,7 @@ Regras de trabalho para Claude:
 | 018_nome_para_equipe | `apelidos_equipe` (nome da planilha lançado direto numa equipe) |
 | 019_status_venda_parceiros | `parceiro_status` (lista editável), venda vinculada (`parceiros.venda_*`), `ativacao_travada_em`, `nome_normalizado()`, RPCs `registrar_vendas_parceiros` e `desfazer_vendas_parceiros` |
 | 020_importar_parceiros_indireto | importação única da planilha "Indireto - Acompanhamento Diário Parceiros" (101 parceiros, 190 treinamentos) |
+| 021_vendas_linhas | `vendas_linhas`: vendas linha a linha (com CNPJ) gravadas pelas fontes de dados, base do cruzamento com os materiais enviados |
 
 O próximo SQL deve ser o **019**.
 
@@ -192,6 +193,9 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
   - **Alta Fibra** = ALTA ou qualquer classe que comece com MIGRAÇÃO; **Reno Fibra** = qualquer classe que comece com RENOVAÇÃO. Quantidade = Quant., receita = VALOR TOTAL.
 - **Modelo `pedidos_vada`** (aba "VADA"): colunas CONSULTOR, QTD, VALOR TOTAL, EQUIPE CANAL INTERNO, CLASSE, STATUS 1, MÊS/ANO F1.
   - **O que conta:** `STATUS 1 = APROVADO - ENVIADO P/ INSTALAÇÃO`, no mês de MÊS/ANO F1, qualquer CLASSE menos NÃO CONTABILIZA. Vai tudo para **Alta VADA** (quantidade = QTD, receita = VALOR TOTAL). STATUS 2 (ex.: CANCELADO) não é olhado.
+- **CNPJ nas fontes (Etapa 1 do projeto de conversão de materiais):** coluna opcional `CNPJ` (ou CPF/CNPJ, CNPJ/CPF, DOCUMENTO) nos três modelos. Só dígitos; recupera zeros à esquerda; CPF de 11 dígitos também vale. A prévia mostra quantas vendas contadas têm CNPJ válido, sem CNPJ e inválido.
+- **Vendas linha a linha (`vendas_linhas`):** ao gravar, o servidor baixa a aba de novo e grava cada venda contada (mês, consultor, CNPJ, destino, produto, qtd, valor, NEO, classe) dos meses gravados. A gravação anterior do mesmo mês fica com `substituida_por` (linhas ativas = `substituida_por is null`); "Desfazer" apaga as linhas da gravação e devolve as substituídas. Substituídas há mais de 30 dias são apagadas.
+- **Projeto de conversão de materiais (decidido):** janela de 30 dias depois do envio; qualquer venda para o CNPJ conta, mostrando quem vendeu; a tela é para todos que veem o painel. Próximas etapas: registrar envios no Preparador (só CNPJ + destinatário, em blocos) e a tela "Conversão de materiais" (contas feitas no banco).
 - **Regras com prefixo:** `regras[].prefixos` pega qualquer classe que comece com o texto. A prévia lista as classes executadas encontradas e para onde cada uma foi ("não conta" em vermelho), para pegar classes novas.
 - **Mês:** aceita `outubro_2026`, `out/2026`, `10/2026`, `01/10/2026` e `2026-10`.
 - **Próximos passos combinados:** outras planilhas por produto (energia etc., com novos modelos em `MODELOS`) e, depois de validado, leitura automática (cron da Vercel) só para o mês aberto.

@@ -51,17 +51,10 @@ export async function excluirFonte(_prev, fd) {
   return { ok: true };
 }
 
-// Lê a planilha e devolve a prévia (não grava nada)
-export async function lerFonte(fonteId) {
-  const s = await editor();
-  if (!s) return SEM_PERMISSAO;
-  const db = s.supabase;
-  const { data: fonte } = await db.from('fontes_dados').select('*').eq('id', fonteId).maybeSingle();
-  if (!fonte) return { erro: 'Fonte não encontrada.' };
-  const modelo = MODELOS[fonte.modelo] || MODELOS.pedidos_movel;
+// Baixa a aba da planilha da fonte e devolve as linhas (array de arrays)
+async function baixarLinhas(fonte) {
   const link = linkExportacao(fonte.url);
   if (!link) return { erro: 'Link inválido.' };
-
   let texto;
   try {
     const r = await fetch(link, { cache: 'no-store', redirect: 'follow' });
@@ -73,8 +66,20 @@ export async function lerFonte(fonteId) {
   }
   const XLSX = await import('xlsx');
   const wb = XLSX.read(texto, { type: 'string', raw: true });
-  const linhas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null, blankrows: false });
-  const lido = lerPedidos(linhas, modelo);
+  return { linhas: XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true, defval: null, blankrows: false }) };
+}
+
+// Lê a planilha e devolve a prévia (não grava nada)
+export async function lerFonte(fonteId) {
+  const s = await editor();
+  if (!s) return SEM_PERMISSAO;
+  const db = s.supabase;
+  const { data: fonte } = await db.from('fontes_dados').select('*').eq('id', fonteId).maybeSingle();
+  if (!fonte) return { erro: 'Fonte não encontrada.' };
+  const modelo = MODELOS[fonte.modelo] || MODELOS.pedidos_movel;
+  const baixado = await baixarLinhas(fonte);
+  if (baixado.erro) return { erro: baixado.erro };
+  const lido = lerPedidos(baixado.linhas, modelo);
   if (lido.erro) return { erro: lido.erro };
 
   const [{ data: colabs }, { data: apelidos }, { data: periodos }, { data: produtos }, { data: grupos }, aeq] = await Promise.all([
@@ -142,7 +147,7 @@ export async function aplicarFonte(dados) {
   if (!idsPer.length) return { erro: 'Marque pelo menos um mês.' };
   if (!escopo.length) return { erro: 'Ligue os resultados aos produtos do sistema.' };
   if (novos.some((n) => !n.grupo_id || !n.nome?.trim())) return { erro: 'Escolha a equipe de todos os colaboradores novos.' };
-  const { data: pers } = await db.from('periodos').select('id, nome, fechado').in('id', idsPer);
+  const { data: pers } = await db.from('periodos').select('id, nome, fechado, referencia').in('id', idsPer);
   const fechados = (pers || []).filter((p) => p.fechado);
   if (fechados.length) return { erro: `Mês fechado não pode ser alterado: ${fechados.map((p) => p.nome).join(', ')}.` };
 
@@ -220,7 +225,40 @@ export async function aplicarFonte(dados) {
     const { error } = await db.from('apelidos_equipe').upsert(equipes.map((e) => ({ apelido: normalizar(e.apelido), grupo_id: e.grupo_id })));
     if (error) return { erro: error.message.includes('apelidos_equipe') ? 'Gravado, mas rode o 018_nome_para_equipe.sql para o sistema lembrar dos nomes que vão direto para equipe.' : error.message };
   }
-  // 5) parceiros do Indireto: grava a primeira venda de quem ainda não tem (vínculo pelo nome)
+  // 5) vendas linha a linha (com CNPJ), para cruzar com os materiais enviados.
+  // A gravação anterior do mesmo mês fica marcada como substituída (o "Desfazer" volta ela).
+  let linhasGravadas = 0, avisoLinhas = '';
+  const { data: fonteReg } = await db.from('fontes_dados').select('*').eq('id', fonte_id).maybeSingle();
+  if (fonteReg) {
+    const modelo = MODELOS[fonteReg.modelo] || MODELOS.pedidos_movel;
+    const baixado = await baixarLinhas({ ...fonteReg, url: url || fonteReg.url });
+    const lido = baixado.erro ? { erro: baixado.erro } : lerPedidos(baixado.linhas, modelo, { comLinhas: true });
+    const mesesSinc = (pers || []).map((p) => String(p.referencia).slice(0, 7));
+    if (lido.erro) avisoLinhas = ` (vendas com CNPJ não gravadas: ${lido.erro})`;
+    else {
+      const { error: es } = await db.from('vendas_linhas').update({ substituida_por: sinc.id })
+        .eq('fonte_id', fonte_id).in('mes', mesesSinc).is('substituida_por', null);
+      if (es) avisoLinhas = es.message.includes('vendas_linhas') ? ' (rode o 021_vendas_linhas.sql para gravar as vendas com CNPJ)' : ` (vendas com CNPJ: ${es.message})`;
+      else {
+        const cfg = fonteReg.config || {};
+        const regs = lido.vendas.filter((v) => mesesSinc.includes(v.mes)).map((v) => ({
+          fonte_id, sincronizacao_id: sinc.id, mes: v.mes, consultor: v.consultor, cnpj: v.cnpj, documento_valido: v.valido,
+          destino: v.destino, produto_id: cfg[v.destino] || null, qtd: v.qtd, valor: v.valor, pedido: v.pedido, classe: v.classe,
+        }));
+        for (let i = 0; i < regs.length && !avisoLinhas; i += 1000) {
+          const { error: ei } = await db.from('vendas_linhas').insert(regs.slice(i, i + 1000));
+          if (ei) avisoLinhas = ` (vendas com CNPJ: ${ei.message})`;
+        }
+        if (!avisoLinhas) linhasGravadas = regs.length;
+        // limpeza: linhas substituídas há mais de 30 dias não podem mais ser desfeitas
+        const limite = new Date(Date.now() - 30 * 86400000).toISOString();
+        const { data: velhas } = await db.from('sincronizacoes').select('id').eq('fonte_id', fonte_id).lt('executado_em', limite);
+        if (velhas?.length) await db.from('vendas_linhas').delete().in('substituida_por', velhas.map((v) => v.id));
+      }
+    }
+  }
+
+  // 6) parceiros do Indireto: grava a primeira venda de quem ainda não tem (vínculo pelo nome)
   let parceirosComVenda = 0, avisoParceiros = '';
   if (vendasParceiros.length) {
     const { data: n, error: ev } = await db.rpc('registrar_vendas_parceiros', { p_sinc: sinc.id, p_vendas: vendasParceiros });
@@ -228,7 +266,7 @@ export async function aplicarFonte(dados) {
     else parceirosComVenda = n || 0;
   }
   revalidatePath('/', 'layout');
-  return { ok: `Gravado: ${depois.length} valores em ${(pers || []).map((p) => p.nome).join(', ')}${novos.length ? `, ${novos.length} colaboradores cadastrados` : ''}${parceirosComVenda ? `, ${parceirosComVenda} parceiros do Indireto com a primeira venda vinculada` : ''}.${avisoParceiros}`, id: sinc.id };
+  return { ok: `Gravado: ${depois.length} valores em ${(pers || []).map((p) => p.nome).join(', ')}${novos.length ? `, ${novos.length} colaboradores cadastrados` : ''}${linhasGravadas ? `, ${linhasGravadas} linhas de venda guardadas para o cruzamento por CNPJ` : ''}${parceirosComVenda ? `, ${parceirosComVenda} parceiros do Indireto com a primeira venda vinculada` : ''}.${avisoParceiros}${avisoLinhas}`, id: sinc.id };
 }
 
 export async function desfazerSincronizacao(_prev, fd) {
@@ -256,7 +294,10 @@ export async function desfazerSincronizacao(_prev, fd) {
     }
   }
   await db.from('sincronizacoes').update({ desfeita_em: new Date().toISOString(), desfeita_por: s.user.id }).eq('id', sinc.id);
-  await db.rpc('desfazer_vendas_parceiros', { p_sinc: sinc.id }); // solta as vendas de parceiros que esta gravação vinculou
+  await db.rpc('desfazer_vendas_parceiros', { p_sinc: sinc.id });
+  // vendas linha a linha: apaga as desta gravação e devolve as que ela tinha substituído
+  await db.from('vendas_linhas').delete().eq('sincronizacao_id', sinc.id);
+  await db.from('vendas_linhas').update({ substituida_por: null }).eq('substituida_por', sinc.id); // solta as vendas de parceiros que esta gravação vinculou
   revalidatePath('/', 'layout');
   return { ok: 'Desfeito: os valores voltaram a ser os de antes desta gravação.' };
 }

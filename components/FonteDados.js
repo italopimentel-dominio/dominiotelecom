@@ -165,6 +165,15 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
             Lido agora: {dados.contagem.total} linhas na planilha, <b>{dados.contagem.contadas} contadas</b> ({dados.statusConta || 'EXECUTADO'}),
             {' '}{dados.contagem.naoExecutadas} com outro status{dados.contagem.tipoFora ? `, ${dados.contagem.tipoFora} com tipo de produto fora da regra` : ''} e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
           </p>
+          {dados.contagem.cnpj && (
+            <p className="dica" style={{ marginTop: 4 }}>
+              {dados.contagem.cnpj.coluna
+                ? <>CNPJ: <b>{dados.contagem.cnpj.com}</b> das vendas contadas têm CNPJ/CPF válido
+                    {dados.contagem.cnpj.sem ? `, ${dados.contagem.cnpj.sem} sem CNPJ` : ''}
+                    {dados.contagem.cnpj.invalido ? <>, <b style={{ color: 'var(--risco)' }}>{dados.contagem.cnpj.invalido} com CNPJ inválido</b></> : ''}.</>
+                : <>Coluna de CNPJ não encontrada nesta aba: as vendas são gravadas sem CNPJ e não entram no cruzamento com os materiais.</>}
+            </p>
+          )}
           {dados.contagem.classes && Object.keys(dados.contagem.classes).length > 0 && (
             <p className="dica" style={{ marginTop: 4 }}>
               Classes encontradas (no status que conta):{' '}
