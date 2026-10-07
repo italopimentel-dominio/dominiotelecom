@@ -33,6 +33,7 @@ export default async function PaginaMaterial({ params }) {
             {m.conversao_esperada != null && <> · fechamento esperado: {fmtPct(m.conversao_esperada)} (≈ {fmtN(Math.round((count * m.conversao_esperada) / 100))} vendas)</>}
           </p>
         </div>
+        <Link className="btn btn-sec" href={`/conversao/${m.id}`}>Ver conversão</Link>
       </div>
 
       <section className="bloco secao">

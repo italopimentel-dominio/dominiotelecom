@@ -28,7 +28,7 @@ O usuário **não usa terminal**. O fluxo é:
 
 Regras de trabalho para Claude:
 - Sempre rodar `next build` antes de entregar, com variáveis falsas. Testar regras de negócio com scripts Node em `/tmp`. Testar SQL num Postgres local com um mock de `auth.users`, `auth.uid()` e dos papéis `authenticated`, `anon` e `service_role` (com `bypassrls`), rodando duas vezes para garantir que pode repetir.
-- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Headcount) · Campanhas · Organograma · Controle Indireto · Materiais (Preparador, Materiais enviados; só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
+- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Headcount) · Campanhas · Organograma · Controle Indireto · Materiais (Conversão para todos; Preparador e Materiais enviados só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
 - **Zip sempre com mais de um item na raiz** (ex.: `app/` + `DOCUMENTACAO.md`). Se o zip tiver uma pasta só na raiz, a Action tira essa pasta e os arquivos caem no lugar errado (aconteceu com `app/(app)/...` virando `(app)/...` na raiz).
 - SQL sempre **aditivo e repetível** (`if not exists`, `drop policy if exists`). Nunca apagar dados existentes.
 - Dizer claramente se a entrega tem SQL e em que ordem. O usuário sempre pergunta se "vai desconfigurar algo": responder com o que muda na tela e o que muda nos dados.
@@ -70,6 +70,7 @@ Regras de trabalho para Claude:
 | 020_importar_parceiros_indireto | importação única da planilha "Indireto - Acompanhamento Diário Parceiros" (101 parceiros, 190 treinamentos) |
 | 021_vendas_linhas | `vendas_linhas`: vendas linha a linha (com CNPJ) gravadas pelas fontes de dados, base do cruzamento com os materiais enviados |
 | 023_materiais_meta | `materiais.conversao_esperada` (% de fechamento esperado, 0–100) e view `materiais_resumo` recriada |
+| 024_conversao_materiais | função `material_vendas(p_material)`: vendas creditadas a cada material (CNPJ do lead, mês do envio até o mês do fim dos 30 dias, envio mais recente leva o crédito) |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -240,6 +241,12 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Três entradas:** botão "Registrar envio" no Preparador depois de baixar (separado por coluna = destinatário é o valor da coluna; por lotes = "Lote N"); subir Excel/CSV de qualquer origem (acha a coluna de CNPJ pelo nome ou pela que tem mais documentos válidos; opção "todas as abas" usa o nome da aba como destinatário e pula "Resumo"/"Filtros usados"); colar CNPJs.
 - **Gravação em blocos** de 2.000 leads por chamada (`criarMaterial` + `adicionarLeadsMaterial`), por causa do limite de tamanho das server actions.
 - Detalhe do material: editar dados, adicionar leads, ver os primeiros 50, excluir.
+
+### Conversão de materiais (`/conversao`, todos)
+- **Números:** leads enviados, leads que compraram (CNPJs distintos), % real contra o % esperado (barra com tracinho no esperado; por equipe o esperado é ponderado pelos leads), vendas e R$.
+- **Situação:** acima do esperado (verde), em andamento (janela de 30 dias aberta, laranja), abaixo do esperado (janela encerrada, vermelho).
+- **Por equipe e por material**, com filtros de equipe, mês de envio e janela. Detalhe do material: por produto e lista de clientes que compraram (destinatário do lead, mês, produto, quem vendeu, equipe de quem vendeu — pelo nome/apelido do colaborador ou nome ligado direto a uma equipe — e se foi a própria equipe; "mesmo mês" marca venda no mês do envio).
+- Cálculo em `app/(app)/conversao/dados.js` (`carregarConversao`, `somar`).
 
 ### Preparador de material (`/preparador`, só admin)
 - **Processamento:** a base de clientes (ex.: 50 mil linhas) é lida **no navegador**; nada vai para o servidor.

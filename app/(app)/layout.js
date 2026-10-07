@@ -21,6 +21,7 @@ export default async function LayoutApp({ children }) {
 
   const materiais = [];
   if (admin) materiais.push({ href: '/preparador', rotulo: 'Preparador de material', icone: 'preparador' });
+  materiais.push({ href: '/conversao', rotulo: 'Conversão', icone: 'resumo' });
   if (admin) materiais.push({ href: '/materiais', rotulo: 'Materiais enviados', icone: 'materiais' });
 
   // Configurações: títulos de seção só aparecem se a pessoa tiver algum item daquela seção
