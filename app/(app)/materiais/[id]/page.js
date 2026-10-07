@@ -1,0 +1,79 @@
+import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
+import { exigirSessao, ehAdmin } from '@/lib/auth';
+import FormAcao from '@/components/FormAcao';
+import NovoMaterial from '@/components/NovoMaterial';
+import { salvarMaterial, excluirMaterial } from '@/app/actions/materiais';
+import { listarEquipes, ORIGEM } from '../dados';
+
+const fmtN = (n) => Number(n || 0).toLocaleString('pt-BR');
+const fmtDoc = (d) => (d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4'));
+
+export default async function PaginaMaterial({ params }) {
+  const { id } = await params;
+  const { perfil, supabase } = await exigirSessao();
+  if (!ehAdmin(perfil)) redirect('/');
+  const [{ data: m }, equipes, { data: amostra }, { count }] = await Promise.all([
+    supabase.from('materiais').select('*').eq('id', id).maybeSingle(),
+    listarEquipes(supabase),
+    supabase.from('material_leads').select('cnpj, destinatario').eq('material_id', id).order('id').limit(50),
+    supabase.from('material_leads').select('id', { count: 'exact', head: true }).eq('material_id', id),
+  ]);
+  if (!m) notFound();
+
+  return (
+    <>
+      <div className="topo">
+        <div>
+          <p className="sub"><Link href="/materiais">← Materiais enviados</Link></p>
+          <h1>{m.nome}</h1>
+          <p className="sub">{fmtN(count)} leads · origem: {ORIGEM[m.origem] || m.origem}</p>
+        </div>
+      </div>
+
+      <section className="bloco secao">
+        <h2 style={{ marginBottom: 8 }}>Dados do material</h2>
+        <FormAcao acao={salvarMaterial}>
+          <input type="hidden" name="id" value={m.id} />
+          <div className="campos">
+            <label className="campo" style={{ flex: '2 1 260px' }}>Nome<input type="text" name="nome" defaultValue={m.nome} required /></label>
+            <label className="campo">Data de envio<input type="date" name="enviado_em" defaultValue={m.enviado_em} required /></label>
+            <label className="campo" style={{ flex: '2 1 240px' }}>Equipe que recebeu
+              <select name="grupo_id" defaultValue={m.grupo_id || ''} required>
+                <option value="">Escolha…</option>
+                {equipes.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
+              </select>
+            </label>
+            <label className="campo" style={{ flex: '3 1 300px' }}>Observação<input type="text" name="observacao" defaultValue={m.observacao || ''} /></label>
+          </div>
+          <button className="btn" type="submit" style={{ marginTop: 10 }}>Salvar</button>
+        </FormAcao>
+      </section>
+
+      <details className="bloco secao recolhivel">
+        <summary style={{ cursor: 'pointer', fontWeight: 600 }}>+ Adicionar leads a este material</summary>
+        <div style={{ marginTop: 10 }}><NovoMaterial grupos={equipes} materialId={m.id} /></div>
+      </details>
+
+      <section className="secao">
+        <h2 style={{ marginBottom: 8 }}>Leads {count > 50 && <span className="dica">(primeiros 50 de {fmtN(count)})</span>}</h2>
+        <div className="tabela-wrap">
+          <table>
+            <thead><tr><th className="esq">CNPJ/CPF</th><th className="esq">Destinatário</th></tr></thead>
+            <tbody>
+              {(amostra || []).map((l) => <tr key={l.cnpj}><td className="esq">{fmtDoc(l.cnpj)}</td><td className="esq">{l.destinatario || <span className="fraco">—</span>}</td></tr>)}
+              {!amostra?.length && <tr><td colSpan={2} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nenhum lead.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="secao">
+        <FormAcao acao={excluirMaterial} confirmar={`Excluir o material "${m.nome}" e os ${fmtN(count)} leads dele? Isso não pode ser desfeito.`}>
+          <input type="hidden" name="id" value={m.id} />
+          <button className="btn btn-perigo" type="submit">Excluir material</button>
+        </FormAcao>
+      </section>
+    </>
+  );
+}

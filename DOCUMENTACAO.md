@@ -68,6 +68,7 @@ Regras de trabalho para Claude:
 | 019_status_venda_parceiros | `parceiro_status` (lista editável), venda vinculada (`parceiros.venda_*`), `ativacao_travada_em`, `nome_normalizado()`, RPCs `registrar_vendas_parceiros` e `desfazer_vendas_parceiros` |
 | 020_importar_parceiros_indireto | importação única da planilha "Indireto - Acompanhamento Diário Parceiros" (101 parceiros, 190 treinamentos) |
 | 021_vendas_linhas | `vendas_linhas`: vendas linha a linha (com CNPJ) gravadas pelas fontes de dados, base do cruzamento com os materiais enviados |
+| 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
 
@@ -230,6 +231,13 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Ativação boa:** venda até 30 dias da data de ativação. Como as planilhas só têm o mês, vale a venda até o mês em que o prazo termina. Estados: ativação boa, no prazo, vendeu fora do prazo, sem venda em 30 dias.
 - **Data de ativação travada** (no banco, `parceiro_trava_ativacao`): depois da primeira validação aprovada (`ativacao_travada_em`, fica mesmo se voltar para pendente) ou depois de 30 dias da ativação, só gerente/admin altera.
 - **Filtros:** mês de ativação, venda em 30 dias, formulário respondido, validação e treinamento pendente.
+
+### Materiais enviados (`/materiais`, só admin)
+- **Material:** nome, data de envio, **uma equipe** (base dividida entre equipes = um material por parte), origem (Preparador, planilha ou manual), observação.
+- **Leads:** CNPJ (só dígitos, validado; CPF também vale) e destinatário opcional (consultor, nome da aba ou lote). Repetidos no mesmo material entram uma vez.
+- **Três entradas:** botão "Registrar envio" no Preparador depois de baixar (separado por coluna = destinatário é o valor da coluna; por lotes = "Lote N"); subir Excel/CSV de qualquer origem (acha a coluna de CNPJ pelo nome ou pela que tem mais documentos válidos; opção "todas as abas" usa o nome da aba como destinatário e pula "Resumo"/"Filtros usados"); colar CNPJs.
+- **Gravação em blocos** de 2.000 leads por chamada (`criarMaterial` + `adicionarLeadsMaterial`), por causa do limite de tamanho das server actions.
+- Detalhe do material: editar dados, adicionar leads, ver os primeiros 50, excluir.
 
 ### Preparador de material (`/preparador`, só admin)
 - **Processamento:** a base de clientes (ex.: 50 mil linhas) é lida **no navegador**; nada vai para o servidor.

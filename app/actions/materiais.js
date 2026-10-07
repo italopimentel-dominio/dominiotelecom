@@ -1,0 +1,89 @@
+'use server';
+import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { sessao, ehAdmin } from '@/lib/auth';
+import { documentoDaVenda } from '@/lib/fontes';
+
+const SO_ADMIN = { erro: 'Só administradores cadastram materiais.' };
+const txt = (v) => String(v ?? '').trim();
+const dataOk = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
+const erroTabela = (m) => (m.includes('materia') ? 'Rode o arquivo 022_materiais.sql no Supabase.' : m);
+
+async function admin() {
+  const s = await sessao();
+  return ehAdmin(s.perfil) ? s : null;
+}
+
+// Cria o material (sem leads). Os leads vão depois, em blocos, por adicionarLeadsMaterial.
+export async function criarMaterial(dados) {
+  const s = await admin();
+  if (!s) return SO_ADMIN;
+  const reg = {
+    nome: txt(dados?.nome),
+    enviado_em: txt(dados?.enviado_em),
+    grupo_id: txt(dados?.grupo_id) || null,
+    origem: ['preparador', 'planilha', 'manual'].includes(dados?.origem) ? dados.origem : 'planilha',
+    observacao: txt(dados?.observacao) || null,
+  };
+  if (!reg.nome) return { erro: 'Dê um nome para o material.' };
+  if (!dataOk(reg.enviado_em)) return { erro: 'Informe a data de envio.' };
+  if (!reg.grupo_id) return { erro: 'Escolha a equipe que recebeu o material.' };
+  const { data, error } = await s.supabase.from('materiais').insert(reg).select('id').single();
+  if (error) return { erro: erroTabela(error.message) };
+  return { id: data.id };
+}
+
+// leads: [{ cnpj, destinatario }] — até 5.000 por chamada. Repetidos no mesmo material são ignorados.
+export async function adicionarLeadsMaterial(materialId, leads) {
+  const s = await admin();
+  if (!s) return SO_ADMIN;
+  if (!Array.isArray(leads) || leads.length > 5000) return { erro: 'Envie no máximo 5.000 leads por vez.' };
+  const vistos = new Set();
+  const regs = [];
+  let invalidos = 0;
+  for (const l of leads) {
+    const d = documentoDaVenda(l?.cnpj);
+    if (!d.valido) { invalidos++; continue; }
+    if (vistos.has(d.cnpj)) continue;
+    vistos.add(d.cnpj);
+    regs.push({ material_id: materialId, cnpj: d.cnpj, destinatario: txt(l?.destinatario) || null });
+  }
+  if (!regs.length) return { inseridos: 0, invalidos };
+  const { data, error } = await s.supabase.from('material_leads')
+    .upsert(regs, { onConflict: 'material_id,cnpj', ignoreDuplicates: true }).select('id');
+  if (error) return { erro: erroTabela(error.message) };
+  return { inseridos: data?.length || 0, invalidos };
+}
+
+export async function concluirMaterial() {
+  revalidatePath('/materiais', 'layout');
+  return { ok: true };
+}
+
+export async function salvarMaterial(_prev, fd) {
+  const s = await admin();
+  if (!s) return SO_ADMIN;
+  const id = txt(fd.get('id'));
+  const reg = {
+    nome: txt(fd.get('nome')),
+    enviado_em: txt(fd.get('enviado_em')),
+    grupo_id: txt(fd.get('grupo_id')) || null,
+    observacao: txt(fd.get('observacao')) || null,
+  };
+  if (!reg.nome) return { erro: 'Dê um nome para o material.' };
+  if (!dataOk(reg.enviado_em)) return { erro: 'Informe a data de envio.' };
+  if (!reg.grupo_id) return { erro: 'Escolha a equipe.' };
+  const { error } = await s.supabase.from('materiais').update(reg).eq('id', id);
+  if (error) return { erro: erroTabela(error.message) };
+  revalidatePath('/materiais', 'layout');
+  return { ok: 'Material salvo.' };
+}
+
+export async function excluirMaterial(_prev, fd) {
+  const s = await admin();
+  if (!s) return SO_ADMIN;
+  const { error } = await s.supabase.from('materiais').delete().eq('id', txt(fd.get('id')));
+  if (error) return { erro: erroTabela(error.message) };
+  revalidatePath('/materiais', 'layout');
+  redirect('/materiais');
+}

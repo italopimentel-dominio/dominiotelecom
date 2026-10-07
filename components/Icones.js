@@ -20,6 +20,7 @@ const desenhos = {
   quadro: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M9 9v11M15 9v11" /></>,
   resumo: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   preparador: <path d="M3 5h18l-7 8v6l-4 2v-8z" />,
+  materiais: <path d="M4 4h12l4 4v12H4zM8 12h8M8 16h5M15 4v5h5" />,
   fonte: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" /></>,
   recolher: <path d="M15 18l-6-6 6-6" />,
   expandir: <path d="M9 18l6-6-6-6" />,

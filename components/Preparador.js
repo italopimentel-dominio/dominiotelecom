@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { normalizar } from '@/lib/nomes';
+import { documentoDaVenda } from '@/lib/fontes';
+import RegistrarMaterial from './RegistrarMaterial';
 import {
   CAMPOS_FILTRO, SAIDA_PADRAO, COLS_TELEFONE, ROTULOS, chaveCol, vazio, num,
   fmtTelefone, fmtDocumento, tipoAutomatico, passaFiltro, filtroAtivo,
@@ -59,7 +61,7 @@ function FiltroModo({ f, mudar, opcoes }) {
   );
 }
 
-export default function Preparador() {
+export default function Preparador({ equipes = [] }) {
   const [arq, setArq] = useState(null); // { nome, abas, wb }
   const [aba, setAba] = useState('');
   const [cab, setCab] = useState([]);
@@ -72,6 +74,7 @@ export default function Preparador() {
   const [modelos, setModelos] = useState({});
   const [nomeModelo, setNomeModelo] = useState('');
   const [gerando, setGerando] = useState(false);
+  const [registrar, setRegistrar] = useState(null); // leads do último material baixado
 
   useEffect(() => {
     try { setModelos(JSON.parse(localStorage.getItem(CHAVE_MODELOS) || '{}')); } catch { setModelos({}); }
@@ -212,6 +215,7 @@ export default function Preparador() {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob); a.download = `${nome}.csv`; a.click();
         URL.revokeObjectURL(a.href);
+        prepararRegistro(nome);
         return;
       }
       const wb = XLSX.utils.book_new();
@@ -253,7 +257,27 @@ export default function Preparador() {
         XLSX.utils.book_append_sheet(wb, wsR, nomeAba('Filtros usados'));
       }
       XLSX.writeFile(wb, `${nome}.xlsx`);
+      prepararRegistro(nome);
     } finally { setGerando(false); }
+  }
+
+  // depois de baixar: monta os leads (CNPJ + destinatário) para registrar o envio
+  function prepararRegistro(nome) {
+    const iDoc = col('NR_CNPJ');
+    if (iDoc === undefined) { setRegistrar(null); return; }
+    const iSep = saida.separar === 'coluna' ? col(saida.colSeparar) : undefined;
+    const n = Number(saida.lote) || 0;
+    const vistos = new Set();
+    const leads = [];
+    filtradas.forEach((l, k) => {
+      const d = documentoDaVenda(l[iDoc]);
+      if (!d.valido || vistos.has(d.cnpj)) return;
+      vistos.add(d.cnpj);
+      const destinatario = iSep !== undefined ? (vazio(l[iSep]) ? 'Sem valor' : String(l[iSep]).trim())
+        : saida.separar === 'lotes' && n > 0 ? `Lote ${Math.floor(k / n) + 1}` : null;
+      leads.push({ cnpj: d.cnpj, destinatario });
+    });
+    setRegistrar({ nome, leads, chave: Date.now() });
   }
 
   function salvarModelo() {
@@ -388,6 +412,18 @@ export default function Preparador() {
               </div>
             </div>
           </section>
+
+          {registrar && (
+            <section className="bloco secao">
+              <h2 style={{ marginBottom: 4 }}>Registrar envio</h2>
+              <p className="dica">
+                Material baixado com {fmtN(registrar.leads.length)} CNPJs. Registre para qual equipe ele foi, para medir depois quantos viraram venda.
+                {saida.separar === 'lotes' && ' Se os lotes foram para equipes diferentes, registre cada parte em "Materiais enviados" subindo o arquivo.'}
+              </p>
+              <RegistrarMaterial key={registrar.chave} leads={registrar.leads} grupos={equipes} origem="preparador" nomePadrao={registrar.nome} aoTerminar={() => {}} />
+              <button type="button" className="btn btn-sec btn-peq" style={{ marginTop: 8 }} onClick={() => setRegistrar(null)}>Não registrar</button>
+            </section>
+          )}
 
           <section className="secao">
             <h2 style={{ marginBottom: 8 }}>Prévia {filtradas.length > 30 && <span className="dica">(primeiras 30 linhas)</span>}</h2>
