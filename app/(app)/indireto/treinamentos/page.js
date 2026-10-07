@@ -7,6 +7,7 @@ import { normalizar } from '@/lib/nomes';
 import { classeStatus, TIPOS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, situacaoTreinamento, faltasValidacao, documentoDe, fmtCnpj, fmtCpf, soDigitos } from '@/lib/indireto';
 import FormAcao from '@/components/FormAcao';
 import AcaoFormulario from '@/components/AcaoFormulario';
+import LinksGerais from '@/components/LinksGerais';
 import { vincularResposta, ignorarResposta } from '@/app/actions/indireto';
 import { nomesDosPerfis, listarFocais, listarStatus } from '../dados';
 
@@ -20,7 +21,7 @@ export default async function TreinamentosIndireto({ searchParams }) {
   const gerente = podeValidarIndireto(perfil);
   const hoje = hojeSP();
 
-  const [{ data: parceiros = [] }, { data: treinos = [] }, { data: respostas = [] }, links, nomes, focais, statusLista] = await Promise.all([
+  const [{ data: parceiros = [] }, { data: treinos = [] }, { data: respostas = [] }, links, nomes, focais, statusLista, gerais] = await Promise.all([
     supabase.from('parceiros').select('id, nome_fantasia, razao_social, cpf, cnpj, codigo, status, ponto_focal_id, validacao, venda_mes, contato_nome, contato_telefone').order('nome_fantasia'),
     supabase.from('parceiro_treinamentos').select('id, parceiro_id, tipo, data, status'),
     supabase.from('parceiro_respostas_form').select('id, parceiro_id, respondido_em, nome, documento, email, tipo_treinamento, ignorada, acertos, total_pontuavel').eq('ignorada', false).order('respondido_em', { ascending: false }),
@@ -28,7 +29,9 @@ export default async function TreinamentosIndireto({ searchParams }) {
     nomesDosPerfis(supabase),
     listarFocais(supabase),
     listarStatus(supabase),
+    supabase.from('form_links_gerais').select('tipo, token'),
   ]);
+  const linksGerais = Object.fromEntries((gerais.error ? [] : gerais.data || []).map((g) => [g.tipo, g.token]));
   const statusPor = new Map(statusLista.map((st) => [st.chave, st]));
   const oculto = (p) => !!statusPor.get(p.status)?.oculto;
 
@@ -124,8 +127,10 @@ export default async function TreinamentosIndireto({ searchParams }) {
         <Link href="/indireto/treinamentos?comp=2" className="numero-link"><b>{falta2}</b><span>faltando 2 ou 3</span></Link>
         <Link href="/indireto/treinamentos?aguardando=1" className="numero-link"><b>{aguardandoLinks}</b><span>links aguardando resposta</span></Link>
         <div><b>{proximos}</b><span>treinamentos agendados nos próximos 14 dias</span></div>
-        {semVinculo.length > 0 && <a href="#respostas" className="numero-link"><b>{semVinculo.length}</b><span>respostas do Google sem parceiro</span></a>}
+        {semVinculo.length > 0 && <a href="#respostas" className="numero-link"><b>{semVinculo.length}</b><span>respostas sem parceiro</span></a>}
       </div>
+
+      {editar && <LinksGerais links={linksGerais} gerente={gerente} />}
 
       <form className="bloco campos" style={{ margin: '14px 0' }} method="get">
         <label className="campo" style={{ flex: '1 1 220px' }}>Buscar<input type="text" name="q" defaultValue={sp.q || ''} placeholder="Nome, CNPJ ou contato" /></label>
@@ -235,8 +240,11 @@ export default async function TreinamentosIndireto({ searchParams }) {
 
       {semVinculo.length > 0 && (
         <section className="secao" id="respostas">
-          <h2 style={{ marginBottom: 6 }}>Respostas do Google sem parceiro</h2>
-          <p className="dica" style={{ marginBottom: 10 }}>Respostas vindas do Google Forms em que não achei o CPF/CNPJ nem o e-mail no cadastro.{editar ? ' Vincule ao parceiro certo ou ignore.' : ''}</p>
+          <h2 style={{ marginBottom: 6 }}>Respostas sem parceiro</h2>
+          <p className="dica" style={{ marginBottom: 10 }}>
+            Respostas do link geral (ou do Google Forms) em que o CPF/CNPJ não está no cadastro.
+            {editar ? ' Vincule ao parceiro certo: o treinamento fica realizado e, se o parceiro não tiver documento, ele é preenchido.' : ''}
+          </p>
           <div className="tabela-wrap">
             <table>
               <thead><tr><th>Respondido em</th><th className="esq">Nome</th><th className="esq">Documento / e-mail</th><th className="esq">Treinamento</th>{editar && <th className="esq">Vincular</th>}</tr></thead>

@@ -168,8 +168,15 @@ export async function vincularResposta(_prev, fd) {
   if (error) return { erro: error.message };
   const { error: e2 } = await s.supabase.rpc('aplicar_resposta_form', { p_resposta: id });
   if (e2) return { erro: e2.message };
+  // parceiro sem CPF/CNPJ: completa com o documento da resposta (das próximas vezes ele é achado direto)
+  const { data: resp } = await s.supabase.from('parceiro_respostas_form').select('documento').eq('id', id).maybeSingle();
+  let completou = false;
+  if (resp?.documento) {
+    const { data: ok } = await s.supabase.rpc('completar_documento_parceiro', { p_parceiro: parceiro_id, p_doc: resp.documento });
+    completou = !!ok;
+  }
   revalidatePath('/indireto', 'layout');
-  return { ok: 'Resposta vinculada. Parceiro validado automaticamente.' };
+  return { ok: `Resposta vinculada: treinamento marcado como realizado${completou ? ' e CPF/CNPJ do parceiro preenchido' : ''}.` };
 }
 
 export async function ignorarResposta(_prev, fd) {
