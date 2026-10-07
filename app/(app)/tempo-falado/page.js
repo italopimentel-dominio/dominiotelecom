@@ -4,6 +4,8 @@ import { hojeSP } from '@/lib/datas';
 import { hms } from '@/lib/tempoFalado';
 import ImportarTempoFalado from '@/components/ImportarTempoFalado';
 import BaixarTempoFalado from '@/components/BaixarTempoFalado';
+import FormAcao from '@/components/FormAcao';
+import { excluirMesTempoFalado } from '@/app/actions/tempoFalado';
 
 export default async function TempoFalado({ searchParams }) {
   const sp = await searchParams;
@@ -69,6 +71,12 @@ export default async function TempoFalado({ searchParams }) {
             <button className="btn btn-sec" type="submit">Filtrar</button>
             {(sp.equipe || sp.alerta) && <Link href={`/tempo-falado?mes=${mes}`} className="dica">Limpar</Link>}
           </form>
+          {editor && (
+            <FormAcao acao={excluirMesTempoFalado} confirmar={`Apagar todo o tempo falado de ${fmtMes(mes)}? Depois é só subir os relatórios de novo no mês certo.`}>
+              <input type="hidden" name="mes" value={mes} />
+              <button className="btn btn-perigo btn-peq" type="submit" style={{ marginBottom: 12 }}>Apagar {fmtMes(mes)}</button>
+            </FormAcao>
+          )}
 
           <div className="calendario" style={{ marginTop: 0 }}>
             <div><b>{filtradas.length}</b><span>pessoas</span></div>

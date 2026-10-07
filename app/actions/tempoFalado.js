@@ -30,3 +30,15 @@ export async function salvarTempoFalado(mes, linhas, apelidos = []) {
   revalidatePath('/tempo-falado');
   return { ok: `Gravado: ${regs.length} pessoas em ${mes.slice(5)}/${mes.slice(0, 4)}.` };
 }
+
+// Apaga um mês inteiro (ex.: relatório gravado no mês errado)
+export async function excluirMesTempoFalado(_prev, fd) {
+  const s = await sessao();
+  if (!podeEditar(s.perfil)) return { erro: 'Seu usuário só tem permissão para visualizar.' };
+  const mes = String(fd.get('mes') || '');
+  if (!/^\d{4}-\d{2}$/.test(mes)) return { erro: 'Mês inválido.' };
+  const { error } = await s.supabase.from('tempo_falado').delete().eq('mes', mes);
+  if (error) return { erro: error.message };
+  revalidatePath('/tempo-falado');
+  return { ok: `${mes.slice(5)}/${mes.slice(0, 4)} apagado.` };
+}
