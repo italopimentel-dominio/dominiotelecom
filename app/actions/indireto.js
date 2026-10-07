@@ -214,7 +214,7 @@ export async function salvarStatusParceiro(_prev, fd) {
 // Quem já existe (mesmo CPF/CNPJ ou mesmo nome) é pulado. Até 500 por chamada.
 export async function importarParceiros(lote, config) {
   const s = await sessao();
-  if (!podeEditarIndireto(s.perfil)) return SEM_PERMISSAO;
+  if (!podeValidarIndireto(s.perfil)) return { erro: 'Só o gerente ou um administrador importa listas de parceiros.' };
   if (!Array.isArray(lote) || lote.length > 500) return { erro: 'Envie no máximo 500 parceiros por vez.' };
   const status = String(config?.status || '').trim();
   const focal = String(config?.ponto_focal_id || '').trim() || null;

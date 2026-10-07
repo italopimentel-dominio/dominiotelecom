@@ -1,12 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { exigirSessao, podeEditarIndireto } from '@/lib/auth';
+import { exigirSessao, podeValidarIndireto } from '@/lib/auth';
 import ImportarParceiros from '@/components/ImportarParceiros';
 import { listarFocais, listarStatus } from '../dados';
 
 export default async function PaginaImportarParceiros() {
   const { perfil, supabase } = await exigirSessao();
-  if (!podeEditarIndireto(perfil)) redirect('/indireto');
+  if (!podeValidarIndireto(perfil)) redirect('/indireto');
   const [focais, statusLista] = await Promise.all([listarFocais(supabase), listarStatus(supabase)]);
   return (
     <>
