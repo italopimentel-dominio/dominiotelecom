@@ -77,6 +77,7 @@ Regras de trabalho para Claude:
 | 028_tempo_falado | `tempo_falado`: uma linha por pessoa e mês (LeadsBuilder, 3C, ponto e totais); gravar o mês substitui |
 | 029_fontes_automaticas | `fontes_dados.auto_*` (última rodada, status, mensagem, nomes pendentes, assinatura) e `nomes_ignorados` (por fonte) |
 | 029b_agendar_fontes | agendamento no Supabase (pg_cron + pg_net): de hora em hora 11h–22h UTC (8h–19h Brasília), seg–sex, chama `/api/cron/fontes?n=0..5` com `Authorization: Bearer CRON_SECRET` |
+| 030_pausar_automatico | `config_sistema` (chave `fontes_auto` → `{ativo}`): pausar/ativar a atualização automática pela tela |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -249,6 +250,7 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 ### Atualização automática das fontes (029)
 - **Agendamento:** pg_cron no Supabase chama `/api/cron/fontes?n=<índice>` (uma fonte por chamada; rota pública no middleware, protegida pela variável `CRON_SECRET` da Vercel). Núcleo compartilhado com os botões em `lib/fontesServidor.js` (`montarLeitura`, `gravarLeitura`); a rodada em `lib/fontesAuto.js`.
 - **Regras:** só o **mês atual** (precisa existir em Períodos e não estar fechado); só nomes **encontrados** (nome exato ou apelido) ou ligados direto a equipe; ignorados não contam; parecidos, duplicados e não cadastrados ficam de fora e viram **pendência** (`auto_pendentes`). Só grava se a assinatura (valores + contagem) mudou. Planilha sem nenhuma venda contada = erro, não grava (protege contra planilha vazia). Vendas com CNPJ são **substituídas** (sem histórico) e o antes/depois das gravações automáticas com mais de 3 dias é esvaziado (economia de espaço).
+- **Painel em Fonte de dados:** Ativa/Pausada (botão Pausar/Ativar, grava em `config_sistema`; a rota do cron respeita), última e próxima rodada, alerta se a rodada esperada não aconteceu (agendamento ou CRON_SECRET errado), botão **Rodar agora** (roda todas as fontes com o usuário logado, mesmo pausada).
 - **Aviso:** faixa no topo do sistema para editores quando alguma fonte tem pendência ou erro, com link para Fonte de dados; cada fonte mostra a última rodada e a lista de nomes pendentes. Gravar manualmente limpa a pendência; "Ignorar" na tela fica guardado em `nomes_ignorados`.
 
 ### Tempo falado (`/tempo-falado`, todos veem; editores sobem)

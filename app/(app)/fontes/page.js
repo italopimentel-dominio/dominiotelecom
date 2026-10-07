@@ -4,7 +4,28 @@ import { MODELOS } from '@/lib/fontes';
 import { sugerirProduto } from '@/lib/relatorio';
 import FormAcao from '@/components/FormAcao';
 import FonteDados from '@/components/FonteDados';
-import { salvarFonte, excluirFonte, lerFonte, aplicarFonte, desfazerSincronizacao, alternarMesFechado } from '@/app/actions/fontes';
+import { salvarFonte, excluirFonte, lerFonte, aplicarFonte, desfazerSincronizacao, alternarMesFechado, alternarAutomatico, rodarAutomaticoAgora } from '@/app/actions/fontes';
+
+export const maxDuration = 60; // "Rodar agora" lê e grava todas as fontes
+
+// Brasília = UTC-3 (sem horário de verão). Agenda: de hora em hora, 8h às 19h, segunda a sexta.
+const SP = 3 * 3600000;
+const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const naAgenda = (t) => t.getUTCDay() >= 1 && t.getUTCDay() <= 5 && t.getUTCHours() >= 8 && t.getUTCHours() <= 19;
+function proximaRodada() {
+  const t = new Date(Date.now() - SP);
+  t.setUTCMinutes(0, 0, 0);
+  for (let i = 0; i < 200; i++) { t.setUTCHours(t.getUTCHours() + 1); if (naAgenda(t)) break; }
+  return `${DIAS[t.getUTCDay()]} ${String(t.getUTCDate()).padStart(2, '0')}/${String(t.getUTCMonth() + 1).padStart(2, '0')} às ${String(t.getUTCHours()).padStart(2, '0')}:00`;
+}
+// a rodada das últimas 2 horas cheias dentro da agenda deveria ter acontecido
+function deveriaTerRodado(ultima) {
+  const t = new Date(Date.now() - SP);
+  if (t.getUTCMinutes() < 10) t.setUTCHours(t.getUTCHours() - 1); // dá 10 min para a rodada da hora terminar
+  t.setUTCMinutes(0, 0, 0);
+  for (let i = 0; i < 2; i++) { if (naAgenda(t)) { const h = t.getTime() + SP; return !ultima || new Date(ultima).getTime() < h - 10 * 60000 ? h : null; } t.setUTCHours(t.getUTCHours() - 1); }
+  return null;
+}
 
 const dataHora = (iso) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'short', timeStyle: 'short' });
 
@@ -38,12 +59,13 @@ function FormFonte({ f = {}, chaveModelo, produtos, botao }) {
 export default async function Fontes() {
   const { supabase, perfil } = await exigirSessao();
   if (!podeEditar(perfil)) redirect('/');
-  const [{ data: fontes, error }, { data: produtos }, { data: sincs }, { data: periodos }, { data: perfis }] = await Promise.all([
+  const [{ data: fontes, error }, { data: produtos }, { data: sincs }, { data: periodos }, { data: perfis }, cfgAuto] = await Promise.all([
     supabase.from('fontes_dados').select('*').order('criado_em'),
     supabase.from('produtos').select('id, nome, ativo, tipo').order('ordem'),
     supabase.from('sincronizacoes').select('id, fonte_id, url, executado_em, executado_por, meses, resumo, desfeita_em').order('executado_em', { ascending: false }).limit(30),
     supabase.from('periodos').select('*').order('referencia', { ascending: false }).limit(12),
     supabase.from('profiles').select('id, nome, usuario'),
+    supabase.from('config_sistema').select('valor, atualizado_em, atualizado_por').eq('chave', 'fontes_auto').maybeSingle(),
   ]);
   if (error) {
     return <div className="vazio"><h2>Falta preparar o banco</h2><p>Rode o arquivo 017_fonte_dados.sql no Supabase para usar a fonte de dados.</p></div>;
@@ -62,6 +84,46 @@ export default async function Fontes() {
           </p>
         </div>
       </div>
+
+      {(fontes || []).length > 0 && (() => {
+        const semTabela = !!cfgAuto.error;
+        const ativo = !semTabela && cfgAuto.data?.valor?.ativo !== false;
+        const ultima = (fontes || []).map((f) => f.auto_em).filter(Boolean).sort().pop() || null;
+        const atrasada = ativo && deveriaTerRodado(ultima);
+        return (
+          <section className={`bloco secao painel-auto ${ativo ? 'ligado' : 'pausado'}`}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 12, justifyContent: 'space-between' }}>
+              <div>
+                <h2 style={{ marginBottom: 4 }}>
+                  Atualização automática: {semTabela ? <span className="tag">rode o 030_pausar_automatico.sql</span> : ativo ? <span className="tag tag-ok">● Ativa</span> : <span className="tag tag-risco">❚❚ Pausada</span>}
+                </h2>
+                <p className="dica">
+                  {ultima ? <>Última rodada: <b>{dataHora(ultima)}</b>. </> : 'Ainda não rodou nenhuma vez. '}
+                  {ativo ? <>Próxima: <b>{proximaRodada()}</b> (de hora em hora, 8h às 19h, segunda a sexta).</> : 'Pausada: nenhuma fonte é atualizada sozinha até você ativar de novo.'}
+                  {cfgAuto.data?.atualizado_por && <> Alterada por {nomePerfil.get(cfgAuto.data.atualizado_por) || '—'} em {dataHora(cfgAuto.data.atualizado_em)}.</>}
+                </p>
+                {atrasada && (
+                  <p className="msg msg-erro" style={{ marginTop: 6 }}>
+                    A rodada das {new Date(atrasada - SP).getUTCHours()}h não aconteceu. Confira se o 029b_agendar_fontes.sql foi rodado no Supabase e se a variável CRON_SECRET da Vercel é a mesma do SQL.
+                  </p>
+                )}
+              </div>
+              {!semTabela && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                  <FormAcao acao={rodarAutomaticoAgora}>
+                    <button className="btn btn-sec" type="submit">Rodar agora</button>
+                  </FormAcao>
+                  <FormAcao acao={alternarAutomatico} confirmar={ativo ? 'Pausar a atualização automática de todas as fontes?' : undefined}>
+                    <input type="hidden" name="ativo" value={ativo ? '0' : '1'} />
+                    <button className={ativo ? 'btn btn-perigo' : 'btn'} type="submit">{ativo ? 'Pausar' : 'Ativar'}</button>
+                  </FormAcao>
+                </div>
+              )}
+            </div>
+            <p className="dica" style={{ marginTop: 6 }}>"Rodar agora" faz uma rodada na hora, mesmo pausada, e mostra o resultado de cada fonte. Serve para testar ou adiantar.</p>
+          </section>
+        );
+      })()}
 
       {(fontes || []).map((f) => (
         <section key={f.id} className="secao bloco fonte-card">

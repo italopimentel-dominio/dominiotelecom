@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { exigirSessao, ehAdmin, podeEditar, podeVerIndireto, NOME_PAPEL } from '@/lib/auth';
 import MenuLateral from '@/components/MenuLateral';
@@ -6,7 +7,7 @@ import { sair } from '@/app/actions/auth';
 export const dynamic = 'force-dynamic';
 
 export default async function LayoutApp({ children }) {
-  const { perfil } = await exigirSessao();
+  const { perfil, supabase } = await exigirSessao();
   const cookieStore = await cookies();
 
   const editor = podeEditar(perfil);
@@ -56,6 +57,13 @@ export default async function LayoutApp({ children }) {
   if (materiais.length) menu.push({ rotulo: 'Materiais', icone: 'materiais', itens: materiais });
   menu.push({ rotulo: 'Configurações', icone: 'cadastros', itens: configuracoes });
 
+  // aviso da atualização automática das fontes (só para quem pode resolver)
+  let avisos = [];
+  if (editor) {
+    const { data: f } = await supabase.from('fontes_dados').select('id, nome, auto_status, auto_msg, auto_pendentes').in('auto_status', ['pendente', 'erro']);
+    avisos = f || [];
+  }
+
   return (
     <div className="app">
       <MenuLateral
@@ -64,7 +72,18 @@ export default async function LayoutApp({ children }) {
         recolhidoInicial={cookieStore.get('menu_recolhido')?.value === '1'}
         sair={sair}
       />
-      <main className="conteudo">{children}</main>
+      <main className="conteudo">
+        {avisos.length > 0 && (
+          <Link href="/fontes" className="aviso-topo">
+            <b>⚠ Atualização automática:</b>{' '}
+            {avisos.map((a) => (a.auto_status === 'erro'
+              ? `${a.nome}: erro`
+              : `${a.nome}: ${(a.auto_pendentes || []).length} ${(a.auto_pendentes || []).length === 1 ? 'nome aguardando' : 'nomes aguardando'} vínculo`)).join(' · ')}
+            <span className="aviso-topo-acao">Resolver →</span>
+          </Link>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

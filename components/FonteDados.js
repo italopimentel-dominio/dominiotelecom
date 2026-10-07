@@ -9,6 +9,7 @@ const SITUACAO = {
   ambiguo: { rotulo: 'Mais de um com esse nome', classe: 'tag-atencao' },
   novo: { rotulo: 'Não cadastrado', classe: 'tag-risco' },
   equipe: { rotulo: 'Entra direto na equipe', classe: 'tag-acento' },
+  ignorado: { rotulo: 'Ignorado antes', classe: '' },
 };
 const nomeMes = (m) => { const [a, n] = m.split('-'); return `${['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'][Number(n) - 1]}/${a}`; };
 
@@ -40,6 +41,7 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
   const decisao = (p) => {
     if (decisoes[p.chave]) return decisoes[p.chave];
     if (p.situacao === 'equipe') return { tipo: 'grupo', grupo_id: p.grupoDireto };
+    if (p.situacao === 'ignorado') return { tipo: 'ignorar' };
     if (p.situacao === 'novo') return { tipo: '', grupo_id: p.grupoSugerido || '' };
     return { tipo: 'colab', colaborador_id: p.sugerido || '' };
   };
@@ -135,6 +137,9 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
         fonte_id: fonte.id, url: fonte.url,
         periodos: mesesGravar.map((m) => m.periodo.id),
         valores: calc.valores, escopo: calc.escopo, apelidos: calc.apelidos, novos: calc.novos, equipes: calc.equipes,
+        // nomes ignorados ficam guardados: a atualização automática não avisa mais deles
+        ignorados: dados.pessoas.filter((p) => decisao(p).tipo === 'ignorar' && p.situacao !== 'ignorado').map((p) => p.nome),
+        designorados: dados.pessoas.filter((p) => p.situacao === 'ignorado' && decisao(p).tipo !== 'ignorar').map((p) => p.nome),
         // vendas por nome, para vincular a primeira venda dos parceiros do Indireto
         vendasParceiros: dados.pessoas.flatMap((p) => mesesGravar.flatMap((m) => destinos
           .filter(([k, d]) => d.produto && p.meses[m.mes]?.[k]?.qtd > 0)
