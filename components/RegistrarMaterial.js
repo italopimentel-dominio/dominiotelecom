@@ -10,7 +10,7 @@ const fmtN = (n) => Number(n).toLocaleString('pt-BR');
 // Grava um material e seus leads (em blocos). Sem materialId cria um novo; com materialId só adiciona leads.
 // leads: [{ cnpj, destinatario }] já validados e sem repetidos.
 export default function RegistrarMaterial({ leads, grupos = [], origem = 'planilha', materialId = null, nomePadrao = '', aoTerminar }) {
-  const [form, setForm] = useState({ nome: nomePadrao, enviado_em: hojeSP(), grupo_id: '', observacao: '' });
+  const [form, setForm] = useState({ nome: nomePadrao, enviado_em: hojeSP(), grupo_id: '', conversao_esperada: '', observacao: '' });
   const [estado, setEstado] = useState({ rodando: false, feitos: 0, erro: '', fim: null });
   const muda = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -55,6 +55,9 @@ export default function RegistrarMaterial({ leads, grupos = [], origem = 'planil
               <option value="">Escolha…</option>
               {grupos.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
             </select>
+          </label>
+          <label className="campo">% de fechamento esperado
+            <input type="text" inputMode="decimal" value={form.conversao_esperada} onChange={muda('conversao_esperada')} placeholder="ex.: 2,5" style={{ width: 110 }} />
           </label>
           <label className="campo" style={{ flex: '3 1 300px' }}>Observação<input type="text" value={form.observacao} onChange={muda('observacao')} placeholder="Opcional" /></label>
         </div>

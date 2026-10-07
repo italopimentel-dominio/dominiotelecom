@@ -7,7 +7,14 @@ import { documentoDaVenda } from '@/lib/fontes';
 const SO_ADMIN = { erro: 'Só administradores cadastram materiais.' };
 const txt = (v) => String(v ?? '').trim();
 const dataOk = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d);
-const erroTabela = (m) => (m.includes('materia') ? 'Rode o arquivo 022_materiais.sql no Supabase.' : m);
+// "2,5" ou "2.5" -> 2.5 (em %); vazio = sem expectativa
+function percentual(v) {
+  const t = txt(v).replace('%', '').replace(',', '.');
+  if (!t) return { valor: null };
+  const n = Number(t);
+  return isFinite(n) && n >= 0 && n <= 100 ? { valor: n } : { erro: 'O % de fechamento esperado deve ser um número entre 0 e 100.' };
+}
+const erroTabela = (m) => (m.includes('conversao_esperada') ? 'Rode o arquivo 023_materiais_meta.sql no Supabase.' : m.includes('materia') ? 'Rode o arquivo 022_materiais.sql no Supabase.' : m);
 
 async function admin() {
   const s = await sessao();
@@ -28,6 +35,9 @@ export async function criarMaterial(dados) {
   if (!reg.nome) return { erro: 'Dê um nome para o material.' };
   if (!dataOk(reg.enviado_em)) return { erro: 'Informe a data de envio.' };
   if (!reg.grupo_id) return { erro: 'Escolha a equipe que recebeu o material.' };
+  const pc = percentual(dados?.conversao_esperada);
+  if (pc.erro) return { erro: pc.erro };
+  if (pc.valor !== null) reg.conversao_esperada = pc.valor;
   const { data, error } = await s.supabase.from('materiais').insert(reg).select('id').single();
   if (error) return { erro: erroTabela(error.message) };
   return { id: data.id };
@@ -73,6 +83,9 @@ export async function salvarMaterial(_prev, fd) {
   if (!reg.nome) return { erro: 'Dê um nome para o material.' };
   if (!dataOk(reg.enviado_em)) return { erro: 'Informe a data de envio.' };
   if (!reg.grupo_id) return { erro: 'Escolha a equipe.' };
+  const pc = percentual(fd.get('conversao_esperada'));
+  if (pc.erro) return { erro: pc.erro };
+  reg.conversao_esperada = pc.valor;
   const { error } = await s.supabase.from('materiais').update(reg).eq('id', id);
   if (error) return { erro: erroTabela(error.message) };
   revalidatePath('/materiais', 'layout');

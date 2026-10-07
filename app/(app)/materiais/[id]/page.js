@@ -7,6 +7,7 @@ import { salvarMaterial, excluirMaterial } from '@/app/actions/materiais';
 import { listarEquipes, ORIGEM } from '../dados';
 
 const fmtN = (n) => Number(n || 0).toLocaleString('pt-BR');
+const fmtPct = (n) => `${Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
 const fmtDoc = (d) => (d.length === 14 ? d.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5') : d.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, '$1.$2.$3-$4'));
 
 export default async function PaginaMaterial({ params }) {
@@ -27,7 +28,10 @@ export default async function PaginaMaterial({ params }) {
         <div>
           <p className="sub"><Link href="/materiais">← Materiais enviados</Link></p>
           <h1>{m.nome}</h1>
-          <p className="sub">{fmtN(count)} leads · origem: {ORIGEM[m.origem] || m.origem}</p>
+          <p className="sub">
+            {fmtN(count)} leads · origem: {ORIGEM[m.origem] || m.origem}
+            {m.conversao_esperada != null && <> · fechamento esperado: {fmtPct(m.conversao_esperada)} (≈ {fmtN(Math.round((count * m.conversao_esperada) / 100))} vendas)</>}
+          </p>
         </div>
       </div>
 
@@ -43,6 +47,9 @@ export default async function PaginaMaterial({ params }) {
                 <option value="">Escolha…</option>
                 {equipes.map((g) => <option key={g.id} value={g.id}>{g.nome}</option>)}
               </select>
+            </label>
+            <label className="campo">% de fechamento esperado
+              <input type="text" inputMode="decimal" name="conversao_esperada" defaultValue={m.conversao_esperada ?? ''} placeholder="ex.: 2,5" style={{ width: 110 }} />
             </label>
             <label className="campo" style={{ flex: '3 1 300px' }}>Observação<input type="text" name="observacao" defaultValue={m.observacao || ''} /></label>
           </div>
