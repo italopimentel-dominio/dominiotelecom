@@ -17,6 +17,7 @@ export default async function LayoutApp({ children }) {
     { href: '/', rotulo: 'Painel', icone: 'painel' },
     { href: '/metas', rotulo: 'Quadro de metas', icone: 'quadro' },
     { href: '/headcount', rotulo: 'Headcount', icone: 'headcount' },
+    { href: '/tempo-falado', rotulo: 'Tempo falado', icone: 'fonte' },
   ];
 
   const materiais = [];

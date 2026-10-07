@@ -28,7 +28,7 @@ O usuário **não usa terminal**. O fluxo é:
 
 Regras de trabalho para Claude:
 - Sempre rodar `next build` antes de entregar, com variáveis falsas. Testar regras de negócio com scripts Node em `/tmp`. Testar SQL num Postgres local com um mock de `auth.users`, `auth.uid()` e dos papéis `authenticated`, `anon` e `service_role` (com `bypassrls`), rodando duas vezes para garantir que pode repetir.
-- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Headcount) · Campanhas · Organograma · Controle Indireto · Materiais (Conversão para todos; Preparador e Materiais enviados só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
+- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Headcount, Tempo falado) · Campanhas · Organograma · Controle Indireto · Materiais (Conversão para todos; Preparador e Materiais enviados só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
 - **Zip sempre com mais de um item na raiz** (ex.: `app/` + `DOCUMENTACAO.md`). Se o zip tiver uma pasta só na raiz, a Action tira essa pasta e os arquivos caem no lugar errado (aconteceu com `app/(app)/...` virando `(app)/...` na raiz).
 - SQL sempre **aditivo e repetível** (`if not exists`, `drop policy if exists`). Nunca apagar dados existentes.
 - Dizer claramente se a entrega tem SQL e em que ordem. O usuário sempre pergunta se "vai desconfigurar algo": responder com o que muda na tela e o que muda nos dados.
@@ -74,6 +74,7 @@ Regras de trabalho para Claude:
 | 025_formulario_link | `form_perguntas` (perguntas por tipo, editáveis pelo gerente; resposta certa opcional) e `form_links` (link individual por parceiro e tipo, 30 dias, uma resposta); `parceiro_respostas_form.acertos/total_pontuavel` |
 | 026_validacao_automatica | nova regra: `avaliar_validacao_automatica(parceiro)` aprova quem está pendente se tem treinamento realizado, formulário respondido para cada tipo realizado e venda vinculada; chamada por `aplicar_resposta_form` (que não valida mais sozinho), `registrar_vendas_parceiros` e gatilhos em treinamentos e respostas |
 | 027_link_geral_formulario | `form_links_gerais` (um link por tipo, igual para todos; gerente troca) e `completar_documento_parceiro` (preenche CPF/CNPJ de parceiro sem documento ao vincular resposta) |
+| 028_tempo_falado | `tempo_falado`: uma linha por pessoa e mês (LeadsBuilder, 3C, ponto e totais); gravar o mês substitui |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -242,6 +243,12 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Link geral (027):** em Treinamentos → "Links gerais dos formulários": um link por tipo (`/f/g/[token]`) que pede nome e CPF/CNPJ; acha o parceiro pelo documento e aplica como o link individual; sem cadastro → "Respostas sem parceiro" (mesma mensagem para quem responde, não revela cadastro). Gerente troca o link (o antigo para de valer). Ao vincular na mão, o documento da resposta completa o parceiro sem CPF/CNPJ.
 - **Importar lista** (`/indireto/importar`, só gerente/`validar` ou admin): planilha (acha as colunas Nome, CPF/CNPJ, e-mail, telefone, cidade, UF e observações pelo cabeçalho; dá para trocar) ou lista colada ("nome;documento"). Status, ponto focal e data de ativação valem para o lote (Ativo sem data = hoje). Pula quem já existe (mesmo CPF/CNPJ ou nome); documento inválido entra nas observações. Blocos de 500 (`importarParceiros`).
 - **Filtros:** mês de ativação, venda em 30 dias, formulário respondido, validação e treinamento pendente.
+
+### Tempo falado (`/tempo-falado`, todos veem; editores sobem)
+- **Arquivos (o tipo é reconhecido pelo cabeçalho):** CSV do LeadsBuilder (Operador "Nome (login)", Falando, TMA; a linha de total é ignorada), CSV do 3C (agent_name, calls, speaking, manual_acw, manual) e as folhas de ponto de presentes em .xlsx (uma por CNPJ; o nome do arquivo vira a empresa, ex.: "JDPresentes" → JD).
+- **Regras:** 3C Falando = speaking + MTPA (`manual_acw`) + manual; ligações 3C = calls. LeadsBuilder: Falando e TMA da plataforma (ligações estimadas = Falando ÷ TMA, só para o TMA de quem está nos dois). TMA = TMA do LeadsBuilder para quem só está nele; senão Falando total ÷ ligações. Dias = dias "Presente" no ponto. Média = Falando ÷ dias.
+- **Nomes:** casam com os colaboradores cadastrados (exato, apelidos, prefixo — o ponto corta o nome em 40 caracteres —, e todas as palavras contidas, aceitando palavra cortada). Os não reconhecidos são vinculados na tela e viram apelidos. Alertas: não vinculado, sem dias no ponto, manual do 3C muito maior que speaking.
+- Código em `lib/tempoFalado.js` (roda no navegador); Excel no formato da aba "Discadores" + "Detalhe".
 
 ### Materiais enviados (`/materiais`, só admin)
 - **Material:** nome, data de envio, **% de fechamento esperado** (opcional; a tela mostra ≈ vendas esperadas = leads × %), **uma equipe** (base dividida entre equipes = um material por parte), origem (Preparador, planilha ou manual), observação.
