@@ -56,7 +56,10 @@ export default async function Fontes() {
       <div className="topo">
         <div>
           <h1>Fonte de dados</h1>
-          <p className="sub">Liga uma planilha do Google ao sistema. Você lê, confere a prévia e só então grava. Toda gravação pode ser desfeita.</p>
+          <p className="sub">
+            Liga uma planilha do Google ao sistema. O mês atual é atualizado sozinho de hora em hora (8h às 19h, segunda a sexta);
+            você também pode ler e gravar na hora pelos botões. Toda gravação pode ser desfeita.
+          </p>
         </div>
       </div>
 
@@ -76,6 +79,31 @@ export default async function Fontes() {
               <button className="btn btn-perigo btn-peq" type="submit" style={{ marginTop: 10 }}>Excluir fonte</button>
             </FormAcao>
           </details>
+          <div className={`auto-status auto-${f.auto_status || 'nunca'}`}>
+            <b>Atualização automática:</b>{' '}
+            {f.auto_em ? <>última rodada {dataHora(f.auto_em)} · </> : 'ainda não rodou · '}
+            {f.auto_status === 'erro' ? <span className="tag tag-risco">erro</span>
+              : f.auto_status === 'pendente' ? <span className="tag tag-atencao">nomes aguardando vínculo</span>
+              : f.auto_status === 'ok' ? <span className="tag tag-ok">ok</span> : null}
+            {f.auto_msg && <span className="dica"> {f.auto_msg}</span>}
+            {(f.auto_pendentes || []).length > 0 && (
+              <div style={{ marginTop: 6 }}>
+                <p className="dica" style={{ marginBottom: 4 }}>
+                  Estes nomes não entraram porque o sistema não tem certeza de quem são. Clique em <b>Ler planilha</b> abaixo, escolha o colaborador
+                  (ou cadastre, mande direto para uma equipe ou ignore) e grave. Na próxima rodada eles entram sozinhos.
+                </p>
+                <ul className="dica" style={{ margin: '0 0 0 18px' }}>
+                  {f.auto_pendentes.map((p) => (
+                    <li key={p.nome}>
+                      <b>{p.nome}</b> · {p.qtd} vendas no mês ·{' '}
+                      {p.situacao === 'parecido' ? `parecido com ${p.sugerido}` : p.situacao === 'ambiguo' ? 'mais de um colaborador com esse nome' : 'não cadastrado'}
+                      {p.equipe ? ` · equipe na planilha: ${p.equipe}` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
           <FonteDados fonte={{ id: f.id, url: f.url }} lerFonte={lerFonte} aplicarFonte={aplicarFonte} />
 
           {(sincs || []).some((x) => x.fonte_id === f.id) && (
@@ -90,7 +118,7 @@ export default async function Fontes() {
                       return (
                         <tr key={x.id} className={x.desfeita_em ? 'inativo' : ''}>
                           <td>{dataHora(x.executado_em)}</td>
-                          <td className="esq">{nomePerfil.get(x.executado_por) || '—'}</td>
+                          <td className="esq">{x.resumo?.automatica ? <span className="tag">automática</span> : nomePerfil.get(x.executado_por) || '—'}</td>
                           <td className="esq">{(x.meses || []).join(', ')}</td>
                           <td>{x.resumo?.mudancas ?? '—'}</td>
                           <td>

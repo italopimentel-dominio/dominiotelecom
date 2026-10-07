@@ -75,6 +75,8 @@ Regras de trabalho para Claude:
 | 026_validacao_automatica | nova regra: `avaliar_validacao_automatica(parceiro)` aprova quem está pendente se tem treinamento realizado, formulário respondido para cada tipo realizado e venda vinculada; chamada por `aplicar_resposta_form` (que não valida mais sozinho), `registrar_vendas_parceiros` e gatilhos em treinamentos e respostas |
 | 027_link_geral_formulario | `form_links_gerais` (um link por tipo, igual para todos; gerente troca) e `completar_documento_parceiro` (preenche CPF/CNPJ de parceiro sem documento ao vincular resposta) |
 | 028_tempo_falado | `tempo_falado`: uma linha por pessoa e mês (LeadsBuilder, 3C, ponto e totais); gravar o mês substitui |
+| 029_fontes_automaticas | `fontes_dados.auto_*` (última rodada, status, mensagem, nomes pendentes, assinatura) e `nomes_ignorados` (por fonte) |
+| 029b_agendar_fontes | agendamento no Supabase (pg_cron + pg_net): de hora em hora 11h–22h UTC (8h–19h Brasília), seg–sex, chama `/api/cron/fontes?n=0..5` com `Authorization: Bearer CRON_SECRET` |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -244,6 +246,11 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Importar lista** (`/indireto/importar`, só gerente/`validar` ou admin): planilha (acha as colunas Nome, CPF/CNPJ, e-mail, telefone, cidade, UF e observações pelo cabeçalho; dá para trocar) ou lista colada ("nome;documento"). Status, ponto focal e data de ativação valem para o lote (Ativo sem data = hoje). Pula quem já existe (mesmo CPF/CNPJ ou nome); documento inválido entra nas observações. Blocos de 500 (`importarParceiros`).
 - **Filtros:** mês de ativação, venda em 30 dias, formulário respondido, validação e treinamento pendente.
 
+### Atualização automática das fontes (029)
+- **Agendamento:** pg_cron no Supabase chama `/api/cron/fontes?n=<índice>` (uma fonte por chamada; rota pública no middleware, protegida pela variável `CRON_SECRET` da Vercel). Núcleo compartilhado com os botões em `lib/fontesServidor.js` (`montarLeitura`, `gravarLeitura`); a rodada em `lib/fontesAuto.js`.
+- **Regras:** só o **mês atual** (precisa existir em Períodos e não estar fechado); só nomes **encontrados** (nome exato ou apelido) ou ligados direto a equipe; ignorados não contam; parecidos, duplicados e não cadastrados ficam de fora e viram **pendência** (`auto_pendentes`). Só grava se a assinatura (valores + contagem) mudou. Planilha sem nenhuma venda contada = erro, não grava (protege contra planilha vazia). Vendas com CNPJ são **substituídas** (sem histórico) e o antes/depois das gravações automáticas com mais de 3 dias é esvaziado (economia de espaço).
+- **Aviso:** faixa no topo do sistema para editores quando alguma fonte tem pendência ou erro, com link para Fonte de dados; cada fonte mostra a última rodada e a lista de nomes pendentes. Gravar manualmente limpa a pendência; "Ignorar" na tela fica guardado em `nomes_ignorados`.
+
 ### Tempo falado (`/tempo-falado`, todos veem; editores sobem)
 - **Arquivos (o tipo é reconhecido pelo cabeçalho):** CSV do LeadsBuilder (Operador "Nome (login)", Falando, TMA; a linha de total é ignorada), CSV do 3C (agent_name, calls, speaking, manual_acw, manual) e as folhas de ponto de presentes em .xlsx (uma por CNPJ; o nome do arquivo vira a empresa, ex.: "JDPresentes" → JD).
 - **Regras:** 3C Falando = speaking + MTPA (`manual_acw`) + manual; ligações 3C = calls. LeadsBuilder: Falando e TMA da plataforma (ligações estimadas = Falando ÷ TMA, só para o TMA de quem está nos dois). TMA = TMA do LeadsBuilder para quem só está nele; senão Falando total ÷ ligações. Dias = dias "Presente" no ponto. Média = Falando ÷ dias.
@@ -308,7 +315,7 @@ lib/
 supabase/  001 … 018 (.sql)
 public/    logo-duomni.png, logo-duomni-branco.png, simbolo-duomni.png
 integracoes-google-forms.gs     script para os Formulários Google
-middleware.js                   exige login (exceto /login, /setup, /api/forms, /f/)
+middleware.js                   exige login (exceto /login, /setup, /api/forms, /api/cron, /f/)
 ```
 
 ### Padrões de código
