@@ -208,3 +208,71 @@ export async function salvarStatusParceiro(_prev, fd) {
   revalidatePath('/indireto', 'layout');
   return { ok: chave ? 'Status salvo.' : 'Status criado.' };
 }
+
+// Importação em lote: lista de parceiros (nome obrigatório; CPF/CNPJ e contatos opcionais)
+// com ponto focal, status e data de ativação definidos para o lote todo.
+// Quem já existe (mesmo CPF/CNPJ ou mesmo nome) é pulado. Até 500 por chamada.
+export async function importarParceiros(lote, config) {
+  const s = await sessao();
+  if (!podeEditarIndireto(s.perfil)) return SEM_PERMISSAO;
+  if (!Array.isArray(lote) || lote.length > 500) return { erro: 'Envie no máximo 500 parceiros por vez.' };
+  const status = String(config?.status || '').trim();
+  const focal = String(config?.ponto_focal_id || '').trim() || null;
+  let ativacao = String(config?.data_ativacao || '').trim() || null;
+  if (!status) return { erro: 'Escolha o status.' };
+  if (ativacao && !/^\d{4}-\d{2}-\d{2}$/.test(ativacao)) return { erro: 'Data de ativação inválida.' };
+  if (status === 'ativo' && !ativacao) ativacao = hojeSP();
+  const db = s.supabase;
+
+  // o que já existe (por documento e por nome)
+  const existentes = [];
+  for (let de = 0; ; de += 1000) {
+    const { data, error } = await db.from('parceiros').select('nome_fantasia, razao_social, cpf, cnpj').range(de, de + 999);
+    if (error) return { erro: error.message };
+    existentes.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  const docs = new Set(existentes.flatMap((p) => [p.cpf, p.cnpj]).filter(Boolean));
+  const nomes = new Set(existentes.flatMap((p) => [p.nome_fantasia, p.razao_social]).filter(Boolean).map(normalizar));
+
+  const regs = [];
+  const pulados = [];
+  let docInvalido = 0;
+  for (const l of lote) {
+    const nome = String(l?.nome ?? '').trim();
+    if (!nome) continue;
+    const bruto = soDigitos(l?.documento);
+    let cpf = null, cnpj = null, obs = String(l?.observacoes ?? '').trim();
+    if (bruto) {
+      const c = bruto.padStart(14, '0'), p = bruto.padStart(11, '0');
+      if (bruto.length <= 11 && cpfValido(p)) cpf = p;
+      else if (bruto.length > 11 && cnpjValido(c)) cnpj = c;
+      else if (cnpjValido(c)) cnpj = c;
+      else { docInvalido++; obs = [obs, `Documento na lista: ${l.documento} (inválido)`].filter(Boolean).join(' | '); }
+    }
+    const k = normalizar(nome);
+    if ((cpf && docs.has(cpf)) || (cnpj && docs.has(cnpj)) || nomes.has(k)) { pulados.push(nome); continue; }
+    if (cpf) docs.add(cpf);
+    if (cnpj) docs.add(cnpj);
+    nomes.add(k);
+    const email = String(l?.email ?? '').trim().toLowerCase();
+    regs.push({
+      nome_fantasia: nome, cpf, cnpj, status, ponto_focal_id: focal, data_ativacao: ativacao,
+      contato_email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+      contato_telefone: String(l?.telefone ?? '').trim() || null,
+      cidade: String(l?.cidade ?? '').trim() || null,
+      uf: String(l?.uf ?? '').trim().toUpperCase().slice(0, 2) || null,
+      observacoes: obs || null,
+    });
+  }
+  if (regs.length) {
+    const { error } = await db.from('parceiros').insert(regs);
+    if (error) return { erro: /parceiros_status_fkey/.test(error.message) ? 'Status inválido. Atualize a página e escolha de novo.' : error.message };
+  }
+  return { inseridos: regs.length, pulados, docInvalido };
+}
+
+export async function concluirImportacaoParceiros() {
+  revalidatePath('/indireto', 'layout');
+  return { ok: true };
+}

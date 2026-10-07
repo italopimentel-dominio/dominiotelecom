@@ -113,7 +113,12 @@ export default async function ControleIndireto({ searchParams }) {
           <h1>Controle Indireto</h1>
           <p className="sub">Parceiros, treinamentos de onboarding, telecom e serviços, e os apontamentos dos pontos focais.</p>
         </div>
-        {editar && <Link className="btn" href="/indireto/novo">Novo parceiro</Link>}
+        {editar && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Link className="btn btn-sec" href="/indireto/importar">Importar lista</Link>
+            <Link className="btn" href="/indireto/novo">Novo parceiro</Link>
+          </div>
+        )}
       </div>
 
       <div className="calendario" style={{ marginTop: 0 }}>
