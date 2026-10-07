@@ -37,7 +37,7 @@ export default function LinksFormulario({ parceiroId, nome, telefone, links = []
     <div className="bloco" style={{ marginBottom: 12 }}>
       <b>Enviar formulário por link</b>
       <p className="dica" style={{ margin: '4px 0 10px' }}>
-        O parceiro responde pelo celular, sem login. Ao enviar, o treinamento fica realizado e o cadastro é validado. O link vale 30 dias e uma resposta.
+        O parceiro responde pelo celular, sem login. Ao enviar, o treinamento fica realizado. O cadastro é validado sozinho quando todo treinamento realizado tem formulário e o parceiro tem venda vinculada. O link vale 30 dias e uma resposta.
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {Object.entries(TIPOS_TREINAMENTO).map(([tipo, rot]) => (

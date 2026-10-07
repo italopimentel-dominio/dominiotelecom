@@ -46,7 +46,7 @@ export default async function PaginaPerguntas({ searchParams }) {
     <>
       <div className="topo">
         <div>
-          <p className="sub"><Link href="/indireto">← Controle Indireto</Link></p>
+          <p className="sub"><Link href="/indireto/treinamentos">← Treinamentos</Link></p>
           <h1>Perguntas dos formulários</h1>
           <p className="sub">
             O que o parceiro responde pelo link depois de cada treinamento. Perguntas com resposta certa geram a pontuação (ex.: "acertou 4 de 5").

@@ -13,13 +13,15 @@ function gravar(nome, valor) {
 export default function MenuLateral({ menu, perfil, recolhidoInicial, sair }) {
   const caminho = usePathname();
   const [recolhido, setRecolhido] = useState(recolhidoInicial);
-  const ativo = (href) => (!href ? false : href === '/' ? caminho === '/' || caminho.startsWith('/grupos') || caminho.startsWith('/colaboradores') : caminho.startsWith(href));
-  const [abertos, setAbertos] = useState(() => new Set(menu.filter((m) => m.itens && (m.aberto || m.itens.some((i) => ativo(i.href)))).map((m) => m.rotulo)));
+  const ativoHref = (href) => (!href ? false : href === '/' ? caminho === '/' || caminho.startsWith('/grupos') || caminho.startsWith('/colaboradores') : caminho.startsWith(href));
+  // item ativo: pelo href, sem os caminhos de "excluir" e somando os de "incluir"
+  const ativoItem = (i) => (ativoHref(i.href) && !(i.excluir || []).some((e) => caminho.startsWith(e))) || (i.incluir || []).some((e) => caminho.startsWith(e));
+  const [abertos, setAbertos] = useState(() => new Set(menu.filter((m) => m.itens && (m.aberto || m.itens.some((i) => ativoItem(i)))).map((m) => m.rotulo)));
   const alternarGrupo = (r) => setAbertos((a) => { const n = new Set(a); if (n.has(r)) n.delete(r); else n.add(r); return n; });
   const alternar = () => { setRecolhido((r) => { gravar('menu_recolhido', r ? '0' : '1'); return !r; }); };
 
   const Item = ({ i }) => (
-    <Link href={i.href} className={ativo(i.href) ? 'nav-item ativo' : 'nav-item'} aria-current={ativo(i.href) ? 'page' : undefined} title={recolhido ? i.rotulo : undefined}>
+    <Link href={i.href} className={ativoItem(i) ? 'nav-item ativo' : 'nav-item'} aria-current={ativoItem(i) ? 'page' : undefined} title={recolhido ? i.rotulo : undefined}>
       <Icone nome={i.icone} /><span className="nav-rotulo">{i.rotulo}</span>
     </Link>
   );
@@ -43,7 +45,7 @@ export default function MenuLateral({ menu, perfil, recolhidoInicial, sair }) {
           const links = m.itens.filter((i) => i.href);
           if (recolhido) return <div key={m.rotulo} className="nav-separador">{links.map((i) => <Item key={i.href} i={i} />)}</div>;
           const aberto = abertos.has(m.rotulo);
-          const contem = links.some((i) => ativo(i.href));
+          const contem = links.some((i) => ativoItem(i));
           return (
             <div key={m.rotulo} className="grupo-nav">
               <button type="button" className={`nav-item nav-grupo${contem ? ' contem-ativo' : ''}`} onClick={() => alternarGrupo(m.rotulo)} aria-expanded={aberto}>

@@ -46,7 +46,12 @@ export default async function LayoutApp({ children }) {
     { href: '/campanhas', rotulo: 'Campanhas', icone: 'campanhas' },
     { href: '/organograma', rotulo: 'Organograma', icone: 'organograma' },
   ];
-  if (podeVerIndireto(perfil)) menu.push({ href: '/indireto', rotulo: 'Controle Indireto', icone: 'indireto' });
+  if (podeVerIndireto(perfil)) {
+    menu.push({ rotulo: 'Controle Indireto', icone: 'indireto', itens: [
+      { href: '/indireto', rotulo: 'Ativação', icone: 'indireto', excluir: ['/indireto/treinamentos', '/indireto/perguntas'] },
+      { href: '/indireto/treinamentos', rotulo: 'Treinamentos', icone: 'campanhas', incluir: ['/indireto/perguntas'] },
+    ] });
+  }
   if (materiais.length) menu.push({ rotulo: 'Materiais', icone: 'materiais', itens: materiais });
   menu.push({ rotulo: 'Configurações', icone: 'cadastros', itens: configuracoes });
 

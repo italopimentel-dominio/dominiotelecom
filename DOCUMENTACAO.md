@@ -72,6 +72,7 @@ Regras de trabalho para Claude:
 | 023_materiais_meta | `materiais.conversao_esperada` (% de fechamento esperado, 0–100) e view `materiais_resumo` recriada |
 | 024_conversao_materiais | função `material_vendas(p_material)`: vendas creditadas a cada material (CNPJ do lead, mês do envio até o mês do fim dos 30 dias, envio mais recente leva o crédito) |
 | 025_formulario_link | `form_perguntas` (perguntas por tipo, editáveis pelo gerente; resposta certa opcional) e `form_links` (link individual por parceiro e tipo, 30 dias, uma resposta); `parceiro_respostas_form.acertos/total_pontuavel` |
+| 026_validacao_automatica | nova regra: `avaliar_validacao_automatica(parceiro)` aprova quem está pendente se tem treinamento realizado, formulário respondido para cada tipo realizado e venda vinculada; chamada por `aplicar_resposta_form` (que não valida mais sozinho), `registrar_vendas_parceiros` e gatilhos em treinamentos e respostas |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -226,10 +227,12 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Personalização:** capa, foto do prêmio, cor, personagens, frase e fotos dos participantes, guardadas no bucket `midia` (upload pelo servidor com a chave secreta).
 - **Modo TV:** atualiza a cada minuto.
 
-### Controle Indireto (`/indireto`)
+### Controle Indireto (menu com Ativação `/indireto` e Treinamentos `/indireto/treinamentos`)
+- **Ativação:** cadastro, status, ponto focal, validação, data de ativação, venda em 30 dias, resumo "x/3 treinamentos · y/3 formulários"; status dos parceiros (gerente), importar lista (gerente).
+- **Treinamentos:** uma linha por parceiro com Onboarding, Telecom e Serviços (situação do treinamento + formulário respondido ou ação Gerar link/copiar/WhatsApp), "Formulários x/3", validação com o que falta; filtros por falta de formulário e completos; agenda dos próximos 14 dias; respostas do Google sem parceiro; perguntas dos formulários (gerente).
 - **Parceiros:** CPF ou CNPJ validado, status, data de ativação, ponto focal, contatos.
 - **Treinamentos e apontamentos:** treinamentos de onboarding, telecom e serviços; apontamentos sem edição posterior; histórico de alterações por gatilho.
-- **Validação pelo gerente:** volta para pendente se o ponto focal editar. **Validação automática** quando o parceiro responde o Formulário Google (`integracoes-google-forms.gs`, um script por formulário com `TIPO_TREINAMENTO`; webhook `/api/forms`; o parceiro é achado pelo CPF/CNPJ das respostas). O gerente pode desvalidar.
+- **Validação automática (026):** só quando todo treinamento realizado tem o formulário do mesmo tipo respondido E o parceiro tem venda vinculada (e há pelo menos um treinamento realizado); fora isso, só o gerente. A tela de Treinamentos mostra o que falta. **Antes (até o 025):** validava ao responder o Formulário Google (`integracoes-google-forms.gs`, um script por formulário com `TIPO_TREINAMENTO`; webhook `/api/forms`; o parceiro é achado pelo CPF/CNPJ das respostas). O gerente pode desvalidar.
 - **Status:** lista em `parceiro_status` (Aguardando interação, Em contato, Declinou, Ativo, Contato desatualizado, Base). O gerente (`validar`) ou admin cria, renomeia, ordena, escolhe a cor, desativa (some da escolha) e marca "esconder da lista" (Declinou). Status antigos migrados: prospecção → aguardando interação, onboarding → em contato, inativo → declinou.
 - **Venda vinculada:** ao gravar uma fonte de dados, a primeira venda de cada parceiro (nome do CONSULTOR = nome fantasia ou razão social, sem acento/maiúsculas) fica gravada em `venda_mes/produto/qtd/valor` e **não muda mais**. "Desfazer" a gravação solta as vendas que ela vinculou.
 - **Ativação boa:** venda até 30 dias da data de ativação. Como as planilhas só têm o mês, vale a venda até o mês em que o prazo termina. Estados: ativação boa, no prazo, vendeu fora do prazo, sem venda em 30 dias.

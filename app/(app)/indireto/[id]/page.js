@@ -169,7 +169,7 @@ export default async function Parceiro({ params }) {
               </tbody>
             </table>
           </div>
-        ) : <p className="dica">O parceiro ainda não respondeu o formulário. Quando responder, o treinamento é marcado como realizado e o cadastro é validado automaticamente.</p>}
+        ) : <p className="dica">O parceiro ainda não respondeu nenhum formulário. Cada resposta marca o treinamento como realizado; o cadastro é validado sozinho quando todo treinamento realizado tem formulário e há venda vinculada.</p>}
       </section>
 
       <section className="secao">
