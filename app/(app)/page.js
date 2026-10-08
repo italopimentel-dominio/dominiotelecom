@@ -8,6 +8,7 @@ import { lerMedida } from '@/lib/medidaServidor';
 import AlternarMedida from '@/components/AlternarMedida';
 import SeletorPeriodo from '@/components/SeletorPeriodo';
 import SemPeriodo from '@/components/SemPeriodo';
+import BaixarExcelMes from '@/components/BaixarExcelMes';
 
 export default async function Painel({ searchParams }) {
   const sp = await searchParams;
@@ -42,6 +43,7 @@ export default async function Painel({ searchParams }) {
           <p className="sub">Hoje é {fmtData(an.hoje, true)}. Necessidade bruta calculada com {fator}.</p>
         </div>
         <div className="linha-acoes">
+          <BaixarExcelMes periodoId={periodo.id} />
           <AlternarMedida atual={medida} />
           <SeletorPeriodo periodos={periodos} atual={periodo.id} />
         </div>

@@ -253,6 +253,10 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - **Painel em Fonte de dados:** Ativa/Pausada (botão Pausar/Ativar, grava em `config_sistema`; a rota do cron respeita), última e próxima rodada, alerta se a rodada esperada não aconteceu (agendamento ou CRON_SECRET errado), botão **Rodar agora** (roda todas as fontes com o usuário logado, mesmo pausada).
 - **Aviso:** faixa no topo do sistema para editores quando alguma fonte tem pendência ou erro, com link para Fonte de dados; cada fonte mostra a última rodada e a lista de nomes pendentes. Gravar manualmente limpa a pendência; "Ignorar" na tela fica guardado em `nomes_ignorados`.
 
+### Excel do mês (Painel → "Baixar Excel do mês", todos os usuários)
+- Aba "Por colaborador": uma linha por colaborador (equipe, canal) e, para cada produto ativo que teve meta ou venda no mês, **Qtd, Meta e % atingido** (mesmas contas do painel, medida quantidade; produtos "soma" incluídos). Dados vêm de `dadosExportacaoMes` (`app/actions/exportar.js`); o arquivo é montado no navegador (`components/BaixarExcelMes.js`).
+- Vendas lançadas direto numa equipe (sem colaborador) não entram, porque não são de ninguém.
+
 ### Tempo falado (`/tempo-falado`, todos veem; editores sobem)
 - **Arquivos (o tipo é reconhecido pelo cabeçalho):** CSV do LeadsBuilder (Operador "Nome (login)", Falando, TMA; a linha de total é ignorada), CSV do 3C (agent_name, calls, speaking, manual_acw, manual) e as folhas de ponto de presentes em .xlsx (uma por CNPJ; o nome do arquivo vira a empresa, ex.: "JDPresentes" → JD).
 - **Regras:** 3C Falando = speaking + MTPA (`manual_acw`) + manual; ligações 3C = calls. LeadsBuilder: Falando e TMA da plataforma (ligações estimadas = Falando ÷ TMA, só para o TMA de quem está nos dois). TMA = TMA do LeadsBuilder para quem só está nele; senão Falando total ÷ ligações. Dias = dias "Presente" no ponto. Média = Falando ÷ dias.
