@@ -33,7 +33,7 @@ export default async function ConversaoMaterial({ params }) {
           <p className="sub"><Link href="/conversao">← Conversão de materiais</Link></p>
           <h1>{m.nome}</h1>
           <p className="sub">
-            {m.nomeEquipe} · enviado em {fmtData(m.enviado_em, true)} · {m.andamento ? `janela de 30 dias até ${fmtData(m.prazo, true)}` : 'janela de 30 dias encerrada'}
+            {m.nomeEquipe} · foco: {m.foco} · enviado em {fmtData(m.enviado_em, true)} · {m.andamento ? `janela de 30 dias até ${fmtData(m.prazo, true)}` : 'janela de 30 dias encerrada'}
             {m.observacao ? ` · ${m.observacao}` : ''}
           </p>
         </div>

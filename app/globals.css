@@ -788,3 +788,7 @@ td.rz-ok { background: var(--ok-fundo); } td.rz-md { background: var(--atencao-f
 .auto-status.auto-pendente { background: var(--atencao-fundo); }
 .painel-auto.ligado { border-left: 4px solid var(--ok); }
 .painel-auto.pausado { border-left: 4px solid var(--risco); }
+
+/* produto foco do material */
+.foco-produtos { margin-top: 10px; }
+.foco-lista { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 6px; }

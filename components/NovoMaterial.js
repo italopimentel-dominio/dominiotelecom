@@ -37,7 +37,7 @@ function acharColunaDoc(cab, linhas) {
   return melhor;
 }
 
-export default function NovoMaterial({ grupos, materialId = null }) {
+export default function NovoMaterial({ grupos, produtos = [], materialId = null }) {
   const [modo, setModo] = useState('planilha');
   const [arq, setArq] = useState(null); // { nome, abas: { nome: linhas[][] } }
   const [aba, setAba] = useState('');
@@ -162,6 +162,7 @@ export default function NovoMaterial({ grupos, materialId = null }) {
               key={`${modo}-${aba}-${colDoc}-${colDest}-${resultado.leads.length}`}
               leads={resultado.leads}
               grupos={grupos}
+              produtos={produtos}
               origem={modo === 'colar' ? 'manual' : 'planilha'}
               materialId={materialId}
               nomePadrao={arq?.nome?.replace(/\.[^.]+$/, '') || ''}

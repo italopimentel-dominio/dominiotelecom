@@ -6,3 +6,9 @@ export async function listarEquipes(supabase) {
   return (data || []).filter((g) => g.ativo).map((g) => ({ id: g.id, nome: caminho(g.id) })).sort((a, b) => a.nome.localeCompare(b.nome));
 }
 export const ORIGEM = { preparador: 'Preparador', planilha: 'Planilha', manual: 'Manual' };
+
+// Produtos ativos, para escolher o foco do material
+export async function listarProdutos(supabase) {
+  const { data } = await supabase.from('produtos').select('id, nome, ativo, ordem').eq('ativo', true).order('ordem').order('nome');
+  return (data || []).map((p) => ({ id: p.id, nome: p.nome }));
+}

@@ -101,7 +101,7 @@ export default async function PaginaConversao({ searchParams }) {
                 <tbody>
                   {lista.map((m) => (
                     <tr key={m.id}>
-                      <td><Link href={`/conversao/${m.id}`}>{m.nome}</Link></td>
+                      <td><Link href={`/conversao/${m.id}`}>{m.nome}</Link><span className="nome-sub">foco: {m.foco}</span></td>
                       <td>{fmtData(m.enviado_em, true)}<span className="nome-sub">{m.andamento ? `janela até ${fmtData(m.prazo, true)}` : 'janela encerrada'}</span></td>
                       <td className="esq">{m.nomeEquipe}</td>
                       <td>{fmtN(m.leads)}</td>

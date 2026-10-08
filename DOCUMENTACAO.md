@@ -78,6 +78,7 @@ Regras de trabalho para Claude:
 | 029_fontes_automaticas | `fontes_dados.auto_*` (última rodada, status, mensagem, nomes pendentes, assinatura) e `nomes_ignorados` (por fonte) |
 | 029b_agendar_fontes | agendamento no Supabase (pg_cron + pg_net): de hora em hora 11h–22h UTC (8h–19h Brasília), seg–sex, chama `/api/cron/fontes?n=0..5` com `Authorization: Bearer CRON_SECRET` |
 | 030_pausar_automatico | `config_sistema` (chave `fontes_auto` → `{ativo}`): pausar/ativar a atualização automática pela tela |
+| 031_materiais_foco | `materiais.produtos_foco uuid[]` (vazio = geral) e `material_vendas` só considera vendas dos produtos foco do material (o crédito vai para o envio mais recente entre os que focam aquele produto) |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -264,7 +265,7 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - Código em `lib/tempoFalado.js` (roda no navegador); Excel no formato da aba "Discadores" + "Detalhe".
 
 ### Materiais enviados (`/materiais`, só admin)
-- **Material:** nome, data de envio, **% de fechamento esperado** (opcional; a tela mostra ≈ vendas esperadas = leads × %), **uma equipe** (base dividida entre equipes = um material por parte), origem (Preparador, planilha ou manual), observação.
+- **Material:** nome, data de envio, **produto(s) foco** (nenhum = geral; ex.: só Alta Fibra, ou Alta + Reno Móvel para a torre móvel), **% de fechamento esperado** (opcional; a tela mostra ≈ vendas esperadas = leads × %), **uma equipe** (base dividida entre equipes = um material por parte), origem (Preparador, planilha ou manual), observação.
 - **Leads:** CNPJ (só dígitos, validado; CPF também vale) e destinatário opcional (consultor, nome da aba ou lote). Repetidos no mesmo material entram uma vez.
 - **Três entradas:** botão "Registrar envio" no Preparador depois de baixar (separado por coluna = destinatário é o valor da coluna; por lotes = "Lote N"); subir Excel/CSV de qualquer origem (acha a coluna de CNPJ pelo nome ou pela que tem mais documentos válidos; opção "todas as abas" usa o nome da aba como destinatário e pula "Resumo"/"Filtros usados"); colar CNPJs.
 - **Gravação em blocos** de 2.000 leads por chamada (`criarMaterial` + `adicionarLeadsMaterial`), por causa do limite de tamanho das server actions.

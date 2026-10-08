@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { exigirSessao, ehAdmin } from '@/lib/auth';
 import { fmtData } from '@/lib/formato';
 import NovoMaterial from '@/components/NovoMaterial';
-import { listarEquipes, ORIGEM } from './dados';
+import { listarEquipes, listarProdutos, ORIGEM } from './dados';
 
 const fmtN = (n) => Number(n || 0).toLocaleString('pt-BR');
 const fmtPct = (n) => `${Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
@@ -11,10 +11,12 @@ const fmtPct = (n) => `${Number(n).toLocaleString('pt-BR', { maximumFractionDigi
 export default async function PaginaMateriais() {
   const { perfil, supabase } = await exigirSessao();
   if (!ehAdmin(perfil)) redirect('/');
-  const [{ data: materiais, error }, equipes] = await Promise.all([
+  const [{ data: materiais, error }, equipes, produtos] = await Promise.all([
     supabase.from('materiais_resumo').select('*').order('enviado_em', { ascending: false }).order('criado_em', { ascending: false }),
     listarEquipes(supabase),
+    listarProdutos(supabase),
   ]);
+  const nomeProduto = new Map(produtos.map((p) => [p.id, p.nome]));
   const nomeEquipe = new Map(equipes.map((g) => [g.id, g.nome]));
 
   return (
@@ -36,14 +38,14 @@ export default async function PaginaMateriais() {
               Suba o Excel/CSV que foi enviado (de qualquer origem) ou cole os CNPJs. Cada material vai para uma equipe; se a base foi dividida
               entre equipes, registre um material para cada parte. Do Preparador, use o botão "Registrar envio" depois de baixar o material.
             </p>
-            <NovoMaterial grupos={equipes} />
+            <NovoMaterial grupos={equipes} produtos={produtos} />
           </details>
 
           <section className="secao">
             <div className="tabela-wrap">
               <table>
                 <thead>
-                  <tr><th>Material</th><th>Enviado em</th><th className="esq">Equipe</th><th className="esq">Origem</th><th>Leads</th><th>Fechamento esperado</th></tr>
+                  <tr><th>Material</th><th>Enviado em</th><th className="esq">Equipe</th><th className="esq">Foco</th><th className="esq">Origem</th><th>Leads</th><th>Fechamento esperado</th></tr>
                 </thead>
                 <tbody>
                   {(materiais || []).map((m) => (
@@ -51,6 +53,7 @@ export default async function PaginaMateriais() {
                       <td><Link href={`/materiais/${m.id}`}>{m.nome}</Link>{m.observacao && <span className="nome-sub">{m.observacao}</span>}</td>
                       <td>{fmtData(m.enviado_em, true)}</td>
                       <td className="esq">{nomeEquipe.get(m.grupo_id) || <span className="fraco">—</span>}</td>
+                      <td className="esq">{m.produtos_foco?.length ? m.produtos_foco.map((id) => nomeProduto.get(id) || '?').join(', ') : <span className="fraco">Geral</span>}</td>
                       <td className="esq"><span className="tag">{ORIGEM[m.origem] || m.origem}</span></td>
                       <td>{fmtN(m.leads)}</td>
                       <td>
@@ -60,7 +63,7 @@ export default async function PaginaMateriais() {
                       </td>
                     </tr>
                   ))}
-                  {!materiais?.length && <tr><td colSpan={6} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nenhum material registrado ainda.</td></tr>}
+                  {!materiais?.length && <tr><td colSpan={7} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nenhum material registrado ainda.</td></tr>}
                 </tbody>
               </table>
             </div>

@@ -54,6 +54,7 @@ export async function carregarConversao(supabase, hoje, materialId = null) {
       esperadosLeads: esperada == null ? null : (leads * esperada) / 100,
       prazo, andamento: hoje <= prazo,
       nomeEquipe: m.grupo_id ? caminho(m.grupo_id) : '—',
+      foco: m.produtos_foco?.length ? m.produtos_foco.map((id) => nomeProduto.get(id) || '?').join(', ') : 'Geral',
     };
   });
   return { materiais };

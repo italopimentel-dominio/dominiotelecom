@@ -61,7 +61,7 @@ function FiltroModo({ f, mudar, opcoes }) {
   );
 }
 
-export default function Preparador({ equipes = [] }) {
+export default function Preparador({ equipes = [], produtos = [] }) {
   const [arq, setArq] = useState(null); // { nome, abas, wb }
   const [aba, setAba] = useState('');
   const [cab, setCab] = useState([]);
@@ -420,7 +420,7 @@ export default function Preparador({ equipes = [] }) {
                 Material baixado com {fmtN(registrar.leads.length)} CNPJs. Registre para qual equipe ele foi, para medir depois quantos viraram venda.
                 {saida.separar === 'lotes' && ' Se os lotes foram para equipes diferentes, registre cada parte em "Materiais enviados" subindo o arquivo.'}
               </p>
-              <RegistrarMaterial key={registrar.chave} leads={registrar.leads} grupos={equipes} origem="preparador" nomePadrao={registrar.nome} aoTerminar={() => {}} />
+              <RegistrarMaterial key={registrar.chave} leads={registrar.leads} grupos={equipes} produtos={produtos} origem="preparador" nomePadrao={registrar.nome} aoTerminar={() => {}} />
               <button type="button" className="btn btn-sec btn-peq" style={{ marginTop: 8 }} onClick={() => setRegistrar(null)}>Não registrar</button>
             </section>
           )}

@@ -14,7 +14,8 @@ function percentual(v) {
   const n = Number(t);
   return isFinite(n) && n >= 0 && n <= 100 ? { valor: n } : { erro: 'O % de fechamento esperado deve ser um número entre 0 e 100.' };
 }
-const erroTabela = (m) => (m.includes('conversao_esperada') ? 'Rode o arquivo 023_materiais_meta.sql no Supabase.' : m.includes('materia') ? 'Rode o arquivo 022_materiais.sql no Supabase.' : m);
+const focoDe = (v) => { const l = (Array.isArray(v) ? v : []).map(txt).filter(Boolean); return l.length ? [...new Set(l)] : null; };
+const erroTabela = (m) => (m.includes('produtos_foco') ? 'Rode o arquivo 031_materiais_foco.sql no Supabase.' : m.includes('conversao_esperada') ? 'Rode o arquivo 023_materiais_meta.sql no Supabase.' : m.includes('materia') ? 'Rode o arquivo 022_materiais.sql no Supabase.' : m);
 
 async function admin() {
   const s = await sessao();
@@ -38,6 +39,8 @@ export async function criarMaterial(dados) {
   const pc = percentual(dados?.conversao_esperada);
   if (pc.erro) return { erro: pc.erro };
   if (pc.valor !== null) reg.conversao_esperada = pc.valor;
+  const foco = focoDe(dados?.produtos_foco);
+  if (foco) reg.produtos_foco = foco;
   const { data, error } = await s.supabase.from('materiais').insert(reg).select('id').single();
   if (error) return { erro: erroTabela(error.message) };
   return { id: data.id };
@@ -86,6 +89,7 @@ export async function salvarMaterial(_prev, fd) {
   const pc = percentual(fd.get('conversao_esperada'));
   if (pc.erro) return { erro: pc.erro };
   reg.conversao_esperada = pc.valor;
+  reg.produtos_foco = focoDe(fd.getAll('produtos_foco'));
   const { error } = await s.supabase.from('materiais').update(reg).eq('id', id);
   if (error) return { erro: erroTabela(error.message) };
   revalidatePath('/materiais', 'layout');

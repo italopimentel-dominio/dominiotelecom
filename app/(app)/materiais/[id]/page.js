@@ -4,7 +4,7 @@ import { exigirSessao, ehAdmin } from '@/lib/auth';
 import FormAcao from '@/components/FormAcao';
 import NovoMaterial from '@/components/NovoMaterial';
 import { salvarMaterial, excluirMaterial } from '@/app/actions/materiais';
-import { listarEquipes, ORIGEM } from '../dados';
+import { listarEquipes, listarProdutos, ORIGEM } from '../dados';
 
 const fmtN = (n) => Number(n || 0).toLocaleString('pt-BR');
 const fmtPct = (n) => `${Number(n).toLocaleString('pt-BR', { maximumFractionDigits: 2 })}%`;
@@ -14,11 +14,12 @@ export default async function PaginaMaterial({ params }) {
   const { id } = await params;
   const { perfil, supabase } = await exigirSessao();
   if (!ehAdmin(perfil)) redirect('/');
-  const [{ data: m }, equipes, { data: amostra }, { count }] = await Promise.all([
+  const [{ data: m }, equipes, { data: amostra }, { count }, produtos] = await Promise.all([
     supabase.from('materiais').select('*').eq('id', id).maybeSingle(),
     listarEquipes(supabase),
     supabase.from('material_leads').select('cnpj, destinatario').eq('material_id', id).order('id').limit(50),
     supabase.from('material_leads').select('id', { count: 'exact', head: true }).eq('material_id', id),
+    listarProdutos(supabase),
   ]);
   if (!m) notFound();
 
@@ -54,13 +55,21 @@ export default async function PaginaMaterial({ params }) {
             </label>
             <label className="campo" style={{ flex: '3 1 300px' }}>Observação<input type="text" name="observacao" defaultValue={m.observacao || ''} /></label>
           </div>
+          <div className="foco-produtos">
+            <span className="dica"><b>Produto foco:</b> marque os produtos que contam para este material. Nenhum marcado = material geral (conta qualquer produto).</span>
+            <div className="foco-lista">
+              {produtos.map((p) => (
+                <label key={p.id} className="check"><input type="checkbox" name="produtos_foco" value={p.id} defaultChecked={(m.produtos_foco || []).includes(p.id)} /> {p.nome}</label>
+              ))}
+            </div>
+          </div>
           <button className="btn" type="submit" style={{ marginTop: 10 }}>Salvar</button>
         </FormAcao>
       </section>
 
       <details className="bloco secao recolhivel">
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>+ Adicionar leads a este material</summary>
-        <div style={{ marginTop: 10 }}><NovoMaterial grupos={equipes} materialId={m.id} /></div>
+        <div style={{ marginTop: 10 }}><NovoMaterial grupos={equipes} produtos={produtos} materialId={m.id} /></div>
       </details>
 
       <section className="secao">

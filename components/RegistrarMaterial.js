@@ -9,8 +9,9 @@ const fmtN = (n) => Number(n).toLocaleString('pt-BR');
 
 // Grava um material e seus leads (em blocos). Sem materialId cria um novo; com materialId só adiciona leads.
 // leads: [{ cnpj, destinatario }] já validados e sem repetidos.
-export default function RegistrarMaterial({ leads, grupos = [], origem = 'planilha', materialId = null, nomePadrao = '', aoTerminar }) {
-  const [form, setForm] = useState({ nome: nomePadrao, enviado_em: hojeSP(), grupo_id: '', conversao_esperada: '', observacao: '' });
+export default function RegistrarMaterial({ leads, grupos = [], produtos = [], origem = 'planilha', materialId = null, nomePadrao = '', aoTerminar }) {
+  const [form, setForm] = useState({ nome: nomePadrao, enviado_em: hojeSP(), grupo_id: '', conversao_esperada: '', observacao: '', produtos_foco: [] });
+  const alternarFoco = (id) => setForm((f) => ({ ...f, produtos_foco: f.produtos_foco.includes(id) ? f.produtos_foco.filter((x) => x !== id) : [...f.produtos_foco, id] }));
   const [estado, setEstado] = useState({ rodando: false, feitos: 0, erro: '', fim: null });
   const muda = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -60,6 +61,16 @@ export default function RegistrarMaterial({ leads, grupos = [], origem = 'planil
             <input type="text" inputMode="decimal" value={form.conversao_esperada} onChange={muda('conversao_esperada')} placeholder="ex.: 2,5" style={{ width: 110 }} />
           </label>
           <label className="campo" style={{ flex: '3 1 300px' }}>Observação<input type="text" value={form.observacao} onChange={muda('observacao')} placeholder="Opcional" /></label>
+        </div>
+      )}
+      {!materialId && produtos.length > 0 && (
+        <div className="foco-produtos">
+          <span className="dica"><b>Produto foco:</b> {form.produtos_foco.length ? 'só contam vendas dos marcados' : 'nenhum marcado = material geral (conta qualquer produto)'}</span>
+          <div className="foco-lista">
+            {produtos.map((p) => (
+              <label key={p.id} className="check"><input type="checkbox" checked={form.produtos_foco.includes(p.id)} onChange={() => alternarFoco(p.id)} /> {p.nome}</label>
+            ))}
+          </div>
         </div>
       )}
       <div className="campos" style={{ marginTop: 10, alignItems: 'center' }}>
