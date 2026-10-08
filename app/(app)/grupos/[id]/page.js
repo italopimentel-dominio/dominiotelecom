@@ -62,6 +62,14 @@ export default async function DetalheGrupo({ params, searchParams }) {
   const dentro = contagem.batida + contagem.emDia;
   const totalComMeta = dentro + contagem.fora;
   const idsSub = new Set(base.subarvore(id));
+  // Visão geral: cada colaborador pela média do % atingido em todos os produtos com meta (mesma conta da "meta geral")
+  const geral = an.geralColaboradores(base.subarvore(id));
+  const comMetaGeral = new Set(geral.map((g) => g.colaborador.id));
+  const g = { batida: geral.filter((x) => x.status === 'batida').length, dentro: geral.filter((x) => x.status === 'dentro').length, fora: geral.filter((x) => x.status === 'fora').length };
+  const gDentro = g.batida + g.dentro;
+  const gTotal = gDentro + g.fora;
+  const gSemMeta = base.colaboradores.filter((c) => idsSub.has(c.grupo_id) && an.ativoNoPeriodo(c) && !comMetaGeral.has(c.id)).length;
+  const pctG = (n) => (gTotal ? `${Math.round((n / gTotal) * 100)}%` : '0%');
   const hc = calcularHeadcount(base.colaboradores.filter((c) => idsSub.has(c.grupo_id)), periodo.referencia, ultimoDiaDoMes(periodo.referencia));
   const pctDe = (n) => (totalComMeta ? `${Math.round((n / totalComMeta) * 100)}%` : '0%');
   const link = (prod) => `/grupos/${id}?p=${periodo.id}&prod=${prod}`;
@@ -76,12 +84,17 @@ export default async function DetalheGrupo({ params, searchParams }) {
           </p>
           <h1 style={{ marginTop: 6 }}>{grupo.nome}</h1>
           <p className="sub">{periodo.nome}. {an.colabsAtivosSub(id)} colaboradores ativos.</p>
-          {dentro + contagem.fora > 0 && (
-            <div className="contagem-meta" title="Dentro da meta: já bateu ou está no ritmo esperado até hoje. Fora: abaixo do ritmo.">
-              <span className="dentro"><b>{dentro}</b> ({pctDe(dentro)}) dentro da meta em {produto.nome}{contagem.batida > 0 && `, ${contagem.batida} já bateram`}</span>
-              <span className="fora"><b>{contagem.fora}</b> ({pctDe(contagem.fora)}) fora da meta</span>
-              {contagem.semMeta > 0 && <span><b>{contagem.semMeta}</b> sem meta</span>}
+          {gTotal > 0 && (
+            <div className="contagem-meta" title="Geral: média do % atingido de cada colaborador em todos os produtos em que ele tem meta, comparada com o ritmo esperado até hoje.">
+              <span className="dentro"><b>{gDentro}</b> ({pctG(gDentro)}) dentro da meta geral{g.batida > 0 && `, ${g.batida} já bateram`}</span>
+              <span className="fora"><b>{g.fora}</b> ({pctG(g.fora)}) fora da meta geral</span>
+              {gSemMeta > 0 && <span><b>{gSemMeta}</b> sem meta</span>}
             </div>
+          )}
+          {dentro + contagem.fora > 0 && (
+            <p className="dica" style={{ margin: '2px 0 6px' }} title="Dentro da meta: já bateu ou está no ritmo esperado até hoje. Fora: abaixo do ritmo.">
+              Só em {produto.nome}: {dentro} dentro ({pctDe(dentro)}) · {contagem.fora} fora ({pctDe(contagem.fora)}){contagem.semMeta > 0 ? ` · ${contagem.semMeta} sem meta` : ''}
+            </p>
           )}
           <div className="contagem-meta hc-linha">
             <span title="Colaboradores no primeiro dia do mês">Começou o mês com <b>{hc.inicio}</b></span>
