@@ -17,7 +17,8 @@ export default async function Assiduidade({ searchParams }) {
   const hoje = hojeSP();
   const mes = /^\d{4}-\d{2}$/.test(sp.mes || '') ? sp.mes : hoje.slice(0, 7);
   const inicio = `${mes}-01`;
-  const fim = `${mes}-31`;
+  // último dia de verdade do mês (setembro tem 30; "2026-09-31" não existe e o banco recusa)
+  const fim = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).toISOString().slice(0, 10);
 
   const [{ data: grupos }, { data: colabs }, { data: feriados }, { data: config }, regs, lanc, { data: apelidos }] = await Promise.all([
     supabase.from('grupos').select('id, nome, parent_id, ativo, ordem').order('ordem').order('nome'),
@@ -28,7 +29,10 @@ export default async function Assiduidade({ searchParams }) {
     supabase.rpc('grupos_lancaveis'),
     supabase.from('colaborador_apelidos').select('apelido, colaborador_id'),
   ]);
-  if (regs.error) return <><div className="topo"><h1>Assiduidade</h1></div><p className="msg msg-erro">Rode o arquivo 032_assiduidade.sql no Supabase.</p></>;
+  if (regs.error) {
+    const faltaTabela = /assiduidade|does not exist|schema cache/i.test(regs.error.message);
+    return <><div className="topo"><h1>Assiduidade</h1></div><p className="msg msg-erro">{faltaTabela ? 'Rode o arquivo 032_assiduidade.sql no Supabase.' : `Não consegui carregar a assiduidade: ${regs.error.message}`}</p></>;
+  }
 
   const admin = ehAdmin(perfil);
   const lancaveis = new Set((lanc.data || []).map((x) => (typeof x === 'string' ? x : x.grupos_lancaveis)));
