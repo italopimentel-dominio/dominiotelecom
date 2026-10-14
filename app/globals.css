@@ -864,3 +864,4 @@ button.q:not(:disabled):hover { outline: 2px solid var(--acento); outline-offset
 .q.fora { background: repeating-linear-gradient(45deg, #ebe9f1, #ebe9f1 2px, #fff 2px, #fff 4px); }
 .lista-alerta { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); column-gap: 24px; }
 .lista-alerta li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #efedf4; font-size: 13.5px; }
+.tf-agrupar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
