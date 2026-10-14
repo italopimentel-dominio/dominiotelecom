@@ -28,7 +28,7 @@ O usuário **não usa terminal**. O fluxo é:
 
 Regras de trabalho para Claude:
 - Sempre rodar `next build` antes de entregar, com variáveis falsas. Testar regras de negócio com scripts Node em `/tmp`. Testar SQL num Postgres local com um mock de `auth.users`, `auth.uid()` e dos papéis `authenticated`, `anon` e `service_role` (com `bypassrls`), rodando duas vezes para garantir que pode repetir.
-- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Headcount, Tempo falado) · Campanhas · Organograma · Controle Indireto · Materiais (Conversão para todos; Preparador e Materiais enviados só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
+- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Headcount, Tempo falado, Assiduidade) · Campanhas · Organograma · Controle Indireto · Materiais (Conversão para todos; Preparador e Materiais enviados só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
 - **Zip sempre com mais de um item na raiz** (ex.: `app/` + `DOCUMENTACAO.md`). Se o zip tiver uma pasta só na raiz, a Action tira essa pasta e os arquivos caem no lugar errado (aconteceu com `app/(app)/...` virando `(app)/...` na raiz).
 - SQL sempre **aditivo e repetível** (`if not exists`, `drop policy if exists`). Nunca apagar dados existentes.
 - Dizer claramente se a entrega tem SQL e em que ordem. O usuário sempre pergunta se "vai desconfigurar algo": responder com o que muda na tela e o que muda nos dados.
@@ -79,6 +79,7 @@ Regras de trabalho para Claude:
 | 029b_agendar_fontes | agendamento no Supabase (pg_cron + pg_net): de hora em hora 11h–22h UTC (8h–19h Brasília), seg–sex, chama `/api/cron/fontes?n=0..5` com `Authorization: Bearer CRON_SECRET` |
 | 030_pausar_automatico | `config_sistema` (chave `fontes_auto` → `{ativo}`): pausar/ativar a atualização automática pela tela |
 | 031_materiais_foco | `materiais.produtos_foco uuid[]` (vazio = geral) e `material_vendas` só considera vendas dos produtos foco do material (o crédito vai para o envio mais recente entre os que focam aquele produto) |
+| 032_assiduidade | `assiduidade` (colaborador, data, P/F/A, equipe do dia, origem), `liderancas.profile_id` (cargo ↔ usuário), `grupos_lancaveis()` e `pode_lancar_assiduidade(grupo)` (admin, ou líder da equipe/de quem está abaixo no organograma, incluindo subequipes) |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
@@ -257,6 +258,12 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 ### Excel do mês (Painel → "Baixar Excel do mês", todos os usuários)
 - Aba "Por colaborador": uma linha por colaborador (equipe, canal) e, para cada produto ativo que teve meta ou venda no mês, **Qtd, Meta e % atingido** (mesmas contas do painel, medida quantidade; produtos "soma" incluídos). Dados vêm de `dadosExportacaoMes` (`app/actions/exportar.js`); o arquivo é montado no navegador (`components/BaixarExcelMes.js`).
 - Vendas lançadas direto numa equipe (sem colaborador) não entram, porque não são de ninguém.
+
+### Assiduidade (`/assiduidade`, todos veem; líderes lançam)
+- **Grade por equipe e mês:** colaboradores da equipe no mês (admissão/desligamento do cadastro; quem tem marcação na equipe também aparece) × dias úteis (calendário do sistema, com feriados). Clique alterna vazio → P → F → A → vazio e grava na hora; "✓ todos" no dia marca P em quem está em branco.
+- **Conta:** % = P ÷ (P + F + A); dia em branco não entra. Meta 95% (`META_ASSIDUIDADE` em `lib/assiduidade.js`): verde/vermelho por colaborador, dia, equipe e geral.
+- **Quem lança:** admin, ou o usuário ligado ao cargo em Organograma → Cargos de liderança (campo "Usuário no sistema"): as equipes do cargo dele, as dos cargos abaixo e as subequipes. Os demais só veem.
+- **Importar:** folha de ponto de presentes (marca P só onde está em branco, origem `ponto`) e a planilha antiga de acompanhamento (blocos "EQUIPE …" | ADMISSÃO | dd/mm; traz P/F/A, origem `planilha`). Nomes casados com o cadastro (apelidos + casamento aproximado).
 
 ### Tempo falado (`/tempo-falado`, todos veem; editores sobem)
 - **Arquivos (o tipo é reconhecido pelo cabeçalho):** CSV do LeadsBuilder (Operador "Nome (login)", Falando, TMA; a linha de total é ignorada), CSV do 3C (agent_name, calls, speaking, manual_acw, manual) e as folhas de ponto de presentes em .xlsx (uma por CNPJ; o nome do arquivo vira a empresa, ex.: "JDPresentes" → JD).

@@ -8,7 +8,7 @@ import { salvarLideranca, alternarLideranca } from '@/app/actions/liderancas';
 
 const CARGOS = ['Diretor comercial', 'Gerente regional', 'Coordenador de televendas', 'Supervisor de televendas', 'Supervisor consultivo', 'Supervisor do indireto'];
 
-function FormLider({ l = {}, liderancas, grupos, ocupados, botao }) {
+function FormLider({ l = {}, liderancas, grupos, ocupados, perfis = [], botao }) {
   const proibidos = new Set(l.id ? [l.id] : []);
   if (l.id) {
     let mudou = true;
@@ -32,6 +32,12 @@ function FormLider({ l = {}, liderancas, grupos, ocupados, botao }) {
         </label>
         <label className="campo">Admissão<input type="date" name="data_admissao" defaultValue={l.data_admissao || ''} /></label>
         <label className="campo">Ordem<input type="number" name="ordem" defaultValue={l.ordem ?? 0} style={{ width: 70 }} /></label>
+        <label className="campo">Usuário no sistema
+          <select name="profile_id" defaultValue={l.profile_id || ''}>
+            <option value="">Nenhum</option>
+            {perfis.map((p) => <option key={p.id} value={p.id}>{p.nome || p.usuario}</option>)}
+          </select>
+        </label>
       </div>
       <fieldset className="lider-equipes">
         <legend>Equipes que lidera diretamente (os colaboradores delas aparecem abaixo dele)</legend>
@@ -56,6 +62,7 @@ export default async function EditarOrganograma() {
     supabase.from('liderancas').select('*').order('ordem').order('nome'),
     supabase.from('lideranca_grupos').select('*'),
   ]);
+  const { data: perfis } = await supabase.from('profiles').select('id, nome, usuario, ativo').eq('ativo', true).order('nome');
   const liderancas = (lids || []).map((l) => ({ ...l, grupos: (vinculos || []).filter((v) => v.lideranca_id === l.id).map((v) => v.grupo_id) }));
   const grupos = est.achatar(null, 0, true).map((g) => ({ ...g, nome: est.caminho(g.id).map((x) => x.nome).join(' / ') }));
   const nomeLider = new Map(liderancas.map((l) => [l.id, l.nome]));
@@ -84,7 +91,7 @@ export default async function EditarOrganograma() {
       <details className="bloco" open={!liderancas.length}>
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>+ Incluir cargo</summary>
         <div style={{ marginTop: 14 }}>
-          <FormLider liderancas={liderancas} grupos={grupos} ocupados={ocupados} botao="Incluir no organograma" />
+          <FormLider perfis={perfis || []} liderancas={liderancas} grupos={grupos} ocupados={ocupados} botao="Incluir no organograma" />
         </div>
       </details>
 
@@ -100,7 +107,7 @@ export default async function EditarOrganograma() {
                     <details className="recolhivel" style={{ marginTop: 4 }}>
                       <summary>Editar</summary>
                       <div className="bloco" style={{ marginTop: 8, whiteSpace: 'normal', minWidth: 560 }}>
-                        <FormLider l={l} liderancas={liderancas} grupos={grupos} ocupados={ocupados} botao="Salvar" />
+                        <FormLider perfis={perfis || []} l={l} liderancas={liderancas} grupos={grupos} ocupados={ocupados} botao="Salvar" />
                       </div>
                     </details>
                   </td>

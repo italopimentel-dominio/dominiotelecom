@@ -22,6 +22,8 @@ export async function salvarLideranca(_prev, fd) {
     data_admissao: ou(txt(fd, 'data_admissao')),
     ordem: Number(txt(fd, 'ordem')) || 0,
   };
+  // usuário do sistema desta pessoa (dá permissão de lançar a assiduidade das equipes dela e de quem está abaixo)
+  if (fd.has('profile_id')) dados.profile_id = ou(txt(fd, 'profile_id'));
   if (!dados.nome) return { erro: 'Informe o nome.' };
   if (!dados.cargo) return { erro: 'Informe o cargo.' };
   const grupos = [...new Set(fd.getAll('grupos').map(String).filter(Boolean))];
@@ -42,11 +44,11 @@ export async function salvarLideranca(_prev, fd) {
   let lid = id;
   if (id) {
     const { error } = await db.from('liderancas').update(dados).eq('id', id);
-    if (error) return { erro: error.message };
+    if (error) return { erro: /liderancas_profile_unico/.test(error.message) ? 'Esse usuário já está ligado a outro cargo.' : /profile_id/.test(error.message) ? 'Rode o arquivo 032_assiduidade.sql no Supabase.' : error.message };
     await db.from('lideranca_grupos').delete().eq('lideranca_id', id);
   } else {
     const { data, error } = await db.from('liderancas').insert(dados).select('id').single();
-    if (error) return { erro: error.message };
+    if (error) return { erro: /liderancas_profile_unico/.test(error.message) ? 'Esse usuário já está ligado a outro cargo.' : /profile_id/.test(error.message) ? 'Rode o arquivo 032_assiduidade.sql no Supabase.' : error.message };
     lid = data.id;
   }
   if (grupos.length) {
