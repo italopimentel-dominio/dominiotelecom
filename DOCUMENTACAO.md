@@ -28,7 +28,7 @@ O usuário **não usa terminal**. O fluxo é:
 
 Regras de trabalho para Claude:
 - Sempre rodar `next build` antes de entregar, com variáveis falsas. Testar regras de negócio com scripts Node em `/tmp`. Testar SQL num Postgres local com um mock de `auth.users`, `auth.uid()` e dos papéis `authenticated`, `anon` e `service_role` (com `bypassrls`), rodando duas vezes para garantir que pode repetir.
-- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Headcount, Tempo falado, Assiduidade) · Campanhas · Organograma · Controle Indireto · Materiais (Conversão para todos; Preparador e Materiais enviados só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
+- **Menu lateral:** Metas (Resumo, Painel, Quadro de metas, Tempo falado; título PESSOAS: Headcount, Assiduidade) · Campanhas · Organograma · Controle Indireto · Materiais (Conversão para todos; Preparador e Materiais enviados só admin) · Configurações com títulos de seção `{ secao }` em vez de 3º nível: Dados (Fonte de dados, Importar resultados; editores), Pessoas (Equipes e colaboradores, Usuários; usuários só admin), Calendário (Períodos e fechamentos, Feriados), Catálogo (Produtos).
 - **Zip sempre com mais de um item na raiz** (ex.: `app/` + `DOCUMENTACAO.md`). Se o zip tiver uma pasta só na raiz, a Action tira essa pasta e os arquivos caem no lugar errado (aconteceu com `app/(app)/...` virando `(app)/...` na raiz).
 - SQL sempre **aditivo e repetível** (`if not exists`, `drop policy if exists`). Nunca apagar dados existentes.
 - Dizer claramente se a entrega tem SQL e em que ordem. O usuário sempre pergunta se "vai desconfigurar algo": responder com o que muda na tela e o que muda nos dados.
@@ -260,7 +260,8 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 - Vendas lançadas direto numa equipe (sem colaborador) não entram, porque não são de ninguém.
 
 ### Assiduidade (`/assiduidade`, todos veem; líderes lançam)
-- **Grade por equipe e mês:** colaboradores da equipe no mês (admissão/desligamento do cadastro; quem tem marcação na equipe também aparece) × dias úteis (calendário do sistema, com feriados). Clique alterna vazio → P → F → A → vazio e grava na hora; "✓ todos" no dia marca P em quem está em branco.
+- **Tela:** mês com setas; cartões das equipes (%, barra com marca de 95%, faltas/atestados, "Hoje: N pendentes"); **Chamada de hoje** (botões P/F/A por pessoa; "Marcar pendentes como presentes"; só aparece se hoje for dia útil do mês aberto); **Mês da equipe** em quadradinhos coloridos (clique corrige dias passados: vazio → P → F → A; hachurado = fora do período na equipe); lista "Abaixo de 95%" de todas as equipes; importar no fim (`components/PainelAssiduidade.js`).
+- **Quem aparece:** colaboradores da equipe no mês (admissão/desligamento do cadastro) e quem tem marcação nela (transferências) × dias úteis (calendário do sistema, com feriados). Não dá para marcar dia futuro.
 - **Conta:** % = P ÷ (P + F + A); dia em branco não entra. Meta 95% (`META_ASSIDUIDADE` em `lib/assiduidade.js`): verde/vermelho por colaborador, dia, equipe e geral.
 - **Quem lança:** admin, ou o usuário ligado ao cargo em Organograma → Cargos de liderança (campo "Usuário no sistema"): as equipes do cargo dele, as dos cargos abaixo e as subequipes. Os demais só veem.
 - **Importar:** folha de ponto de presentes (marca P só onde está em branco, origem `ponto`) e a planilha antiga de acompanhamento (blocos "EQUIPE …" | ADMISSÃO | dd/mm; traz P/F/A, origem `planilha`). Nomes casados com o cadastro (apelidos + casamento aproximado).
