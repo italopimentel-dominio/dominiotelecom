@@ -243,6 +243,7 @@ O menu lateral recolhe para uma faixa só de ícones; a escolha fica no cookie `
 
 ### Controle Indireto (menu com Ativação `/indireto` e Treinamentos `/indireto/treinamentos`)
 - **Ativação:** cadastro, status, ponto focal, validação, data de ativação, venda em 30 dias, resumo "x/3 treinamentos · y/3 formulários"; status dos parceiros (gerente), importar lista (gerente).
+- **Acompanhamento (`/indireto/acompanhamento`):** por período (atalhos hoje/7 dias/mês/mês passado/90 dias) e agrupado por dia, semana ou mês: cadastros (data de criação do parceiro), ativações (data de ativação; quantas são boas) e treinamentos realizados por tipo; tabela por ponto focal (atual do parceiro) e filtro por ponto focal.
 - **Treinamentos:** uma linha por parceiro com Onboarding, Telecom e Serviços (situação do treinamento + formulário respondido ou ação Gerar link/copiar/WhatsApp), "Formulários x/3", validação com o que falta; filtros por falta de formulário e completos; agenda dos próximos 14 dias; respostas do Google sem parceiro; perguntas dos formulários (gerente).
 - **Parceiros:** CPF ou CNPJ validado, status, data de ativação, ponto focal, contatos.
 - **Treinamentos e apontamentos:** treinamentos de onboarding, telecom e serviços; apontamentos sem edição posterior; histórico de alterações por gatilho.

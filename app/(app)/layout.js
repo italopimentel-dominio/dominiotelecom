@@ -52,8 +52,9 @@ export default async function LayoutApp({ children }) {
   ];
   if (podeVerIndireto(perfil)) {
     menu.push({ rotulo: 'Controle Indireto', icone: 'indireto', itens: [
-      { href: '/indireto', rotulo: 'Ativação', icone: 'indireto', excluir: ['/indireto/treinamentos', '/indireto/perguntas'] },
+      { href: '/indireto', rotulo: 'Ativação', icone: 'indireto', excluir: ['/indireto/treinamentos', '/indireto/perguntas', '/indireto/acompanhamento'] },
       { href: '/indireto/treinamentos', rotulo: 'Treinamentos', icone: 'campanhas', incluir: ['/indireto/perguntas'] },
+      { href: '/indireto/acompanhamento', rotulo: 'Acompanhamento', icone: 'resumo' },
     ] });
   }
   if (materiais.length) menu.push({ rotulo: 'Materiais', icone: 'materiais', itens: materiais });
