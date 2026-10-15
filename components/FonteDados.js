@@ -170,12 +170,19 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
             Lido agora: {dados.contagem.total} linhas na planilha, <b>{dados.contagem.contadas} contadas</b> ({dados.statusConta || 'EXECUTADO'}),
             {' '}{dados.contagem.naoExecutadas} com outro status{dados.contagem.tipoFora ? `, ${dados.contagem.tipoFora} com tipo de produto fora da regra` : ''} e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
           </p>
-          {dados.contagem.extras && Object.keys(dados.contagem.extras).length > 0 && (
-            <p className="dica" style={{ marginTop: 4 }}>
-              A mais: {Object.entries(dados.contagem.extras).map(([k, q]) => `${dados.destinos[k]?.rotulo || k}: ${q}`).join(' · ')}
-              {' '}(somam no produto ligado, sem tirar a venda de onde ela já conta).
-            </p>
-          )}
+          {dados.contagem.extrasDiag?.tot && (() => {
+            const dg = dados.contagem.extrasDiag.tot;
+            const fora = Object.entries(dg.fora);
+            return (
+              <p className="dica" style={{ marginTop: 4 }}>
+                <b>Totalização:</b> {dg.marcados} {dg.marcados === 1 ? 'linha marcada' : 'linhas marcadas'} com "TOTALIZAÇÃO SIM" na planilha ·{' '}
+                <b>{dg.contados} {dg.contados === 1 ? 'pedido contado' : 'pedidos contados'}</b>
+                {Object.keys(dg.porMes).length > 0 && ` (${Object.entries(dg.porMes).sort().map(([m, q]) => `${m.slice(5)}/${m.slice(0, 4)}: ${q}`).join(', ')})`}
+                {fora.length > 0 && <> · fora: {fora.map(([m, q]) => `${q} ${m}`).join(', ')}</>}.
+                {' '}Conta 1 por pedido. Os nomes que ainda não estão vinculados a um colaborador entram só depois do vínculo.
+              </p>
+            );
+          })()}
           {dados.contagem.cnpj && (
             <p className="dica" style={{ marginTop: 4 }}>
               {dados.contagem.cnpj.coluna
