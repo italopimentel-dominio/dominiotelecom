@@ -1,166 +1,212 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { exigirSessao, podeVerIndireto } from '@/lib/auth';
-import { hojeSP, somarDias } from '@/lib/datas';
+import { hojeSP } from '@/lib/datas';
 import { fmtData } from '@/lib/formato';
-import { TIPOS_TREINAMENTO, situacaoAtivacao } from '@/lib/indireto';
-import { nomesDosPerfis, listarFocais } from '../dados';
+import { TIPOS_TREINAMENTO, situacaoAtivacao, ROTULO_ATIVACAO, classeStatus, documentoDe } from '@/lib/indireto';
+import { nomesDosPerfis, listarStatus } from '../dados';
 
 const TIPOS = Object.keys(TIPOS_TREINAMENTO); // onboarding, telecom, servicos
-const COLUNAS = [
-  { k: 'cadastros', rotulo: 'Cadastros' },
-  { k: 'ativacoes', rotulo: 'Ativações' },
-  ...TIPOS.map((t) => ({ k: t, rotulo: `Trein. ${TIPOS_TREINAMENTO[t]}` })),
-];
+const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+const COR_CHIP = { 'tag-ok': 'var(--ok)', 'tag-acento': 'var(--acento)', 'tag-atencao': 'var(--atencao)', 'tag-risco': 'var(--risco)' };
 const dataSP = (ts) => new Date(new Date(ts).getTime() - 3 * 3600000).toISOString().slice(0, 10);
-const segunda = (iso) => { const d = new Date(`${iso}T12:00:00Z`); const dia = (d.getUTCDay() + 6) % 7; return somarDias(iso, -dia); };
-const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const somarMes = (m, n) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + n, 1)).toISOString().slice(0, 7);
 
 export default async function AcompanhamentoIndireto({ searchParams }) {
   const sp = await searchParams;
   const { supabase, perfil } = await exigirSessao();
   if (!podeVerIndireto(perfil)) redirect('/');
   const hoje = hojeSP();
-  const ok = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
-  const de = ok(sp.de) ? sp.de : `${hoje.slice(0, 7)}-01`;
-  const ate = ok(sp.ate) ? sp.ate : hoje;
-  const por = ['dia', 'semana', 'mes'].includes(sp.por) ? sp.por : 'dia';
+  const mes = /^\d{4}-\d{2}$/.test(sp.mes || '') ? sp.mes : hoje.slice(0, 7);
+  const VER = ['cadastros', 'ativacoes', ...TIPOS];
+  const ver = VER.includes(sp.ver) ? sp.ver : 'ativacoes';
+  const focal = sp.focal || '';
 
-  const [{ data: parceiros = [] }, { data: treinos = [] }, nomes, focais] = await Promise.all([
-    supabase.from('parceiros').select('id, nome_fantasia, criado_em, data_ativacao, ponto_focal_id, venda_mes'),
-    supabase.from('parceiro_treinamentos').select('parceiro_id, tipo, data, status').eq('status', 'realizado').gte('data', de).lte('data', ate),
+  const [{ data: parceiros = [] }, { data: treinos = [] }, nomes, statusLista] = await Promise.all([
+    supabase.from('parceiros').select('id, nome_fantasia, cpf, cnpj, status, criado_em, data_ativacao, ponto_focal_id, venda_mes, venda_produto').limit(10000),
+    supabase.from('parceiro_treinamentos').select('parceiro_id, tipo, data, status').eq('status', 'realizado').limit(20000),
     nomesDosPerfis(supabase),
-    listarFocais(supabase),
+    listarStatus(supabase),
   ]);
-  const focalDe = new Map((parceiros || []).map((p) => [p.id, p.ponto_focal_id]));
-  const passaFocal = (pid) => !sp.focal || (sp.focal === 'sem' ? !focalDe.get(pid) : focalDe.get(pid) === sp.focal);
-  const dentro = (d) => d && d >= de && d <= ate;
+  const statusPor = new Map(statusLista.map((s) => [s.chave, s]));
+  const noMes = (d) => !!d && d.startsWith(mes);
+  const doFocal = (p) => !focal || (focal === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === focal);
 
-  // eventos do período: { data, tipo (coluna), parceiro }
-  const eventos = [];
-  (parceiros || []).forEach((p) => {
-    const cad = p.criado_em ? dataSP(p.criado_em) : null;
-    if (dentro(cad) && passaFocal(p.id)) eventos.push({ data: cad, k: 'cadastros', pid: p.id });
-    if (dentro(p.data_ativacao) && passaFocal(p.id)) eventos.push({ data: p.data_ativacao, k: 'ativacoes', pid: p.id, boa: situacaoAtivacao(p, hoje)?.estado === 'boa' });
+  // treinamentos: por parceiro e tipo (todos os tempos) e os feitos no mês
+  const feitoAlgumaVez = new Map(); // pid|tipo -> data mais recente
+  const noMesTreino = []; // { pid, tipo, data }
+  (treinos || []).forEach((t) => {
+    const k = `${t.parceiro_id}|${t.tipo}`;
+    if (!feitoAlgumaVez.has(k) || t.data > feitoAlgumaVez.get(k)) feitoAlgumaVez.set(k, t.data);
+    if (noMes(t.data)) noMesTreino.push({ pid: t.parceiro_id, tipo: t.tipo, data: t.data });
   });
-  (treinos || []).forEach((t) => { if (TIPOS.includes(t.tipo) && passaFocal(t.parceiro_id)) eventos.push({ data: t.data, k: t.tipo, pid: t.parceiro_id }); });
+  const porId = new Map((parceiros || []).map((p) => [p.id, p]));
+  const resumoDe = (lista) => {
+    const ids = new Set(lista.map((p) => p.id));
+    const cad = lista.filter((p) => p.criado_em && noMes(dataSP(p.criado_em)));
+    const atv = lista.filter((p) => noMes(p.data_ativacao));
+    const r = { cadastros: cad.length, ativacoes: atv.length, boas: atv.filter((p) => situacaoAtivacao(p, hoje)?.estado === 'boa').length };
+    TIPOS.forEach((t) => { r[t] = noMesTreino.filter((x) => x.tipo === t && ids.has(x.pid)).length; });
+    return r;
+  };
 
-  const chaveData = (d) => (por === 'mes' ? d.slice(0, 7) : por === 'semana' ? segunda(d) : d);
-  const rotData = (c) => (por === 'mes' ? `${MESES[Number(c.slice(5)) - 1]}/${c.slice(0, 4)}` : por === 'semana' ? `semana de ${fmtData(c, true)}` : fmtData(c, true));
-  const vazio = () => Object.fromEntries(COLUNAS.map((c) => [c.k, 0]));
-  const porData = new Map();
-  const porFocal = new Map();
-  const total = vazio();
-  let boas = 0;
-  eventos.forEach((e) => {
-    const cd = chaveData(e.data);
-    if (!porData.has(cd)) porData.set(cd, vazio());
-    porData.get(cd)[e.k]++;
-    const f = focalDe.get(e.pid) || 'sem';
-    if (!porFocal.has(f)) porFocal.set(f, vazio());
-    porFocal.get(f)[e.k]++;
-    total[e.k]++;
-    if (e.boa) boas++;
+  // cartões dos pontos focais (no topo)
+  const idsFocais = [...new Set((parceiros || []).map((p) => p.ponto_focal_id || 'sem'))];
+  const cartoes = idsFocais.map((f) => {
+    const lista = (parceiros || []).filter((p) => (p.ponto_focal_id || 'sem') === f);
+    return { f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—', parceiros: lista.length, ...resumoDe(lista) };
+  }).sort((a, b) => (a.f === 'sem') - (b.f === 'sem') || b.ativacoes - a.ativacoes || a.nome.localeCompare(b.nome));
+  const doRecorte = (parceiros || []).filter(doFocal);
+  const tot = resumoDe(doRecorte);
+  const nomeFocal = focal ? cartoes.find((c) => c.f === focal)?.nome : null;
+
+  const url = (extra) => {
+    const q = new URLSearchParams({ mes, ver, ...(focal ? { focal } : {}), ...(sp.f ? { f: sp.f } : {}), ...extra });
+    [...q.keys()].forEach((k) => !q.get(k) && q.delete(k));
+    return `/indireto/acompanhamento?${q}`;
+  };
+
+  // ---------- detalhe do indicador escolhido ----------
+  let titulo = '', chips = [], linhas = [], colunas = [];
+  const filtro = sp.f || '';
+  if (ver === 'cadastros') {
+    titulo = 'Cadastros realizados no mês';
+    linhas = doRecorte.filter((p) => p.criado_em && noMes(dataSP(p.criado_em))).sort((a, b) => b.criado_em.localeCompare(a.criado_em))
+      .map((p) => ({ p, data: dataSP(p.criado_em) }));
+    colunas = ['Cadastrado em'];
+  } else if (ver === 'ativacoes') {
+    titulo = 'Ativações do mês';
+    const todas = doRecorte.filter((p) => noMes(p.data_ativacao)).map((p) => ({ p, data: p.data_ativacao, sit: situacaoAtivacao(p, hoje) }));
+    const conta = (e) => todas.filter((x) => x.sit?.estado === e).length;
+    chips = [['', `Todas (${todas.length})`], ...Object.entries(ROTULO_ATIVACAO).map(([e, r]) => [e, `${r.texto} (${conta(e)})`, r.classe])];
+    linhas = todas.filter((x) => !filtro || x.sit?.estado === filtro).sort((a, b) => b.data.localeCompare(a.data));
+    colunas = ['Ativado em', 'Situação'];
+  } else {
+    const tipo = ver;
+    titulo = `Treinamento de ${TIPOS_TREINAMENTO[tipo].toLowerCase()}`;
+    const fizeram = noMesTreino.filter((x) => x.tipo === tipo && porId.has(x.pid) && doFocal(porId.get(x.pid)))
+      .map((x) => ({ p: porId.get(x.pid), data: x.data })).sort((a, b) => b.data.localeCompare(a.data));
+    // quem ainda não fez: parceiros com status Ativo (ou ativados) que nunca fizeram este treinamento
+    const naoFizeram = doRecorte.filter((p) => (p.status === 'ativo' || p.data_ativacao) && !statusPor.get(p.status)?.oculto && !feitoAlgumaVez.has(`${p.id}|${tipo}`))
+      .map((p) => ({ p, data: p.data_ativacao })).sort((a, b) => (a.p.nome_fantasia || '').localeCompare(b.p.nome_fantasia || ''));
+    const f = filtro === 'nao' ? 'nao' : 'sim';
+    chips = [['sim', `Fizeram no mês (${fizeram.length})`, 'tag-ok'], ['nao', `Ainda não fizeram (${naoFizeram.length})`, 'tag-risco']];
+    linhas = f === 'nao' ? naoFizeram : fizeram;
+    colunas = [f === 'nao' ? 'Ativado em' : 'Feito em'];
+  }
+  const filtroAtivo = (k) => (TIPOS.includes(ver) ? (filtro || 'sim') === k : filtro === k);
+
+  // ---------- dia a dia ----------
+  const porDia = new Map();
+  const soma = (d, k) => { if (!porDia.has(d)) porDia.set(d, { cadastros: 0, ativacoes: 0, ...Object.fromEntries(TIPOS.map((t) => [t, 0])) }); porDia.get(d)[k]++; };
+  doRecorte.forEach((p) => {
+    if (p.criado_em && noMes(dataSP(p.criado_em))) soma(dataSP(p.criado_em), 'cadastros');
+    if (noMes(p.data_ativacao)) soma(p.data_ativacao, 'ativacoes');
   });
-  const linhasData = [...porData.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  const linhasFocal = [...porFocal.entries()].map(([f, v]) => ({ f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—', v }))
-    .sort((a, b) => COLUNAS.reduce((s, c) => s + b.v[c.k], 0) - COLUNAS.reduce((s, c) => s + a.v[c.k], 0));
-  const maxCel = Math.max(1, ...linhasData.flatMap(([, v]) => COLUNAS.map((c) => v[c.k])));
+  noMesTreino.forEach((x) => { const p = porId.get(x.pid); if (p && doFocal(p) && TIPOS.includes(x.tipo)) soma(x.data, x.tipo); });
+  const dias = [...porDia.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  const COLS = [['cadastros', 'Cadastros'], ['ativacoes', 'Ativações'], ...TIPOS.map((t) => [t, TIPOS_TREINAMENTO[t]])];
 
-  // atalhos de período
-  const mesAtual = hoje.slice(0, 7);
-  const ini = (m) => `${m}-01`;
-  const fimMes = (m) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5)), 0)).toISOString().slice(0, 10);
-  const mesPassado = new Date(Date.UTC(Number(mesAtual.slice(0, 4)), Number(mesAtual.slice(5)) - 2, 1)).toISOString().slice(0, 7);
-  const atalhos = [
-    ['Hoje', hoje, hoje], ['Últimos 7 dias', somarDias(hoje, -6), hoje], ['Este mês', ini(mesAtual), hoje],
-    ['Mês passado', ini(mesPassado), fimMes(mesPassado)], ['Últimos 90 dias', somarDias(hoje, -89), hoje],
+  const tiles = [
+    { k: 'cadastros', n: tot.cadastros, r: 'cadastros realizados' },
+    { k: 'ativacoes', n: tot.ativacoes, r: `ativações · ${tot.boas} boas` },
+    ...TIPOS.map((t) => ({ k: t, n: tot[t], r: `treinamentos de ${TIPOS_TREINAMENTO[t].toLowerCase()}` })),
   ];
-  const url = (extra) => { const q = new URLSearchParams({ de, ate, por, ...(sp.focal ? { focal: sp.focal } : {}), ...extra }); [...q.keys()].forEach((k) => !q.get(k) && q.delete(k)); return `/indireto/acompanhamento?${q}`; };
-
-  const celula = (n) => (n ? (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', width: '100%' }}>
-      <span className="barra-meta" style={{ width: 60 }}><span style={{ width: `${Math.round((n / maxCel) * 100)}%`, background: 'var(--acento)' }} /></span>
-      <b style={{ minWidth: 22, textAlign: 'right' }}>{n}</b>
-    </span>
-  ) : <span className="fraco">—</span>);
 
   return (
     <>
       <div className="assid-topo">
         <div>
-          <h1 style={{ margin: 0 }}>Acompanhamento</h1>
-          <p className="sub" style={{ marginTop: 4 }}>Cadastros, ativações e treinamentos realizados por data, de {fmtData(de, true)} a {fmtData(ate, true)}.</p>
+          <h1 style={{ margin: 0 }}>Acompanhamento{nomeFocal ? ` · ${nomeFocal}` : ''}</h1>
+          <p className="sub" style={{ marginTop: 4 }}>Cadastros, ativações e treinamentos do mês, por ponto focal. Clique num número para ver quem é.</p>
+        </div>
+        <div className="assid-mes">
+          <Link className="seta" href={url({ mes: somarMes(mes, -1) })} aria-label="Mês anterior">‹</Link>
+          <b>{MESES[Number(mes.slice(5)) - 1]} {mes.slice(0, 4)}</b>
+          <Link className="seta" href={url({ mes: somarMes(mes, 1) })} aria-label="Próximo mês">›</Link>
         </div>
       </div>
 
-      <form className="bloco campos" style={{ margin: '0 0 10px', alignItems: 'flex-end' }} method="get">
-        <label className="campo">De<input type="date" name="de" defaultValue={de} /></label>
-        <label className="campo">Até<input type="date" name="ate" defaultValue={ate} /></label>
-        <label className="campo">Agrupar por
-          <select name="por" defaultValue={por}><option value="dia">Dia</option><option value="semana">Semana</option><option value="mes">Mês</option></select>
-        </label>
-        <label className="campo">Ponto focal
-          <select name="focal" defaultValue={sp.focal || ''}>
-            <option value="">Todos</option>
-            {focais.map((f) => <option key={f.id} value={f.id}>{f.nome || f.usuario}</option>)}
-            <option value="sem">Sem ponto focal</option>
-          </select>
-        </label>
-        <button className="btn btn-sec" type="submit">Filtrar</button>
-      </form>
-      <div className="tf-agrupar">
-        <span className="dica">Atalhos:</span>
-        {atalhos.map(([r, a, b]) => <Link key={r} href={url({ de: a, ate: b })} className={`btn btn-peq ${de === a && ate === b ? '' : 'btn-sec'}`}>{r}</Link>)}
+      <nav className="equipes-assid" aria-label="Pontos focais">
+        <Link href={url({ focal: '' })} className={`cartao-equipe${!focal ? ' sel' : ''}`} aria-current={!focal ? 'true' : undefined}>
+          <span className="linha1"><span className="nome">Todos</span><span className="dica">{(parceiros || []).length} parceiros</span></span>
+          <span className="pct">{resumoDe(parceiros || []).ativacoes}</span>
+          <span className="dica" style={{ marginTop: -4 }}>ativações no mês</span>
+          <span className="dica">{resumoDe(parceiros || []).cadastros} cadastros · {TIPOS.reduce((s, t) => s + resumoDe(parceiros || [])[t], 0)} treinamentos</span>
+        </Link>
+        {cartoes.map((c) => (
+          <Link key={c.f} href={url({ focal: focal === c.f ? '' : c.f })} className={`cartao-equipe${focal === c.f ? ' sel' : ''}`} aria-current={focal === c.f ? 'true' : undefined}>
+            <span className="linha1"><span className="nome">{c.nome}</span><span className="dica">{c.parceiros} parceiros</span></span>
+            <span className="pct">{c.ativacoes}</span>
+            <span className="dica" style={{ marginTop: -4 }}>ativações · {c.boas} boas</span>
+            <span className="dica">{c.cadastros} cadastros · {TIPOS.map((t) => `${c[t]} ${TIPOS_TREINAMENTO[t].slice(0, 3).toLowerCase()}.`).join(' · ')}</span>
+          </Link>
+        ))}
+      </nav>
+
+      <div className="tiles-acomp" role="tablist" aria-label="Indicadores">
+        {tiles.map((t) => (
+          <Link key={t.k} href={url({ ver: t.k, f: '' })} role="tab" aria-selected={ver === t.k} className={`tile-acomp${ver === t.k ? ' sel' : ''}`}>
+            <b>{t.n}</b><span>{t.r}</span>
+          </Link>
+        ))}
       </div>
 
-      <div className="calendario" style={{ marginTop: 6 }}>
-        <div><b>{total.cadastros}</b><span>cadastros realizados</span></div>
-        <div><b>{total.ativacoes}</b><span>ativações{total.ativacoes ? ` · ${boas} boas (venda em 30 dias)` : ''}</span></div>
-        {TIPOS.map((t) => <div key={t}><b>{total[t]}</b><span>treinamentos de {TIPOS_TREINAMENTO[t].toLowerCase()}</span></div>)}
-      </div>
-
-      <section className="assid-cartao" style={{ marginTop: 16 }}>
-        <h2 style={{ marginBottom: 10 }}>Por {por === 'mes' ? 'mês' : por}</h2>
-        <div className="tabela-wrap tabela-fixa">
+      <section className="assid-cartao" style={{ marginTop: 14 }}>
+        <div className="assid-cab">
+          <h2>{titulo}{nomeFocal ? ` · ${nomeFocal}` : ''}</h2>
+          {chips.length > 0 && (
+            <div className="chips-acomp">
+              {chips.map(([k, rot, cls]) => (
+                <Link key={k || 'todas'} href={url({ f: k })} className={`chip-acomp${filtroAtivo(k) ? ' sel' : ''}`}>
+                  {cls && <i className="ponto-chip" style={{ background: COR_CHIP[cls] }} />}{rot}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="tabela-wrap tabela-fixa" style={{ maxHeight: 420 }}>
           <table>
-            <thead><tr><th className="esq">{por === 'mes' ? 'Mês' : por === 'semana' ? 'Semana' : 'Data'}</th>{COLUNAS.map((c) => <th key={c.k}>{c.rotulo}</th>)}</tr></thead>
+            <thead><tr><th className="esq">Parceiro</th><th className="esq">Ponto focal</th><th className="esq">Status</th>{colunas.map((c) => <th key={c} className={c === 'Situação' ? 'esq' : ''}>{c}</th>)}</tr></thead>
             <tbody>
-              {linhasData.map(([cd, v]) => (
-                <tr key={cd}>
-                  <td className="esq">{rotData(cd)}</td>
-                  {COLUNAS.map((c) => <td key={c.k}>{celula(v[c.k])}</td>)}
+              {linhas.map(({ p, data, sit }, i) => (
+                <tr key={`${p.id}-${i}`}>
+                  <td className="esq"><Link href={`/indireto/${p.id}`}>{p.nome_fantasia}</Link>{documentoDe(p) && <span className="nome-sub">{documentoDe(p)}</span>}</td>
+                  <td className="esq">{p.ponto_focal_id ? nomes.get(p.ponto_focal_id) : <span className="fraco">—</span>}</td>
+                  <td className="esq"><span className={`tag ${classeStatus(statusPor.get(p.status))}`}>{statusPor.get(p.status)?.nome || p.status}</span></td>
+                  <td>{data ? fmtData(data, true) : <span className="fraco">—</span>}</td>
+                  {ver === 'ativacoes' && (
+                    <td className="esq">
+                      {sit ? <span className={`tag ${ROTULO_ATIVACAO[sit.estado].classe}`}>{ROTULO_ATIVACAO[sit.estado].texto}</span> : '—'}
+                      {p.venda_mes ? <span className="nome-sub">{p.venda_produto} em {p.venda_mes.slice(5)}/{p.venda_mes.slice(2, 4)}</span> : sit?.estado === 'prazo' && <span className="nome-sub">prazo até {fmtData(sit.prazo, true)}</span>}
+                    </td>
+                  )}
                 </tr>
               ))}
-              {!linhasData.length && <tr><td colSpan={COLUNAS.length + 1} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nada no período.</td></tr>}
-              {linhasData.length > 0 && (
-                <tr className="linha-total"><td className="esq"><b>Total</b></td>{COLUNAS.map((c) => <td key={c.k}><b>{total[c.k]}</b></td>)}</tr>
-              )}
+              {!linhas.length && <tr><td colSpan={3 + colunas.length} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Ninguém aqui.</td></tr>}
             </tbody>
           </table>
         </div>
+        {TIPOS.includes(ver) && (sp.f === 'nao') && <p className="dica" style={{ marginTop: 6 }}>"Ainda não fizeram": parceiros ativos (status Ativo ou com data de ativação) que nunca tiveram este treinamento realizado.</p>}
       </section>
 
       <section className="assid-cartao" style={{ marginTop: 16 }}>
-        <h2 style={{ marginBottom: 10 }}>Por ponto focal</h2>
+        <h2 style={{ marginBottom: 10 }}>Dia a dia de {MESES[Number(mes.slice(5)) - 1].toLowerCase()}</h2>
         <div className="tabela-wrap">
           <table>
-            <thead><tr><th className="esq">Ponto focal</th>{COLUNAS.map((c) => <th key={c.k}>{c.rotulo}</th>)}</tr></thead>
+            <thead><tr><th className="esq">Dia</th>{COLS.map(([k, r]) => <th key={k}>{r}</th>)}</tr></thead>
             <tbody>
-              {linhasFocal.map((l) => (
-                <tr key={l.f}>
-                  <td className="esq">{l.f !== 'sem' ? <Link href={url({ focal: l.f })}>{l.nome}</Link> : l.nome}</td>
-                  {COLUNAS.map((c) => <td key={c.k}>{l.v[c.k] || <span className="fraco">—</span>}</td>)}
+              {dias.map(([d, v]) => (
+                <tr key={d}>
+                  <td className="esq">{SEMANA[new Date(`${d}T12:00:00Z`).getUTCDay()]}, {fmtData(d, true)}</td>
+                  {COLS.map(([k]) => <td key={k}>{v[k] || <span className="fraco">—</span>}</td>)}
                 </tr>
               ))}
-              {!linhasFocal.length && <tr><td colSpan={COLUNAS.length + 1} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nada no período.</td></tr>}
+              {!dias.length && <tr><td colSpan={COLS.length + 1} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Nada neste mês.</td></tr>}
             </tbody>
           </table>
         </div>
-        <p className="dica" style={{ marginTop: 6 }}>
-          Cadastro = data em que o parceiro foi criado no sistema · Ativação = data de ativação do parceiro · Treinamento = data dos treinamentos marcados como realizados.
-          Tudo é atribuído ao ponto focal atual do parceiro.
-        </p>
       </section>
     </>
   );

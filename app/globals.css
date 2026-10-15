@@ -865,3 +865,15 @@ button.q:not(:disabled):hover { outline: 2px solid var(--acento); outline-offset
 .lista-alerta { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); column-gap: 24px; }
 .lista-alerta li { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid #efedf4; font-size: 13.5px; }
 .tf-agrupar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+
+/* acompanhamento do Indireto */
+.tiles-acomp { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.tile-acomp { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; background: #fff; border: 1px solid var(--linha); border-radius: 12px; text-decoration: none; color: var(--tinta); }
+.tile-acomp b { font-size: 26px; line-height: 1.1; }
+.tile-acomp span { font-size: 12.5px; color: #5e5873; }
+.tile-acomp:hover { border-color: var(--acento); }
+.tile-acomp.sel { border: 2px solid var(--acento); padding: 11px 13px; background: var(--acento-fundo); }
+.chips-acomp { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-acomp { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--linha); border-radius: 99px; background: #fff; font-size: 13px; text-decoration: none; color: var(--tinta); }
+.chip-acomp .ponto-chip { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.chip-acomp.sel { border-color: var(--acento); background: var(--acento-fundo); font-weight: 600; }
