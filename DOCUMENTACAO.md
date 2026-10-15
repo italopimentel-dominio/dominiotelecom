@@ -81,6 +81,7 @@ Regras de trabalho para Claude:
 | 031_materiais_foco | `materiais.produtos_foco uuid[]` (vazio = geral) e `material_vendas` só considera vendas dos produtos foco do material (o crédito vai para o envio mais recente entre os que focam aquele produto) |
 | 032_assiduidade | `assiduidade` (colaborador, data, P/F/A, equipe do dia, origem), `liderancas.profile_id` (cargo ↔ usuário), `grupos_lancaveis()` e `pode_lancar_assiduidade(grupo)` (admin, ou líder da equipe/de quem está abaixo no organograma, incluindo subequipes) |
 | 033_totalizacao | produtos "Totalização" (soma, sem meta, ativo) = "Totalização – móvel" + "Totalização – Vivo Total" (internos, inativos para não virar aba); liga o destino `tot` das fontes de móvel e fibra |
+| 034_produto_informativo | `produtos.informativo` (sem meta): aparece como aba no painel da equipe quando tem resultado, mesmo sendo soma (Totalização) |
 | 022_materiais | `materiais` (nome, data de envio, equipe, origem) e `material_leads` (CNPJ + destinatário); view `materiais_resumo` com o total de leads. Escrita só admin |
 
 O próximo SQL deve ser o **019**.
