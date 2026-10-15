@@ -883,3 +883,6 @@ button.q:not(:disabled):hover { outline: 2px solid var(--acento); outline-offset
 .seletor-mes .seta:disabled { opacity: .35; cursor: default; }
 .seletor-mes .mes-atual select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; font: inherit; font-weight: 700; font-size: 16px; color: var(--tinta); text-align: center; text-align-last: center; min-width: 150px; padding: 6px 4px; cursor: pointer; border-radius: 8px; }
 .seletor-mes .mes-atual select:hover, .seletor-mes .mes-atual select:focus-visible { background: var(--acento-fundo); }
+.filtros-acomp { display: flex; flex-direction: column; gap: 8px; }
+.grupo-filtro { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.grupo-filtro .rot { min-width: 82px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #8f88a8; }
