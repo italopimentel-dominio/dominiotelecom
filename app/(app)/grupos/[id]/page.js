@@ -47,6 +47,8 @@ export default async function DetalheGrupo({ params, searchParams }) {
   const filhos = base.filhosDe(id).filter((g) => g.ativo);
   const semColabs = !base.colaboradores.some((c) => c.grupo_id === id);
   const u = produto.unidade;
+  // produtos mostrados como detalhe deste (ex.: Totalização dentro de Alta Móvel)
+  const detalhes = base.produtos.filter((x) => x.detalhe_de === produto.id);
   const soma = an.ehComposto(produto.id);
 
   // Colaboradores ativos desta equipe e das equipes abaixo, comparados com a meta individual de cada um
@@ -133,6 +135,20 @@ export default async function DetalheGrupo({ params, searchParams }) {
           </tbody>
         </table>
       </div>
+
+      {detalhes.map((d) => {
+        const total = an.realizado(id, d.id);
+        const partes = an.composicao(id, d.id);
+        return (
+          <section key={d.id} className="secao">
+            <h2 style={{ marginBottom: 6 }}>{d.nome} em {produto.nome}: {fmtValor(total, u)}</h2>
+            <p className="dica" style={{ marginBottom: 10 }}>
+              Vendas marcadas como "TOTALIZAÇÃO SIM" nas planilhas. É só um destaque: continuam contando onde já contavam e não têm meta própria.
+            </p>
+            {partes.length > 0 && <div className="bloco"><Composicao itens={partes} /></div>}
+          </section>
+        );
+      })}
 
       {soma && (
         <section className="secao">
@@ -228,6 +244,7 @@ export default async function DetalheGrupo({ params, searchParams }) {
                       ) : editar ? (
                         <CampoNumero rotulo={`Realizado de ${l.colaborador.nome}`} acao={salvarRealizado.bind(null, periodo.id, l.colaborador.id, produto.id, medida)} valor={l.realizadoBruto} placeholder="0" />
                       ) : fmtValor(l.realizado, u)}
+                      {detalhes.map((d) => { const v = an.realColabDe(l.colaborador.id, d.id); return v ? <span key={d.id} className="nome-sub">{fmtValor(v, u)} de {d.nome.toLowerCase()}</span> : null; })}
                     </td>
                     <td className="esq"><BarraRitmo pct={l.pct} esperado={l.esperado} status={l.status} compacta /></td>
                     <td>{l.status === 'batida' ? <span className="tag tag-acento">{STATUS.batida}</span> : fmtValor(l.falta, u)}</td>
