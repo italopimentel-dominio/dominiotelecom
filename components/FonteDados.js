@@ -142,7 +142,7 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
         designorados: dados.pessoas.filter((p) => p.situacao === 'ignorado' && decisao(p).tipo !== 'ignorar').map((p) => p.nome),
         // vendas por nome, para vincular a primeira venda dos parceiros do Indireto
         vendasParceiros: dados.pessoas.flatMap((p) => mesesGravar.flatMap((m) => destinos
-          .filter(([k, d]) => d.produto && p.meses[m.mes]?.[k]?.qtd > 0)
+          .filter(([k, d]) => d.produto && !d.extra && p.meses[m.mes]?.[k]?.qtd > 0)
           .map(([k, d]) => ({ nome: p.nome, mes: m.mes, produto: d.produto.nome, qtd: p.meses[m.mes][k].qtd, valor: p.meses[m.mes][k].valor })))),
         gruposDiretos: dados.gruposDiretos || [],
         resumo: { mudancas: calc.mudancas.length, iguais: calc.iguais, contagem: dados.contagem },
@@ -170,6 +170,12 @@ export default function FonteDados({ fonte, lerFonte, aplicarFonte }) {
             Lido agora: {dados.contagem.total} linhas na planilha, <b>{dados.contagem.contadas} contadas</b> ({dados.statusConta || 'EXECUTADO'}),
             {' '}{dados.contagem.naoExecutadas} com outro status{dados.contagem.tipoFora ? `, ${dados.contagem.tipoFora} com tipo de produto fora da regra` : ''} e {dados.contagem.naoContabiliza} "não contabiliza" ficaram de fora.
           </p>
+          {dados.contagem.extras && Object.keys(dados.contagem.extras).length > 0 && (
+            <p className="dica" style={{ marginTop: 4 }}>
+              A mais: {Object.entries(dados.contagem.extras).map(([k, q]) => `${dados.destinos[k]?.rotulo || k}: ${q}`).join(' · ')}
+              {' '}(somam no produto ligado, sem tirar a venda de onde ela já conta).
+            </p>
+          )}
           {dados.contagem.cnpj && (
             <p className="dica" style={{ marginTop: 4 }}>
               {dados.contagem.cnpj.coluna
