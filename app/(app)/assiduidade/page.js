@@ -4,12 +4,12 @@ import { hojeSP } from '@/lib/datas';
 import { montarCalendario } from '@/lib/calc';
 import { diasUteisDoMes, contar, ativoNoDia, META_ASSIDUIDADE } from '@/lib/assiduidade';
 import PainelAssiduidade from '@/components/PainelAssiduidade';
+import SeletorMes, { mesesAoRedor } from '@/components/SeletorMes';
 import ImportarAssiduidade from '@/components/ImportarAssiduidade';
 
 const pct = (v) => (v == null ? '—' : `${Math.round(v * 100)}%`);
 const corPct = (v) => (v == null ? '#8f88a8' : v >= META_ASSIDUIDADE ? 'var(--ok)' : 'var(--risco)');
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-const somarMes = (mes, n) => { const d = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)) - 1 + n, 1)); return d.toISOString().slice(0, 7); };
 
 export default async function Assiduidade({ searchParams }) {
   const sp = await searchParams;
@@ -85,11 +85,9 @@ export default async function Assiduidade({ searchParams }) {
             Presença por dia útil · geral do mês <b style={{ color: corPct(geral.pct) }}>{pct(geral.pct)}</b> · meta <b>{Math.round(META_ASSIDUIDADE * 100)}%</b> · {geral.f} faltas e {geral.a} atestados
           </p>
         </div>
-        <div className="assid-mes">
-          <Link className="seta" href={link(somarMes(mes, -1), sel?.id)} aria-label="Mês anterior">‹</Link>
-          <b>{rotMes}</b>
-          <Link className="seta" href={link(somarMes(mes, 1), sel?.id)} aria-label="Próximo mês">›</Link>
-          {podeImportar && <a className="btn btn-sec" href="#importar" style={{ marginLeft: 6 }}>Importar ponto</a>}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <SeletorMes mes={mes} meses={mesesAoRedor(hoje.slice(0, 7))} />
+          {podeImportar && <a className="btn btn-sec" href="#importar">Importar ponto</a>}
         </div>
       </div>
 

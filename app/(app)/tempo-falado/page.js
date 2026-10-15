@@ -5,6 +5,7 @@ import { hms } from '@/lib/tempoFalado';
 import ImportarTempoFalado from '@/components/ImportarTempoFalado';
 import BaixarTempoFalado from '@/components/BaixarTempoFalado';
 import FormAcao from '@/components/FormAcao';
+import SeletorMes from '@/components/SeletorMes';
 import { excluirMesTempoFalado } from '@/app/actions/tempoFalado';
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -58,8 +59,6 @@ export default async function TempoFalado({ searchParams }) {
   const sel = resumo(filtradas);
   const nomeSel = filtroGrupo ? cartoes.find((c) => c.id === filtroGrupo)?.nome || porId.get(filtroGrupo)?.nome : null;
 
-  const i = lista.indexOf(mes);
-  const anterior = lista[i + 1], proximo = lista[i - 1];
   const url = (extra) => { const q = new URLSearchParams({ ...(mes ? { mes } : {}), ...(sp.nivel ? { nivel: sp.nivel } : {}), ...(filtroGrupo ? { grupo: filtroGrupo } : {}), ...(sp.alerta ? { alerta: '1' } : {}), ...extra }); [...q.keys()].forEach((k) => !q.get(k) && q.delete(k)); return `/tempo-falado?${q}`; };
 
   return (
@@ -72,11 +71,7 @@ export default async function TempoFalado({ searchParams }) {
           </p>
         </div>
         <div className="assid-mes">
-          {mes && <>
-            {anterior ? <Link className="seta" href={url({ mes: anterior })} aria-label="Mês anterior">‹</Link> : <span className="seta" style={{ opacity: 0.35 }}>‹</span>}
-            <b>{rotMes(mes)}</b>
-            {proximo ? <Link className="seta" href={url({ mes: proximo })} aria-label="Próximo mês">›</Link> : <span className="seta" style={{ opacity: 0.35 }}>›</span>}
-          </>}
+          {mes && <SeletorMes mes={mes} meses={lista} limpar={['grupo']} />}
           {editor && <a className="btn btn-sec" href="#subir" style={{ marginLeft: 6 }}>Subir relatórios</a>}
         </div>
       </div>

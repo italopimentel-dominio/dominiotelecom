@@ -5,13 +5,13 @@ import { hojeSP } from '@/lib/datas';
 import { fmtData } from '@/lib/formato';
 import { TIPOS_TREINAMENTO, situacaoAtivacao, ROTULO_ATIVACAO, classeStatus, documentoDe } from '@/lib/indireto';
 import { nomesDosPerfis, listarStatus } from '../dados';
+import SeletorMes, { mesesAoRedor } from '@/components/SeletorMes';
 
 const TIPOS = Object.keys(TIPOS_TREINAMENTO); // onboarding, telecom, servicos
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const COR_CHIP = { 'tag-ok': 'var(--ok)', 'tag-acento': 'var(--acento)', 'tag-atencao': 'var(--atencao)', 'tag-risco': 'var(--risco)' };
 const dataSP = (ts) => new Date(new Date(ts).getTime() - 3 * 3600000).toISOString().slice(0, 10);
-const somarMes = (m, n) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + n, 1)).toISOString().slice(0, 7);
 
 export default async function AcompanhamentoIndireto({ searchParams }) {
   const sp = await searchParams;
@@ -121,11 +121,7 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
           <h1 style={{ margin: 0 }}>Acompanhamento{nomeFocal ? ` · ${nomeFocal}` : ''}</h1>
           <p className="sub" style={{ marginTop: 4 }}>Cadastros, ativações e treinamentos do mês, por ponto focal. Clique num número para ver quem é.</p>
         </div>
-        <div className="assid-mes">
-          <Link className="seta" href={url({ mes: somarMes(mes, -1) })} aria-label="Mês anterior">‹</Link>
-          <b>{MESES[Number(mes.slice(5)) - 1]} {mes.slice(0, 4)}</b>
-          <Link className="seta" href={url({ mes: somarMes(mes, 1) })} aria-label="Próximo mês">›</Link>
-        </div>
+        <SeletorMes mes={mes} meses={mesesAoRedor(hoje.slice(0, 7))} limpar={['f']} />
       </div>
 
       <nav className="equipes-assid" aria-label="Pontos focais">
