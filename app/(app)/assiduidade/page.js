@@ -4,7 +4,8 @@ import { hojeSP } from '@/lib/datas';
 import { montarCalendario } from '@/lib/calc';
 import { diasUteisDoMes, contar, ativoNoDia, META_ASSIDUIDADE } from '@/lib/assiduidade';
 import PainelAssiduidade from '@/components/PainelAssiduidade';
-import SeletorMes, { mesesAoRedor } from '@/components/SeletorMes';
+import SeletorMes from '@/components/SeletorMes';
+import { mesesAoRedor } from '@/lib/meses';
 import ImportarAssiduidade from '@/components/ImportarAssiduidade';
 
 const pct = (v) => (v == null ? '—' : `${Math.round(v * 100)}%`);

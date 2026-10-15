@@ -1,8 +1,7 @@
 'use client';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { nomeMes } from '@/lib/meses';
 
-const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-export const nomeMes = (m) => `${MESES[Number(m.slice(5)) - 1]} ${m.slice(0, 4)}`;
 
 // Mesmo seletor das telas de Metas, para telas que usam o mês no formato "2026-10" (?mes=).
 // meses: lista de 'AAAA-MM' (qualquer ordem). limpar: parâmetros que voltam ao padrão ao trocar de mês.
@@ -35,10 +34,3 @@ export default function SeletorMes({ mes, meses, param = 'mes', limpar = [] }) {
   );
 }
 
-// Meses de "atras" meses antes até "frente" meses depois de 'AAAA-MM'
-export function mesesAoRedor(ref, atras = 18, frente = 1) {
-  const [a, m] = ref.split('-').map(Number);
-  const out = [];
-  for (let k = -atras; k <= frente; k++) out.push(new Date(Date.UTC(a, m - 1 + k, 1)).toISOString().slice(0, 7));
-  return out;
-}

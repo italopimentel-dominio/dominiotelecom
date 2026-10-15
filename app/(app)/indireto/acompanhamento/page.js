@@ -5,7 +5,8 @@ import { hojeSP } from '@/lib/datas';
 import { fmtData } from '@/lib/formato';
 import { TIPOS_TREINAMENTO, situacaoAtivacao, ROTULO_ATIVACAO, classeStatus, documentoDe } from '@/lib/indireto';
 import { nomesDosPerfis, listarStatus } from '../dados';
-import SeletorMes, { mesesAoRedor } from '@/components/SeletorMes';
+import SeletorMes from '@/components/SeletorMes';
+import { mesesAoRedor } from '@/lib/meses';
 
 const TIPOS = Object.keys(TIPOS_TREINAMENTO); // onboarding, telecom, servicos
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
