@@ -74,9 +74,9 @@ export default async function Produtos() {
                   <h3 style={{ marginBottom: 8 }}>{s.nome}</h3>
                   <input type="hidden" name="produto_id" value={s.id} />
                   <p className="dica" style={{ marginBottom: 6 }}>Aparecem os produtos com a mesma medida da soma ({UNIDADES[medidasDo(s)].toLowerCase()}).</p>
-                  {simples.filter((p) => listaMedidas(s).some((m) => temMedida(p, m))).map((p) => (
+                  {produtos.filter((p) => p.id !== s.id && (p.ativo || marcados.has(p.id)) && !(p.componentes || []).some((c) => c.componente_id === s.id) && listaMedidas(s).some((m) => temMedida(p, m))).map((p) => (
                     <div key={p.id} className="campos" style={{ alignItems: 'center', marginBottom: 4, flexWrap: 'nowrap' }}>
-                      <label className="check" style={{ flex: 1 }}><input type="checkbox" name="comp" value={p.id} defaultChecked={marcados.has(p.id)} /> {p.nome}</label>
+                      <label className="check" style={{ flex: 1 }}><input type="checkbox" name="comp" value={p.id} defaultChecked={marcados.has(p.id)} /> {p.nome}{p.tipo === 'composto' && <span className="tag-soma">soma</span>}{!p.ativo && <span className="dica"> (interno)</span>}</label>
                       <label className="dica" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>peso
                         <input type="text" name={`peso_${p.id}`} defaultValue={String(marcados.get(p.id) ?? 1).replace('.', ',')} style={{ width: 52, textAlign: 'right' }} aria-label={`Peso de ${p.nome}`} />
                       </label>
