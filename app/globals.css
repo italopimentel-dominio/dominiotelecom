@@ -877,3 +877,9 @@ button.q:not(:disabled):hover { outline: 2px solid var(--acento); outline-offset
 .chip-acomp { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--linha); border-radius: 99px; background: #fff; font-size: 13px; text-decoration: none; color: var(--tinta); }
 .chip-acomp .ponto-chip { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 .chip-acomp.sel { border-color: var(--acento); background: var(--acento-fundo); font-weight: 600; }
+
+/* seletor de mês com setas (telas de Metas) */
+.seletor-mes .seta { cursor: pointer; }
+.seletor-mes .seta:disabled { opacity: .35; cursor: default; }
+.seletor-mes .mes-atual select { appearance: none; -webkit-appearance: none; border: 0; background: transparent; font: inherit; font-weight: 700; font-size: 16px; color: var(--tinta); text-align: center; text-align-last: center; min-width: 150px; padding: 6px 4px; cursor: pointer; border-radius: 8px; }
+.seletor-mes .mes-atual select:hover, .seletor-mes .mes-atual select:focus-visible { background: var(--acento-fundo); }
