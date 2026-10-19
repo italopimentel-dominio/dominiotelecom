@@ -190,7 +190,13 @@ export default async function Parceiro({ params }) {
                   {Object.entries(STATUS_TREINAMENTO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </label>
-              <label className="campo">Quem aplicou / vai aplicar<input type="text" name="instrutor" /></label>
+              <label className="campo">Feito por (ponto focal)
+                <select name="feito_por" defaultValue={focais.some((f) => f.id === perfil.id) ? perfil.id : p.ponto_focal_id || ''}>
+                  <option value="">O ponto focal do parceiro</option>
+                  {focais.map((f) => <option key={f.id} value={f.id}>{f.nome || f.usuario}</option>)}
+                </select>
+              </label>
+              <label className="campo">Instrutor (texto livre)<input type="text" name="instrutor" /></label>
               <label className="campo" style={{ flex: '1 1 220px' }}>Observação<input type="text" name="observacao" /></label>
               <button className="btn" type="submit">Registrar</button>
             </div>
@@ -199,7 +205,7 @@ export default async function Parceiro({ params }) {
         {treinos?.length ? (
           <div className="tabela-wrap" style={{ marginTop: 10 }}>
             <table>
-              <thead><tr><th>Tipo</th><th className="esq">Data e status</th><th className="esq">Quem aplicou</th><th className="esq">Observação</th><th className="esq">Registrado por</th>{editar && <th></th>}</tr></thead>
+              <thead><tr><th>Tipo</th><th className="esq">Data e status</th><th className="esq">Feito por</th><th className="esq">Instrutor</th><th className="esq">Observação</th><th className="esq">Registrado por</th>{editar && <th></th>}</tr></thead>
               <tbody>
                 {treinos.map((t) => (
                   <tr key={t.id} className={t.status === 'cancelado' ? 'inativo' : ''}>
@@ -217,6 +223,10 @@ export default async function Parceiro({ params }) {
                           </div>
                         </FormAcao>
                       ) : <>{fmtData(t.data, true)} <span className="tag">{STATUS_TREINAMENTO[t.status]}</span></>}
+                    </td>
+                    <td className="esq">
+                      {nomes.get(t.feito_por) || <span className="fraco">—</span>}
+                      {t.feito_por && p.ponto_focal_id && t.feito_por !== p.ponto_focal_id && <span className="nome-sub">outro ponto focal</span>}
                     </td>
                     <td className="esq">{t.instrutor || '—'}</td>
                     <td className="esq" style={{ whiteSpace: 'normal' }}>{t.observacao || '—'}</td>
@@ -274,7 +284,7 @@ export default async function Parceiro({ params }) {
         {editar ? (
           <details className="bloco">
             <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Ver e editar os dados de {p.nome_fantasia}</summary>
-            <div style={{ marginTop: 14 }}><FormParceiro parceiro={p} focais={focais} statusLista={statusLista} travarAtivacao={!validador && ativacaoTravada(p, hoje)} /></div>
+            <div style={{ marginTop: 14 }}><FormParceiro parceiro={p} focais={focais} statusLista={statusLista} travarAtivacao={!validador && ativacaoTravada(p, hoje)} travarFocal={!validador && !!p.ponto_focal_id} /></div>
           </details>
         ) : (
           <dl className="bloco ficha">

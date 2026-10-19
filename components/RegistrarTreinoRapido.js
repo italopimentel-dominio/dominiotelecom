@@ -5,10 +5,12 @@ import { criarTreinamento } from '@/app/actions/indireto';
 import { TIPOS_TREINAMENTO } from '@/lib/indireto';
 
 // O próprio selo "Pendente" vira botão: clica, escolhe a data e registra o treinamento como realizado.
-export default function RegistrarTreinoRapido({ parceiroId, tipo, rotulo = 'Pendente', classe = 'tag-risco', hoje, podeEditar }) {
+// focais: [{ id, nome }]; padraoFeitoPor: quem fez, já sugerido (o usuário, se for ponto focal; senão o ponto focal do parceiro)
+export default function RegistrarTreinoRapido({ parceiroId, tipo, rotulo = 'Pendente', classe = 'tag-risco', hoje, podeEditar, focais = [], padraoFeitoPor = '' }) {
   const router = useRouter();
   const [aberto, setAberto] = useState(false);
   const [data, setData] = useState(hoje);
+  const [feitoPor, setFeitoPor] = useState(padraoFeitoPor);
   const [estado, setEstado] = useState({ salvando: false, erro: '' });
 
   if (!podeEditar) return <span className={`tag ${classe}`}>{rotulo}</span>;
@@ -23,7 +25,7 @@ export default function RegistrarTreinoRapido({ parceiroId, tipo, rotulo = 'Pend
   async function salvar() {
     setEstado({ salvando: true, erro: '' });
     const fd = new FormData();
-    fd.set('parceiro_id', parceiroId); fd.set('tipo', tipo); fd.set('data', data); fd.set('status', 'realizado');
+    fd.set('parceiro_id', parceiroId); fd.set('tipo', tipo); fd.set('data', data); fd.set('status', 'realizado'); if (feitoPor) fd.set('feito_por', feitoPor);
     const r = await criarTreinamento(null, fd);
     if (r?.erro) return setEstado({ salvando: false, erro: r.erro });
     setEstado({ salvando: false, erro: '' });
@@ -33,6 +35,12 @@ export default function RegistrarTreinoRapido({ parceiroId, tipo, rotulo = 'Pend
   return (
     <span className="registro-rapido">
       <input type="date" value={data} max={hoje} onChange={(e) => setData(e.target.value)} aria-label="Data do treinamento" />
+      {focais.length > 0 && (
+        <select value={feitoPor} onChange={(e) => setFeitoPor(e.target.value)} aria-label="Feito por" title="Quem fez o treinamento">
+          <option value="">Ponto focal do parceiro</option>
+          {focais.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}
+        </select>
+      )}
       <button type="button" className="btn btn-peq" disabled={estado.salvando || !data} onClick={salvar}>{estado.salvando ? '…' : 'Registrar'}</button>
       <button type="button" className="link-acao" onClick={() => setAberto(false)} aria-label="Cancelar">cancelar</button>
       {estado.erro && <span className="nome-sub" style={{ color: 'var(--risco)' }}>{estado.erro}</span>}

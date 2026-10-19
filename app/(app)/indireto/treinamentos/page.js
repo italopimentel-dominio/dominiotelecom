@@ -28,7 +28,7 @@ export default async function TreinamentosIndireto({ searchParams }) {
 
   const [{ data: parceiros = [] }, { data: treinos = [] }, { data: respostas = [] }, links, nomes, focais, statusLista, gerais] = await Promise.all([
     supabase.from('parceiros').select('id, nome_fantasia, razao_social, cpf, cnpj, codigo, status, ponto_focal_id, validacao, venda_mes, contato_nome, contato_telefone').order('nome_fantasia'),
-    supabase.from('parceiro_treinamentos').select('id, parceiro_id, tipo, data, status'),
+    supabase.from('parceiro_treinamentos').select('*'),
     supabase.from('parceiro_respostas_form').select('id, parceiro_id, respondido_em, nome, documento, email, tipo_treinamento, ignorada, acertos, total_pontuavel').eq('ignorada', false).order('respondido_em', { ascending: false }),
     supabase.from('form_links').select('token, parceiro_id, tipo').is('respondido_em', null).gt('expira_em', new Date().toISOString()),
     nomesDosPerfis(supabase),
@@ -40,6 +40,11 @@ export default async function TreinamentosIndireto({ searchParams }) {
   const statusPor = new Map(statusLista.map((st) => [st.chave, st]));
   const oculto = (p) => !!statusPor.get(p.status)?.oculto;
 
+  // quem fez o treinamento realizado mais recente de cada parceiro/tipo
+  const feitoPorDe = new Map();
+  [...(treinos || [])].filter((t) => t.status === 'realizado').sort((x, y) => x.data.localeCompare(y.data)).forEach((t) => feitoPorDe.set(`${t.parceiro_id}|${t.tipo}`, t.feito_por || null));
+  const listaFocais = focais.map((f) => ({ id: f.id, nome: f.nome || f.usuario }));
+  const souFocal = focais.some((f) => f.id === perfil.id);
   const treinosDe = new Map();
   (treinos || []).forEach((t) => { if (!treinosDe.has(t.parceiro_id)) treinosDe.set(t.parceiro_id, []); treinosDe.get(t.parceiro_id).push(t); });
   const formDe = new Map(); // parceiro -> { tipo: resposta mais recente }
@@ -217,10 +222,13 @@ export default async function TreinamentosIndireto({ searchParams }) {
                       <div className="celula-treino">
                         <span className="linha-status-treino">
                           {s.estado === 'pendente' || s.estado === 'atrasado'
-                            ? <RegistrarTreinoRapido parceiroId={p.id} tipo={t} rotulo={ROTULO_SITUACAO[s.estado].texto} classe={ROTULO_SITUACAO[s.estado].classe} hoje={hoje} podeEditar={editar} />
+                            ? <RegistrarTreinoRapido parceiroId={p.id} tipo={t} rotulo={ROTULO_SITUACAO[s.estado].texto} classe={ROTULO_SITUACAO[s.estado].classe} hoje={hoje} podeEditar={editar} focais={listaFocais} padraoFeitoPor={souFocal ? perfil.id : p.ponto_focal_id || ''} />
                             : <span className={`tag ${ROTULO_SITUACAO[s.estado].classe}`}>{ROTULO_SITUACAO[s.estado].texto}</span>}
                           {s.data && <span className="dica">{fmtData(s.data, true)}</span>}
                         </span>
+                        {s.estado === 'realizado' && feitoPorDe.get(`${p.id}|${t}`) && feitoPorDe.get(`${p.id}|${t}`) !== p.ponto_focal_id && (
+                          <span className="nome-sub">feito por {nomes.get(feitoPorDe.get(`${p.id}|${t}`)) || 'outro ponto focal'}</span>
+                        )}
                         {f ? (
                           <span className="tag tag-ok" title={f.total_pontuavel ? `Acertou ${f.acertos} de ${f.total_pontuavel}` : undefined}>
                             ✓ Formulário {fmtData(f.respondido_em.slice(0, 10))}{f.total_pontuavel ? ` · ${f.acertos}/${f.total_pontuavel}` : ''}

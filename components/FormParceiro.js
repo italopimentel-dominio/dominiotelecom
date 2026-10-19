@@ -4,7 +4,7 @@ import { documentoDe } from '@/lib/indireto';
 
 const UFS = 'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ');
 
-export default function FormParceiro({ parceiro = {}, focais, statusLista = [], travarAtivacao = false, textoBotao = 'Salvar' }) {
+export default function FormParceiro({ parceiro = {}, focais, statusLista = [], travarAtivacao = false, travarFocal = false, textoBotao = 'Salvar' }) {
   const p = parceiro;
   // só aparecem os status ativos (e o atual, se o gerente tiver desativado)
   const opcoes = statusLista.filter((st) => st.ativo || st.chave === p.status);
@@ -28,10 +28,21 @@ export default function FormParceiro({ parceiro = {}, focais, statusLista = [], 
           {travarAtivacao && <span className="nome-sub">🔒 travada (só gerente ou admin altera)</span>}
         </label>
         <label className="campo">Ponto focal
-          <select name="ponto_focal_id" defaultValue={p.ponto_focal_id || ''}>
-            <option value="">Sem ponto focal</option>
-            {focais.map((f) => <option key={f.id} value={f.id}>{f.nome || f.usuario}</option>)}
-          </select>
+          {travarFocal ? (
+            <>
+              <input type="hidden" name="ponto_focal_id" value={p.ponto_focal_id || ''} />
+              <select value={p.ponto_focal_id || ''} disabled aria-describedby="trava-focal">
+                {focais.map((f) => <option key={f.id} value={f.id}>{f.nome || f.usuario}</option>)}
+                {!focais.some((f) => f.id === p.ponto_focal_id) && <option value={p.ponto_focal_id}>—</option>}
+              </select>
+              <span className="nome-sub" id="trava-focal">🔒 só o gerente ou admin troca</span>
+            </>
+          ) : (
+            <select name="ponto_focal_id" defaultValue={p.ponto_focal_id || ''}>
+              <option value="">Sem ponto focal</option>
+              {focais.map((f) => <option key={f.id} value={f.id}>{f.nome || f.usuario}</option>)}
+            </select>
+          )}
         </label>
         <label className="campo">Cidade<input type="text" name="cidade" defaultValue={p.cidade || ''} /></label>
         <label className="campo">UF

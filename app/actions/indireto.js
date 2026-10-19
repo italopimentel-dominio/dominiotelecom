@@ -47,7 +47,8 @@ export async function salvarParceiro(_prev, fd) {
 
   const db = s.supabase;
   const erroBanco = (m) => (/parceiros_(cnpj|cpf)_unico/.test(m) ? 'Já existe um parceiro com esse CPF/CNPJ.'
-    : /parceiros_status_fkey/.test(m) ? 'Status inválido. Atualize a página e escolha de novo.' : m);
+    : /parceiros_status_fkey/.test(m) ? 'Status inválido. Atualize a página e escolha de novo.'
+    : /Ponto focal travado/.test(m) ? 'O ponto focal já foi definido: só o gerente ou um administrador pode trocar.' : m);
   if (id) {
     const { data: antes } = await db.from('parceiros').select('validacao').eq('id', id).maybeSingle();
     const { error } = await db.from('parceiros').update(dados).eq('id', id);
@@ -83,12 +84,13 @@ export async function criarTreinamento(_prev, fd) {
     status: txt(fd, 'status') || 'agendado',
     instrutor: ou(txt(fd, 'instrutor')),
     observacao: ou(txt(fd, 'observacao')),
+    feito_por: ou(txt(fd, 'feito_por')), // vazio = o ponto focal do parceiro (o banco completa)
   };
   if (!TIPOS_TREINAMENTO[dados.tipo]) return { erro: 'Escolha o tipo de treinamento.' };
   if (!dados.data) return { erro: 'Informe a data.' };
   if (!STATUS_TREINAMENTO[dados.status]) return { erro: 'Status inválido.' };
   const { error } = await s.supabase.from('parceiro_treinamentos').insert(dados);
-  if (error) return { erro: error.message };
+  if (error) return { erro: /feito_por/.test(error.message) ? 'Rode o arquivo 037_focal_travado_feito_por.sql no Supabase.' : error.message };
   revalidatePath('/indireto', 'layout');
   return { ok: `Treinamento de ${TIPOS_TREINAMENTO[dados.tipo]} registrado.` };
 }
@@ -99,7 +101,9 @@ export async function atualizarTreinamento(_prev, fd) {
   const status = txt(fd, 'status');
   const data = txt(fd, 'data');
   if (!STATUS_TREINAMENTO[status] || !data) return { erro: 'Confira a data e o status.' };
-  const { error } = await s.supabase.from('parceiro_treinamentos').update({ status, data }).eq('id', txt(fd, 'id'));
+  const mud = { status, data };
+  if (fd.has('feito_por')) mud.feito_por = ou(txt(fd, 'feito_por'));
+  const { error } = await s.supabase.from('parceiro_treinamentos').update(mud).eq('id', txt(fd, 'id'));
   if (error) return { erro: error.message };
   revalidatePath('/indireto', 'layout');
   return { ok: 'Salvo.' };
