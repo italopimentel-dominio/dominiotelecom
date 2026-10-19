@@ -897,3 +897,4 @@ button.q:not(:disabled):hover { outline: 2px solid var(--acento); outline-offset
 .tag-botao:hover { outline: 2px solid currentColor; outline-offset: 1px; }
 .registro-rapido { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .registro-rapido input[type="date"] { padding: 3px 6px; font-size: 12.5px; }
+.sep-filtro { width: 1px; height: 20px; background: var(--linha); margin: 0 4px; }

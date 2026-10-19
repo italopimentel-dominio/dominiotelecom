@@ -8,6 +8,7 @@ import { CORES_STATUS, classeStatus, situacaoAtivacao, ROTULO_ATIVACAO, VALIDACA
 import FormAcao from '@/components/FormAcao';
 import { salvarStatusParceiro } from '@/app/actions/indireto';
 import { nomesDosPerfis, listarFocais, listarStatus } from './dados';
+import { CartoesFocais, GrupoFiltro, ChipFiltro, urlCom } from '@/components/Filtros';
 
 export default async function ControleIndireto({ searchParams }) {
   const sp = await searchParams;
@@ -45,22 +46,43 @@ export default async function ControleIndireto({ searchParams }) {
     return { ...p, realizados, respondidos: formsDe.get(p.id)?.size || 0, ativ: situacaoAtivacao(p, hoje) };
   });
 
-  // filtros
-  const b = normalizar(sp.q || '');
-  const bDig = soDigitos(sp.q || '');
-  const filtradas = linhas.filter((p) => {
-    if (sp.status ? p.status !== sp.status : oculto(p) && !sp.q) return false;
-    if (sp.ab && p.ativ?.estado !== sp.ab) return false;
-    if (sp.focal === 'meus' && p.ponto_focal_id !== perfil.id) return false;
-    if (sp.focal && sp.focal !== 'meus' && p.ponto_focal_id !== sp.focal) return false;
-    if (sp.val && p.validacao !== sp.val) return false;
-    if (sp.ativ && !(p.data_ativacao || '').startsWith(sp.ativ)) return false;
-    if (b) {
+  // ---------- filtros (todos se combinam; clicar de novo desliga) ----------
+  // focal, ab (boa | prazo | sem | fora | naoativ), val (pendente | aprovado | reprovado), status, ativ (mês AAAA-MM), q
+  const FIL = { focal: sp.focal || '', ab: sp.ab || '', val: sp.val || '', status: sp.status || '', ativ: sp.ativ || '', q: sp.q || '' };
+  const b = normalizar(FIL.q);
+  const bDig = soDigitos(FIL.q);
+  const testes = {
+    focal: (p, v) => (v === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === v),
+    ab: (p, v) => (v === 'naoativ' ? !p.data_ativacao : p.ativ?.estado === v),
+    val: (p, v) => (p.validacao || 'pendente') === v,
+    status: (p, v) => p.status === v,
+    ativ: (p, v) => (p.data_ativacao || '').startsWith(v),
+    q: (p) => {
       const alvo = normalizar([p.nome_fantasia, p.razao_social, p.cidade, p.codigo, p.contato_nome].join(' '));
-      if (!alvo.includes(b) && !(bDig.length >= 4 && ((p.cnpj || '').includes(bDig) || (p.cpf || '').includes(bDig)))) return false;
-    }
-    return true;
-  });
+      return alvo.includes(b) || (bDig.length >= 4 && ((p.cnpj || '').includes(bDig) || (p.cpf || '').includes(bDig)));
+    },
+  };
+  const passa = (p, exceto) => {
+    if (!FIL.status && exceto !== 'status' && oculto(p) && !FIL.q) return false;
+    return Object.entries(FIL).every(([k, v]) => !v || k === exceto || testes[k](p, v));
+  };
+  const filtradas = linhas.filter((p) => passa(p));
+  const conta = (k, v) => linhas.filter((p) => passa(p, k) && testes[k](p, v)).length;
+  const urlF = (extra) => urlCom('/indireto', { ...FIL, ...(sp.por ? { por: sp.por } : {}) }, extra);
+  const alterna = (k, v) => urlF({ [k]: FIL[k] === v ? '' : v });
+  const algumFiltro = Object.entries(FIL).some(([k, v]) => v && k !== 'q');
+  const focaisIds = [...new Set(linhas.map((p) => p.ponto_focal_id || 'sem'))];
+  const cartoesFocais = [
+    { id: '', nome: 'Todos' },
+    ...focaisIds.map((f) => ({ id: f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—' })),
+  ].map((c) => {
+    const l = linhas.filter((p) => passa(p, 'focal') && (!c.id || (c.id === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === c.id)));
+    const boasF = l.filter((p) => p.ativ?.estado === 'boa').length;
+    const prazoF = l.filter((p) => p.ativ?.estado === 'prazo').length;
+    return { ...c, numero: l.length, sub: `${boasF} ativações boas · ${prazoF} no prazo` };
+  }).sort((a, b2) => !a.id ? -1 : !b2.id ? 1 : (a.id === 'sem') - (b2.id === 'sem') || b2.numero - a.numero || a.nome.localeCompare(b2.nome));
+  // meses com ativação (para o filtro de mês)
+  const mesesAtiv = [...new Set(linhas.map((p) => (p.data_ativacao || '').slice(0, 7)).filter(Boolean))].sort().reverse().slice(0, 8);
 
   // paginação (25 por página por padrão)
   const POR_PAGINA = [25, 50, 100];
@@ -92,11 +114,6 @@ export default async function ControleIndireto({ searchParams }) {
     </div>
   );
 
-  const ativos = linhas.filter((p) => !oculto(p));
-  const boas = linhas.filter((p) => p.ativ?.estado === 'boa').length;
-  const noPrazo = linhas.filter((p) => p.ativ?.estado === 'prazo').length;
-  const filtrando = sp.q || sp.status || sp.focal || sp.val || sp.ativ || sp.ab;
-  const aguardando = linhas.filter((p) => p.validacao === 'pendente').length;
 
   return (
     <>
@@ -113,45 +130,37 @@ export default async function ControleIndireto({ searchParams }) {
         )}
       </div>
 
-      <div className="calendario" style={{ marginTop: 0 }}>
-        <div><b>{ativos.length}</b><span>parceiros na lista</span></div>
-        <Link href="/indireto?ab=boa" className="numero-link"><b>{boas}</b><span>ativações boas (venda em até 30 dias)</span></Link>
-        <Link href="/indireto?ab=prazo" className="numero-link"><b>{noPrazo}</b><span>ativações ainda no prazo</span></Link>
-        <Link href="/indireto?val=pendente" className="numero-link"><b>{aguardando}</b><span>aguardando validação</span></Link>
-      </div>
+      <CartoesFocais itens={cartoesFocais} selecionado={FIL.focal} hrefDe={(id) => urlF({ focal: id })} rotuloNumero="parceiros com esses filtros" />
 
-      <form className="bloco campos" style={{ margin: '14px 0' }} method="get">
-        <label className="campo" style={{ flex: '1 1 220px' }}>Buscar<input type="text" name="q" defaultValue={sp.q || ''} placeholder="Nome, cidade, CNPJ ou contato" /></label>
-        <label className="campo">Status
-          <select name="status" defaultValue={sp.status || ''}>
-            <option value="">{statusLista.some((st) => st.oculto) ? `Todos menos ${statusLista.filter((st) => st.oculto).map((st) => st.nome).join(', ')}` : 'Todos'}</option>
-            {statusLista.map((st) => <option key={st.chave} value={st.chave}>{st.nome}{st.ativo ? '' : ' (desativado)'}</option>)}
-          </select>
-        </label>
-        <label className="campo">Ponto focal
-          <select name="focal" defaultValue={sp.focal || ''}>
-            <option value="">Todos</option>
-            <option value="meus">Só os meus</option>
-            {focais.map((f) => <option key={f.id} value={f.id}>{f.nome || f.usuario}</option>)}
-          </select>
-        </label>
-        <label className="campo">Validação
-          <select name="val" defaultValue={sp.val || ''}>
-            <option value="">Todas</option>
-            {Object.entries(VALIDACAO).map(([k, v]) => <option key={k} value={k}>{v.texto}</option>)}
-          </select>
-        </label>
-        <label className="campo">Mês de ativação<input type="month" name="ativ" defaultValue={sp.ativ || ''} /></label>
-        <label className="campo">Venda em 30 dias
-          <select name="ab" defaultValue={sp.ab || ''}>
-            <option value="">Todas</option>
-            {Object.entries(ROTULO_ATIVACAO).map(([k, v]) => <option key={k} value={k}>{v.texto}</option>)}
-          </select>
-        </label>
-        {porPagina !== 25 && <input type="hidden" name="por" value={porPagina} />}
-        <button className="btn btn-sec" type="submit">Filtrar</button>
-        {filtrando && <Link href="/indireto" className="dica">Limpar</Link>}
-      </form>
+      <section className="assid-cartao filtros-acomp" aria-label="Filtros">
+        <GrupoFiltro rotulo="Ativação">
+          <ChipFiltro href={alterna('ab', 'boa')} sel={FIL.ab === 'boa'} cor="var(--ok)">Ativação boa ({conta('ab', 'boa')})</ChipFiltro>
+          <ChipFiltro href={alterna('ab', 'prazo')} sel={FIL.ab === 'prazo'} cor="var(--acento)">No prazo ({conta('ab', 'prazo')})</ChipFiltro>
+          <ChipFiltro href={alterna('ab', 'sem')} sel={FIL.ab === 'sem'} cor="var(--risco)">Sem venda em 30 dias ({conta('ab', 'sem')})</ChipFiltro>
+          <ChipFiltro href={alterna('ab', 'fora')} sel={FIL.ab === 'fora'} cor="var(--atencao)">Vendeu fora do prazo ({conta('ab', 'fora')})</ChipFiltro>
+          <ChipFiltro href={alterna('ab', 'naoativ')} sel={FIL.ab === 'naoativ'}>Não ativado ({conta('ab', 'naoativ')})</ChipFiltro>
+        </GrupoFiltro>
+        <GrupoFiltro rotulo="Mês de ativação">
+          {mesesAtiv.map((m) => <ChipFiltro key={m} href={alterna('ativ', m)} sel={FIL.ativ === m}>{m.slice(5)}/{m.slice(0, 4)} ({conta('ativ', m)})</ChipFiltro>)}
+        </GrupoFiltro>
+        <GrupoFiltro rotulo="Validação">
+          {Object.entries(VALIDACAO).map(([k, v]) => (
+            <ChipFiltro key={k} href={alterna('val', k)} sel={FIL.val === k} cor={k === 'aprovado' ? 'var(--ok)' : k === 'reprovado' ? 'var(--risco)' : 'var(--atencao)'}>{v.texto} ({conta('val', k)})</ChipFiltro>
+          ))}
+        </GrupoFiltro>
+        <GrupoFiltro rotulo="Status">
+          {statusLista.map((st) => (
+            <ChipFiltro key={st.chave} href={alterna('status', st.chave)} sel={FIL.status === st.chave}>{st.nome} ({conta('status', st.chave)})</ChipFiltro>
+          ))}
+        </GrupoFiltro>
+        <form method="get" className="grupo-filtro" action="/indireto">
+          <span className="rot">Buscar</span>
+          {Object.entries(FIL).filter(([k, v]) => v && k !== 'q').map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+          <input type="text" name="q" defaultValue={FIL.q} placeholder="Nome, cidade, CNPJ ou contato" style={{ flex: '1 1 220px', maxWidth: 320 }} />
+          <button className="btn btn-sec btn-peq" type="submit">Buscar</button>
+          {(algumFiltro || FIL.q) && <Link href="/indireto" className="btn btn-sec btn-peq">Limpar filtros</Link>}
+        </form>
+      </section>
 
       {!linhas.length ? (
         <div className="vazio">
