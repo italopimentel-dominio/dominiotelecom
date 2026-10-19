@@ -1,6 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { sessao, ehAdmin } from '@/lib/auth';
+import { buscarTodas } from '@/lib/buscarTodas';
 
 const STATUS = ['P', 'F', 'A'];
 const dataOk = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d));
@@ -34,7 +35,8 @@ export async function marcarAssiduidade(colaboradorId, data, status, grupoId) {
 
 // Vários de uma vez (botão "todos presentes", ponto, planilha).
 // registros: [{ colaborador_id, data, status, grupo_id }]; soVazios = não sobrescreve o que já foi marcado
-export async function lancarAssiduidadeEmLote(registros, { origem = 'manual', soVazios = false } = {}) {
+// soSobreAutomaticos = não mexe no que foi marcado à mão ou pela planilha; atualiza o que veio do próprio ponto
+export async function lancarAssiduidadeEmLote(registros, { origem = 'manual', soVazios = false, soSobreAutomaticos = false } = {}) {
   const s = await sessao();
   if (!s?.perfil?.ativo) return { erro: 'Faça login de novo.' };
   if (!Array.isArray(registros) || registros.length > 5000) return { erro: 'Envie no máximo 5.000 marcações por vez.' };
@@ -43,12 +45,20 @@ export async function lancarAssiduidadeEmLote(registros, { origem = 'manual', so
   let regs = registros.filter((r) => r.colaborador_id && dataOk(r.data) && STATUS.includes(r.status));
   const semPermissao = permitidas ? regs.filter((r) => !permitidas.has(r.grupo_id)).length : 0;
   if (permitidas) regs = regs.filter((r) => permitidas.has(r.grupo_id));
-  if (soVazios && regs.length) {
+  if ((soVazios || soSobreAutomaticos) && regs.length) {
     const datas = regs.map((r) => r.data).sort();
-    const { data: existentes, error } = await db.from('assiduidade').select('colaborador_id, data')
-      .in('colaborador_id', [...new Set(regs.map((r) => r.colaborador_id))]).gte('data', datas[0]).lte('data', datas.at(-1));
-    if (error) return { erro: erroTabela(error.message) };
-    const ja = new Set((existentes || []).map((e) => `${e.colaborador_id}|${e.data}`));
+    // todas as marcações existentes (passa do limite de 1.000 linhas; senão marcação manual podia ser sobrescrita)
+    const ids = [...new Set(regs.map((r) => r.colaborador_id))];
+    const existentes = [];
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data, error } = await buscarTodas(() => db.from('assiduidade').select('colaborador_id, data, origem')
+        .in('colaborador_id', ids.slice(i, i + 200)).gte('data', datas[0]).lte('data', datas.at(-1))
+        .order('colaborador_id').order('data'));
+      if (error) return { erro: erroTabela(error.message) };
+      existentes.push(...data);
+    }
+    // soberanas: marcação manual (e a planilha antiga). Com soSobreAutomaticos, o que veio do ponto pode ser atualizado.
+    const ja = new Set((existentes || []).filter((e) => soVazios || e.origem !== 'ponto').map((e) => `${e.colaborador_id}|${e.data}`));
     regs = regs.filter((r) => !ja.has(`${r.colaborador_id}|${r.data}`));
   }
   const agora = new Date().toISOString();

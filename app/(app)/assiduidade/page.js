@@ -7,6 +7,7 @@ import PainelAssiduidade from '@/components/PainelAssiduidade';
 import SeletorMes from '@/components/SeletorMes';
 import { mesesAoRedor } from '@/lib/meses';
 import ImportarAssiduidade from '@/components/ImportarAssiduidade';
+import { buscarTodas } from '@/lib/buscarTodas';
 
 const pct = (v) => (v == null ? '—' : `${Math.round(v * 100)}%`);
 const corPct = (v) => (v == null ? '#8f88a8' : v >= META_ASSIDUIDADE ? 'var(--ok)' : 'var(--risco)');
@@ -26,7 +27,9 @@ export default async function Assiduidade({ searchParams }) {
     supabase.from('colaboradores').select('id, nome, grupo_id, ativo, data_admissao, data_desligamento').order('nome'),
     supabase.from('feriados').select('*'),
     supabase.from('config').select('*').eq('id', 1).maybeSingle(),
-    supabase.from('assiduidade').select('colaborador_id, data, status, grupo_id').gte('data', inicio).lte('data', fim).limit(20000),
+    // todas as marcações do mês (passa do limite de 1.000 linhas da API)
+    buscarTodas(() => supabase.from('assiduidade').select('colaborador_id, data, status, grupo_id')
+      .gte('data', inicio).lte('data', fim).order('colaborador_id').order('data')),
     supabase.rpc('grupos_lancaveis'),
     supabase.from('colaborador_apelidos').select('apelido, colaborador_id'),
   ]);
