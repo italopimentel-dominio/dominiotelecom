@@ -7,6 +7,7 @@ import { normalizar } from '@/lib/nomes';
 import { classeStatus, TIPOS_TREINAMENTO, ROTULO_SITUACAO, VALIDACAO, situacaoTreinamento, faltasValidacao, documentoDe, fmtCnpj, fmtCpf, soDigitos } from '@/lib/indireto';
 import FormAcao from '@/components/FormAcao';
 import AcaoFormulario from '@/components/AcaoFormulario';
+import RegistrarTreinoRapido from '@/components/RegistrarTreinoRapido';
 import LinksGerais from '@/components/LinksGerais';
 import { vincularResposta, ignorarResposta } from '@/app/actions/indireto';
 import { nomesDosPerfis, listarFocais, listarStatus } from '../dados';
@@ -190,9 +191,11 @@ export default async function TreinamentosIndireto({ searchParams }) {
                   return (
                     <td key={t} className="esq">
                       <div className="celula-treino">
-                        <span>
-                          <span className={`tag ${ROTULO_SITUACAO[s.estado].classe}`}>{ROTULO_SITUACAO[s.estado].texto}</span>
-                          {s.data && <span className="dica"> {fmtData(s.data, true)}</span>}
+                        <span className="linha-status-treino">
+                          {s.estado === 'pendente' || s.estado === 'atrasado'
+                            ? <RegistrarTreinoRapido parceiroId={p.id} tipo={t} rotulo={ROTULO_SITUACAO[s.estado].texto} classe={ROTULO_SITUACAO[s.estado].classe} hoje={hoje} podeEditar={editar} />
+                            : <span className={`tag ${ROTULO_SITUACAO[s.estado].classe}`}>{ROTULO_SITUACAO[s.estado].texto}</span>}
+                          {s.data && <span className="dica">{fmtData(s.data, true)}</span>}
                         </span>
                         {f ? (
                           <span className="tag tag-ok" title={f.total_pontuavel ? `Acertou ${f.acertos} de ${f.total_pontuavel}` : undefined}>

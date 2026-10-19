@@ -886,3 +886,14 @@ button.q:not(:disabled):hover { outline: 2px solid var(--acento); outline-offset
 .filtros-acomp { display: flex; flex-direction: column; gap: 8px; }
 .grupo-filtro { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .grupo-filtro .rot { min-width: 82px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #8f88a8; }
+
+/* treinamentos: célula alinhada (status + data na 1ª linha, ações na 2ª) */
+.celula-treino { gap: 4px; }
+.linha-status-treino { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.acoes-linha { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 12px; }
+.acoes-linha .link-acao { font-size: 12px; }
+.acoes-linha .sep { color: #c3bfd0; }
+.tag-botao { border: 0; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; }
+.tag-botao:hover { outline: 2px solid currentColor; outline-offset: 1px; }
+.registro-rapido { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.registro-rapido input[type="date"] { padding: 3px 6px; font-size: 12.5px; }

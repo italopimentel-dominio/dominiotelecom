@@ -22,13 +22,15 @@ export default function AcaoFormulario({ parceiroId, tipo, nome, telefone, token
   async function copiar() {
     try { await navigator.clipboard.writeText(url(token)); setAviso('copiado'); } catch { setAviso(url(token)); }
   }
-  if (!token) return podeEditar ? <button type="button" className="link-acao" onClick={gerar}>Gerar link</button> : null;
+  if (!token) return podeEditar ? <span className="acoes-linha"><button type="button" className="link-acao" onClick={gerar}>Gerar link do formulário</button></span> : null;
   return (
-    <span className="acoes-form">
-      <span className="tag tag-atencao">Link enviado</span>
-      <button type="button" className="link-acao" onClick={copiar}>copiar</button>
+    <span className="acoes-linha">
+      <span className="dica" title="Link do formulário enviado, aguardando resposta">✉ Link enviado</span>
+      <span aria-hidden="true" className="sep">·</span>
+      <button type="button" className="link-acao" onClick={copiar}>Copiar</button>
+      <span aria-hidden="true" className="sep">·</span>
       <a className="link-acao" href={whats(token)} target="_blank" rel="noreferrer">WhatsApp</a>
-      {aviso && <span className="nome-sub">{aviso}</span>}
+      {aviso && <span className="dica"> {aviso}</span>}
     </span>
   );
 }
