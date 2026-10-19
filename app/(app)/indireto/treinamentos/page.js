@@ -9,7 +9,10 @@ import FormAcao from '@/components/FormAcao';
 import AcaoFormulario from '@/components/AcaoFormulario';
 import RegistrarTreinoRapido from '@/components/RegistrarTreinoRapido';
 import LinksGerais from '@/components/LinksGerais';
-import { CartoesFocais, GrupoFiltro, ChipFiltro, urlCom } from '@/components/Filtros';
+import { PilulasFocais, FaixaAtivos, urlCom, lista } from '@/components/Filtros';
+import MenuFiltro from '@/components/MenuFiltro';
+import SeletorMes from '@/components/SeletorMes';
+import { mesesAoRedor } from '@/lib/meses';
 import { vincularResposta, ignorarResposta } from '@/app/actions/indireto';
 import { nomesDosPerfis, listarFocais, listarStatus } from '../dados';
 
@@ -55,14 +58,17 @@ export default async function TreinamentosIndireto({ searchParams }) {
     return { ...p, sit, forms, respondidos, faltas: p.validacao === 'pendente' ? faltasValidacao(p, lista, new Set(Object.keys(forms))) : [] };
   });
 
-  // ---------- filtros (todos se combinam; clicar de novo desliga) ----------
-  // focal, status, comp (3 | 1 | 2), aguard, t_<tipo> (fez | nao), f_<tipo> (sim | nao), q
-  const FIL = { focal: sp.focal || '', status: sp.status || '', comp: sp.comp || '', aguard: sp.aguard || '', q: sp.q || '' };
-  TIPOS.forEach((t) => { FIL[`t_${t}`] = sp[`t_${t}`] || ''; FIL[`f_${t}`] = sp[`f_${t}`] || ''; });
+  // ---------- filtros (todos se combinam) ----------
+  // mes (treinamento realizado no mês, qualquer tipo | 'todos'), focal, status/comp/aguard e t_<tipo>/f_<tipo> (listas), q
+  const mesSel = /^\d{4}-\d{2}$/.test(sp.mes || '') || sp.mes === 'todos' ? sp.mes : hoje.slice(0, 7);
+  const treinouNoMes = new Set((treinos || []).filter((t) => t.status === 'realizado' && mesSel !== 'todos' && (t.data || '').startsWith(mesSel)).map((t) => t.parceiro_id));
+  const FIL = { mes: mesSel, focal: sp.focal || '', status: lista(sp.status), comp: lista(sp.comp), aguard: lista(sp.aguard), q: sp.q || '' };
+  TIPOS.forEach((t) => { FIL[`t_${t}`] = lista(sp[`t_${t}`]); FIL[`f_${t}`] = lista(sp[`f_${t}`]); });
   const b = normalizar(FIL.q);
   const bDig = soDigitos(FIL.q);
   const temLink = (p) => TIPOS.some((t) => linkDe.has(`${p.id}:${t}`));
-  const testes = {
+  const um = {
+    mes: (p, v) => v === 'todos' || treinouNoMes.has(p.id),
     focal: (p, v) => (v === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === v),
     status: (p, v) => p.status === v,
     comp: (p, v) => (v === '3' ? p.respondidos === 3 : v === '1' ? p.respondidos === 2 : p.respondidos <= 1),
@@ -73,19 +79,48 @@ export default async function TreinamentosIndireto({ searchParams }) {
     },
   };
   TIPOS.forEach((t) => {
-    testes[`t_${t}`] = (p, v) => (v === 'fez' ? p.sit[t].estado === 'realizado' : p.sit[t].estado !== 'realizado');
-    testes[`f_${t}`] = (p, v) => (v === 'sim' ? !!p.forms[t] : !p.forms[t]);
+    um[`t_${t}`] = (p, v) => (v === 'fez' ? p.sit[t].estado === 'realizado' : p.sit[t].estado !== 'realizado');
+    um[`f_${t}`] = (p, v) => (v === 'sim' ? !!p.forms[t] : !p.forms[t]);
   });
-  // passa em todos os filtros, menos o "exceto" (para as contagens de cada chip)
+  const vazio = (v) => !v || (Array.isArray(v) && !v.length);
+  const testa = (k, p, v) => (Array.isArray(v) ? v.some((x) => um[k](p, x)) : um[k](p, v));
   const passa = (p, exceto) => {
-    if (!FIL.status && exceto !== 'status' && oculto(p) && !FIL.q) return false;
-    return Object.entries(FIL).every(([k, v]) => !v || k === exceto || testes[k](p, v));
+    if (!FIL.status.length && exceto !== 'status' && oculto(p) && !FIL.q) return false;
+    return Object.entries(FIL).every(([k, v]) => vazio(v) || k === exceto || testa(k, p, v));
   };
   const filtradas = linhas.filter((p) => passa(p));
-  const conta = (k, v) => linhas.filter((p) => passa(p, k) && testes[k](p, v)).length;
+  const conta = (k, v) => linhas.filter((p) => passa(p, k) && um[k](p, v)).length;
   const urlF = (extra) => urlCom('/indireto/treinamentos', { ...FIL, ...(sp.por ? { por: sp.por } : {}) }, extra);
-  const alterna = (k, v) => urlF({ [k]: FIL[k] === v ? '' : v });
-  const algumFiltro = Object.entries(FIL).some(([k, v]) => v && k !== 'q');
+  const focaisIds = [...new Set(linhas.map((p) => p.ponto_focal_id || 'sem'))];
+  const pilulas = [{ id: '', nome: 'Todos' }, ...focaisIds.map((f) => ({ id: f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—' }))]
+    .map((c) => ({ ...c, n: linhas.filter((p) => passa(p, 'focal') && (!c.id || um.focal(p, c.id))).length }))
+    .sort((a, b2) => (!a.id ? -1 : !b2.id ? 1 : (a.id === 'sem') - (b2.id === 'sem') || b2.n - a.n || a.nome.localeCompare(b2.nome)));
+  const menus = [
+    ...TIPOS.map((t) => ({ rotulo: TIPOS_TREINAMENTO[t], opcoes: [
+      { titulo: 'Treinamento' },
+      { param: `t_${t}`, v: 'fez', t: 'Realizado', cor: 'var(--ok)', n: conta(`t_${t}`, 'fez') },
+      { param: `t_${t}`, v: 'nao', t: 'Não realizado', cor: 'var(--risco)', n: conta(`t_${t}`, 'nao') },
+      { titulo: 'Formulário' },
+      { param: `f_${t}`, v: 'sim', t: 'Respondido', cor: 'var(--ok)', n: conta(`f_${t}`, 'sim') },
+      { param: `f_${t}`, v: 'nao', t: 'Sem resposta', cor: 'var(--risco)', n: conta(`f_${t}`, 'nao') },
+    ] })),
+    { rotulo: 'Formulários', opcoes: [
+      { param: 'comp', v: '3', t: 'Os 3 respondidos', cor: 'var(--ok)', n: conta('comp', '3') },
+      { param: 'comp', v: '1', t: 'Faltando 1', n: conta('comp', '1') },
+      { param: 'comp', v: '2', t: 'Faltando 2 ou 3', cor: 'var(--risco)', n: conta('comp', '2') },
+      { param: 'aguard', v: '1', t: 'Link aguardando resposta', cor: 'var(--atencao)', n: conta('aguard', '1') },
+    ] },
+    { rotulo: 'Status', opcoes: statusLista.map((st) => ({ param: 'status', v: st.chave, t: st.nome, n: conta('status', st.chave) })) },
+  ];
+  const ROT_PARAM = Object.fromEntries([...TIPOS.flatMap((t) => [[`t_${t}`, `${TIPOS_TREINAMENTO[t]}`], [`f_${t}`, `Formulário ${TIPOS_TREINAMENTO[t].toLowerCase()}`]]), ['comp', 'Formulários'], ['aguard', 'Formulários'], ['status', 'Status']]);
+  const nomeOp = (k, v) => menus.flatMap((m) => m.opcoes).find((o) => o.param === k && o.v === v)?.t || v;
+  const ativosF = [
+    ...(FIL.focal ? [{ chave: 'focal', t: pilulas.find((x) => x.id === FIL.focal)?.nome || 'Ponto focal', href: urlF({ focal: '' }) }] : []),
+    ...Object.keys(ROT_PARAM).flatMap((k) => (FIL[k] || []).map((v) => ({ chave: `${k}-${v}`, t: `${ROT_PARAM[k]}: ${nomeOp(k, v)}`, href: urlF({ [k]: FIL[k].filter((x) => x !== v) }) }))),
+    ...(FIL.q ? [{ chave: 'q', t: `Busca: "${FIL.q}"`, href: urlF({ q: '' }) }] : []),
+  ];
+  const limparTudo = urlF(Object.fromEntries(Object.keys(FIL).filter((k) => k !== 'mes').map((k) => [k, ''])));
+  const totalBase = linhas.filter((p) => um.mes(p, FIL.mes) && !oculto(p)).length;
 
   const POR_PAGINA = [25, 50, 100];
   const porPagina = POR_PAGINA.includes(Number(sp.por)) ? Number(sp.por) : 25;
@@ -116,18 +151,6 @@ export default async function TreinamentosIndireto({ searchParams }) {
   const proximos = agenda.length;
   const nomeParceiro = new Map(linhas.map((p) => [p.id, p.nome_fantasia]));
   const semVinculo = (respostas || []).filter((r) => !r.parceiro_id);
-  // cartões dos pontos focais: contam quem passa nos outros filtros
-  const focaisIds = [...new Set(linhas.map((p) => p.ponto_focal_id || 'sem'))];
-  const cartoesFocais = [
-    { id: '', nome: 'Todos', numero: linhas.filter((p) => passa(p, 'focal')).length },
-    ...focaisIds.map((f) => ({ id: f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—', numero: linhas.filter((p) => passa(p, 'focal') && (f === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === f)).length }))
-      .sort((a, b) => (a.id === 'sem') - (b.id === 'sem') || b.numero - a.numero || a.nome.localeCompare(b.nome)),
-  ].map((c) => {
-    const l = linhas.filter((p) => passa(p, 'focal') && (!c.id || (c.id === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === c.id)));
-    const pend = l.reduce((s2, p) => s2 + TIPOS.filter((t) => p.sit[t].estado !== 'realizado').length, 0);
-    const semForm = l.reduce((s2, p) => s2 + TIPOS.filter((t) => p.sit[t].estado === 'realizado' && !p.forms[t]).length, 0);
-    return { ...c, sub: `${pend} treinamentos a fazer · ${semForm} formulários sem resposta` };
-  });
 
   return (
     <>
@@ -135,48 +158,34 @@ export default async function TreinamentosIndireto({ searchParams }) {
         <div>
           <h1>Treinamentos</h1>
           <p className="sub">
-            Os 3 treinamentos de cada parceiro (Onboarding, Telecom e Serviços) e os formulários de confirmação.
+            Parceiros com treinamento realizado no mês escolhido (qualquer tipo); "Todos os meses" mostra todos. Os 3 treinamentos (Onboarding, Telecom e Serviços) e os formulários de confirmação.
             O parceiro é validado sozinho quando todo treinamento realizado tem o formulário respondido e ele tem venda vinculada.
           </p>
         </div>
-        {gerente && <Link className="btn btn-sec" href="/indireto/perguntas">Perguntas dos formulários</Link>}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {gerente && <Link className="btn btn-sec" href="/indireto/perguntas">Perguntas dos formulários</Link>}
+          <SeletorMes mes={FIL.mes} meses={mesesAoRedor(hoje.slice(0, 7))} comTodos limpar={['pag']} />
+        </div>
       </div>
 
-      <CartoesFocais itens={cartoesFocais} selecionado={FIL.focal} hrefDe={(id) => urlF({ focal: id })} rotuloNumero="parceiros com esses filtros" />
-
-      <section className="assid-cartao filtros-acomp" aria-label="Filtros">
-        {TIPOS.map((t) => (
-          <GrupoFiltro key={t} rotulo={TIPOS_TREINAMENTO[t]}>
-            <ChipFiltro href={alterna(`t_${t}`, 'fez')} sel={FIL[`t_${t}`] === 'fez'} cor="var(--ok)">Realizado ({conta(`t_${t}`, 'fez')})</ChipFiltro>
-            <ChipFiltro href={alterna(`t_${t}`, 'nao')} sel={FIL[`t_${t}`] === 'nao'} cor="var(--risco)">Não realizado ({conta(`t_${t}`, 'nao')})</ChipFiltro>
-            <span className="sep-filtro" aria-hidden="true" />
-            <ChipFiltro href={alterna(`f_${t}`, 'sim')} sel={FIL[`f_${t}`] === 'sim'} cor="var(--ok)">Formulário respondido ({conta(`f_${t}`, 'sim')})</ChipFiltro>
-            <ChipFiltro href={alterna(`f_${t}`, 'nao')} sel={FIL[`f_${t}`] === 'nao'} cor="var(--risco)">Sem formulário ({conta(`f_${t}`, 'nao')})</ChipFiltro>
-          </GrupoFiltro>
-        ))}
-        <GrupoFiltro rotulo="Formulários">
-          <ChipFiltro href={alterna('comp', '3')} sel={FIL.comp === '3'} cor="var(--ok)">Os 3 ({conta('comp', '3')})</ChipFiltro>
-          <ChipFiltro href={alterna('comp', '1')} sel={FIL.comp === '1'}>Faltando 1 ({conta('comp', '1')})</ChipFiltro>
-          <ChipFiltro href={alterna('comp', '2')} sel={FIL.comp === '2'} cor="var(--risco)">Faltando 2 ou 3 ({conta('comp', '2')})</ChipFiltro>
-          <ChipFiltro href={alterna('aguard', '1')} sel={FIL.aguard === '1'} cor="var(--atencao)">Link aguardando resposta ({conta('aguard', '1')})</ChipFiltro>
-        </GrupoFiltro>
-        <GrupoFiltro rotulo="Status">
-          {statusLista.map((st) => (
-            <ChipFiltro key={st.chave} href={alterna('status', st.chave)} sel={FIL.status === st.chave}>{st.nome} ({conta('status', st.chave)})</ChipFiltro>
-          ))}
-        </GrupoFiltro>
-        <form method="get" className="grupo-filtro" action="/indireto/treinamentos">
-          <span className="rot">Buscar</span>
-          {Object.entries(FIL).filter(([k, v]) => v && k !== 'q').map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-          <input type="text" name="q" defaultValue={FIL.q} placeholder="Nome, CNPJ ou contato" style={{ flex: '1 1 220px', maxWidth: 320 }} />
-          <button className="btn btn-sec btn-peq" type="submit">Buscar</button>
-          {(algumFiltro || FIL.q) && <Link href="/indireto/treinamentos" className="btn btn-sec btn-peq">Limpar filtros</Link>}
-        </form>
-        <p className="dica">
-          {semVinculo.length > 0 && <a href="#respostas">{semVinculo.length} respostas sem parceiro</a>}
-          {semVinculo.length > 0 && proximos > 0 && ' · '}
-          {proximos > 0 && <a href="#agenda">{proximos} treinamentos agendados nos próximos 14 dias</a>}
-        </p>
+      <section className="barra-filtros" aria-label="Filtros">
+        <PilulasFocais itens={pilulas} selecionado={FIL.focal} hrefDe={(id) => urlF({ focal: id })} />
+        <div className="linha-menus">
+          {menus.map((m) => <MenuFiltro key={m.rotulo} rotulo={m.rotulo} opcoes={m.opcoes} />)}
+          <form method="get" className="busca-filtro" action="/indireto/treinamentos">
+            {Object.entries(FIL).filter(([k, v]) => !vazio(v) && k !== 'q').map(([k, v]) => <input key={k} type="hidden" name={k} value={Array.isArray(v) ? v.join(',') : v} />)}
+            <input type="text" name="q" defaultValue={FIL.q} placeholder="Buscar nome, CNPJ, contato" aria-label="Buscar" />
+            <button className="btn btn-sec btn-peq" type="submit">Buscar</button>
+          </form>
+        </div>
+        <FaixaAtivos total={totalBase} filtrados={filtradas.length} ativos={ativosF} limparHref={limparTudo} />
+        {(semVinculo.length > 0 || proximos > 0) && (
+          <p className="dica" style={{ margin: 0 }}>
+            {semVinculo.length > 0 && <a href="#respostas">{semVinculo.length} respostas sem parceiro</a>}
+            {semVinculo.length > 0 && proximos > 0 && ' · '}
+            {proximos > 0 && <a href="#agenda">{proximos} treinamentos agendados nos próximos 14 dias</a>}
+          </p>
+        )}
       </section>
 
       {editar && <LinksGerais links={linksGerais} gerente={gerente} />}

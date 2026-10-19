@@ -8,7 +8,10 @@ import { CORES_STATUS, classeStatus, situacaoAtivacao, ROTULO_ATIVACAO, VALIDACA
 import FormAcao from '@/components/FormAcao';
 import { salvarStatusParceiro } from '@/app/actions/indireto';
 import { nomesDosPerfis, listarFocais, listarStatus } from './dados';
-import { CartoesFocais, GrupoFiltro, ChipFiltro, urlCom } from '@/components/Filtros';
+import { PilulasFocais, FaixaAtivos, urlCom, lista } from '@/components/Filtros';
+import MenuFiltro from '@/components/MenuFiltro';
+import SeletorMes from '@/components/SeletorMes';
+import { mesesAoRedor } from '@/lib/meses';
 
 export default async function ControleIndireto({ searchParams }) {
   const sp = await searchParams;
@@ -46,43 +49,50 @@ export default async function ControleIndireto({ searchParams }) {
     return { ...p, realizados, respondidos: formsDe.get(p.id)?.size || 0, ativ: situacaoAtivacao(p, hoje) };
   });
 
-  // ---------- filtros (todos se combinam; clicar de novo desliga) ----------
-  // focal, ab (boa | prazo | sem | fora | naoativ), val (pendente | aprovado | reprovado), status, ativ (mês AAAA-MM), q
-  const FIL = { focal: sp.focal || '', ab: sp.ab || '', val: sp.val || '', status: sp.status || '', ativ: sp.ativ || '', q: sp.q || '' };
+  // ---------- filtros (todos se combinam) ----------
+  // mes (AAAA-MM da data de ativação | 'todos'), focal, ab/val/status (listas "a,b"), q
+  const mesSel = /^\d{4}-\d{2}$/.test(sp.mes || '') || sp.mes === 'todos' ? sp.mes : hoje.slice(0, 7);
+  const FIL = { mes: mesSel, focal: sp.focal || '', ab: lista(sp.ab), val: lista(sp.val), status: lista(sp.status), q: sp.q || '' };
   const b = normalizar(FIL.q);
   const bDig = soDigitos(FIL.q);
-  const testes = {
+  const um = {
     focal: (p, v) => (v === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === v),
     ab: (p, v) => (v === 'naoativ' ? !p.data_ativacao : p.ativ?.estado === v),
     val: (p, v) => (p.validacao || 'pendente') === v,
     status: (p, v) => p.status === v,
-    ativ: (p, v) => (p.data_ativacao || '').startsWith(v),
+    mes: (p, v) => v === 'todos' || (p.data_ativacao || '').startsWith(v),
     q: (p) => {
       const alvo = normalizar([p.nome_fantasia, p.razao_social, p.cidade, p.codigo, p.contato_nome].join(' '));
       return alvo.includes(b) || (bDig.length >= 4 && ((p.cnpj || '').includes(bDig) || (p.cpf || '').includes(bDig)));
     },
   };
+  const vazio = (v) => !v || (Array.isArray(v) && !v.length);
+  const testa = (k, p, v) => (Array.isArray(v) ? v.some((x) => um[k](p, x)) : um[k](p, v));
   const passa = (p, exceto) => {
-    if (!FIL.status && exceto !== 'status' && oculto(p) && !FIL.q) return false;
-    return Object.entries(FIL).every(([k, v]) => !v || k === exceto || testes[k](p, v));
+    if (!FIL.status.length && exceto !== 'status' && oculto(p) && !FIL.q) return false;
+    return Object.entries(FIL).every(([k, v]) => vazio(v) || k === exceto || testa(k, p, v));
   };
   const filtradas = linhas.filter((p) => passa(p));
-  const conta = (k, v) => linhas.filter((p) => passa(p, k) && testes[k](p, v)).length;
+  const conta = (k, v) => linhas.filter((p) => passa(p, k) && um[k](p, v)).length;
   const urlF = (extra) => urlCom('/indireto', { ...FIL, ...(sp.por ? { por: sp.por } : {}) }, extra);
-  const alterna = (k, v) => urlF({ [k]: FIL[k] === v ? '' : v });
-  const algumFiltro = Object.entries(FIL).some(([k, v]) => v && k !== 'q');
   const focaisIds = [...new Set(linhas.map((p) => p.ponto_focal_id || 'sem'))];
-  const cartoesFocais = [
-    { id: '', nome: 'Todos' },
-    ...focaisIds.map((f) => ({ id: f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—' })),
-  ].map((c) => {
-    const l = linhas.filter((p) => passa(p, 'focal') && (!c.id || (c.id === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === c.id)));
-    const boasF = l.filter((p) => p.ativ?.estado === 'boa').length;
-    const prazoF = l.filter((p) => p.ativ?.estado === 'prazo').length;
-    return { ...c, numero: l.length, sub: `${boasF} ativações boas · ${prazoF} no prazo` };
-  }).sort((a, b2) => !a.id ? -1 : !b2.id ? 1 : (a.id === 'sem') - (b2.id === 'sem') || b2.numero - a.numero || a.nome.localeCompare(b2.nome));
-  // meses com ativação (para o filtro de mês)
-  const mesesAtiv = [...new Set(linhas.map((p) => (p.data_ativacao || '').slice(0, 7)).filter(Boolean))].sort().reverse().slice(0, 8);
+  const pilulas = [{ id: '', nome: 'Todos' }, ...focaisIds.map((f) => ({ id: f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—' }))]
+    .map((c) => ({ ...c, n: linhas.filter((p) => passa(p, 'focal') && (!c.id || um.focal(p, c.id))).length }))
+    .sort((a, b2) => (!a.id ? -1 : !b2.id ? 1 : (a.id === 'sem') - (b2.id === 'sem') || b2.n - a.n || a.nome.localeCompare(b2.nome)));
+  const OP_AB = [['boa', 'Ativação boa', 'var(--ok)'], ['prazo', 'No prazo', 'var(--acento)'], ['sem', 'Sem venda em 30 dias', 'var(--risco)'], ['fora', 'Vendeu fora do prazo', 'var(--atencao)'], ['naoativ', 'Não ativado', '#8f88a8']];
+  const menus = [
+    { rotulo: 'Ativação', opcoes: OP_AB.map(([v, t, cor]) => ({ param: 'ab', v, t, cor, n: conta('ab', v) })) },
+    { rotulo: 'Validação', opcoes: Object.entries(VALIDACAO).map(([v, x]) => ({ param: 'val', v, t: x.texto, n: conta('val', v), cor: v === 'aprovado' ? 'var(--ok)' : v === 'reprovado' ? 'var(--risco)' : 'var(--atencao)' })) },
+    { rotulo: 'Status', opcoes: statusLista.map((st) => ({ param: 'status', v: st.chave, t: st.nome, n: conta('status', st.chave) })) },
+  ];
+  const nomeOp = (k, v) => menus.flatMap((m) => m.opcoes).find((o) => o.param === k && o.v === v)?.t || v;
+  const ativosF = [
+    ...(FIL.focal ? [{ chave: 'focal', t: pilulas.find((x) => x.id === FIL.focal)?.nome || 'Ponto focal', href: urlF({ focal: '' }) }] : []),
+    ...['ab', 'val', 'status'].flatMap((k) => FIL[k].map((v) => ({ chave: `${k}-${v}`, t: `${{ ab: 'Ativação', val: 'Validação', status: 'Status' }[k]}: ${nomeOp(k, v)}`, href: urlF({ [k]: FIL[k].filter((x) => x !== v) }) }))),
+    ...(FIL.q ? [{ chave: 'q', t: `Busca: "${FIL.q}"`, href: urlF({ q: '' }) }] : []),
+  ];
+  // total de referência: o mês escolhido, sem os outros filtros
+  const totalBase = linhas.filter((p) => um.mes(p, FIL.mes) && !oculto(p)).length;
 
   // paginação (25 por página por padrão)
   const POR_PAGINA = [25, 50, 100];
@@ -120,46 +130,26 @@ export default async function ControleIndireto({ searchParams }) {
       <div className="topo">
         <div>
           <h1>Ativação de parceiros</h1>
-          <p className="sub">Cadastro, status, ativação, venda em 30 dias e validação dos parceiros. Os treinamentos e formulários ficam em <Link href="/indireto/treinamentos">Treinamentos</Link>.</p>
+          <p className="sub">Parceiros ativados no mês escolhido (data de ativação), com venda em 30 dias e validação. Para ver todos, escolha "Todos os meses". Treinamentos ficam em <Link href="/indireto/treinamentos">Treinamentos</Link>.</p>
         </div>
-        {editar && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            {gerente && <Link className="btn btn-sec" href="/indireto/importar">Importar lista</Link>}
-            <Link className="btn" href="/indireto/novo">Novo parceiro</Link>
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {editar && gerente && <Link className="btn btn-sec" href="/indireto/importar">Importar lista</Link>}
+          {editar && <Link className="btn" href="/indireto/novo">Novo parceiro</Link>}
+          <SeletorMes mes={FIL.mes} meses={mesesAoRedor(hoje.slice(0, 7))} comTodos limpar={['pag']} />
+        </div>
       </div>
 
-      <CartoesFocais itens={cartoesFocais} selecionado={FIL.focal} hrefDe={(id) => urlF({ focal: id })} rotuloNumero="parceiros com esses filtros" />
-
-      <section className="assid-cartao filtros-acomp" aria-label="Filtros">
-        <GrupoFiltro rotulo="Ativação">
-          <ChipFiltro href={alterna('ab', 'boa')} sel={FIL.ab === 'boa'} cor="var(--ok)">Ativação boa ({conta('ab', 'boa')})</ChipFiltro>
-          <ChipFiltro href={alterna('ab', 'prazo')} sel={FIL.ab === 'prazo'} cor="var(--acento)">No prazo ({conta('ab', 'prazo')})</ChipFiltro>
-          <ChipFiltro href={alterna('ab', 'sem')} sel={FIL.ab === 'sem'} cor="var(--risco)">Sem venda em 30 dias ({conta('ab', 'sem')})</ChipFiltro>
-          <ChipFiltro href={alterna('ab', 'fora')} sel={FIL.ab === 'fora'} cor="var(--atencao)">Vendeu fora do prazo ({conta('ab', 'fora')})</ChipFiltro>
-          <ChipFiltro href={alterna('ab', 'naoativ')} sel={FIL.ab === 'naoativ'}>Não ativado ({conta('ab', 'naoativ')})</ChipFiltro>
-        </GrupoFiltro>
-        <GrupoFiltro rotulo="Mês de ativação">
-          {mesesAtiv.map((m) => <ChipFiltro key={m} href={alterna('ativ', m)} sel={FIL.ativ === m}>{m.slice(5)}/{m.slice(0, 4)} ({conta('ativ', m)})</ChipFiltro>)}
-        </GrupoFiltro>
-        <GrupoFiltro rotulo="Validação">
-          {Object.entries(VALIDACAO).map(([k, v]) => (
-            <ChipFiltro key={k} href={alterna('val', k)} sel={FIL.val === k} cor={k === 'aprovado' ? 'var(--ok)' : k === 'reprovado' ? 'var(--risco)' : 'var(--atencao)'}>{v.texto} ({conta('val', k)})</ChipFiltro>
-          ))}
-        </GrupoFiltro>
-        <GrupoFiltro rotulo="Status">
-          {statusLista.map((st) => (
-            <ChipFiltro key={st.chave} href={alterna('status', st.chave)} sel={FIL.status === st.chave}>{st.nome} ({conta('status', st.chave)})</ChipFiltro>
-          ))}
-        </GrupoFiltro>
-        <form method="get" className="grupo-filtro" action="/indireto">
-          <span className="rot">Buscar</span>
-          {Object.entries(FIL).filter(([k, v]) => v && k !== 'q').map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-          <input type="text" name="q" defaultValue={FIL.q} placeholder="Nome, cidade, CNPJ ou contato" style={{ flex: '1 1 220px', maxWidth: 320 }} />
-          <button className="btn btn-sec btn-peq" type="submit">Buscar</button>
-          {(algumFiltro || FIL.q) && <Link href="/indireto" className="btn btn-sec btn-peq">Limpar filtros</Link>}
-        </form>
+      <section className="barra-filtros" aria-label="Filtros">
+        <PilulasFocais itens={pilulas} selecionado={FIL.focal} hrefDe={(id) => urlF({ focal: id })} />
+        <div className="linha-menus">
+          {menus.map((m) => <MenuFiltro key={m.rotulo} rotulo={m.rotulo} opcoes={m.opcoes} />)}
+          <form method="get" className="busca-filtro" action="/indireto">
+            {Object.entries(FIL).filter(([k, v]) => !vazio(v) && k !== 'q').map(([k, v]) => <input key={k} type="hidden" name={k} value={Array.isArray(v) ? v.join(',') : v} />)}
+            <input type="text" name="q" defaultValue={FIL.q} placeholder="Buscar nome, cidade, CNPJ" aria-label="Buscar" />
+            <button className="btn btn-sec btn-peq" type="submit">Buscar</button>
+          </form>
+        </div>
+        <FaixaAtivos total={totalBase} filtrados={filtradas.length} ativos={ativosF} limparHref={urlF({ focal: '', ab: '', val: '', status: '', q: '' })} />
       </section>
 
       {!linhas.length ? (

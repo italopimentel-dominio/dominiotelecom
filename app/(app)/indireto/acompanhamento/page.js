@@ -6,6 +6,8 @@ import { fmtData } from '@/lib/formato';
 import { TIPOS_TREINAMENTO, situacaoAtivacao, ROTULO_ATIVACAO, classeStatus, documentoDe } from '@/lib/indireto';
 import { nomesDosPerfis, listarStatus } from '../dados';
 import SeletorMes from '@/components/SeletorMes';
+import MenuFiltro from '@/components/MenuFiltro';
+import { PilulasFocais, FaixaAtivos, urlCom, lista } from '@/components/Filtros';
 import { mesesAoRedor, nomeMes } from '@/lib/meses';
 
 const TIPOS = Object.keys(TIPOS_TREINAMENTO); // onboarding, telecom, servicos
@@ -25,7 +27,7 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
   const hoje = hojeSP();
   const mes = /^\d{4}-\d{2}$/.test(sp.mes || '') ? sp.mes : hoje.slice(0, 7);
   const focal = sp.focal || '';
-  const F = { mov: sp.mov || '', sit: sp.sit || '', ...Object.fromEntries(TIPOS.map((t) => [t, sp[t] || ''])) };
+  const F = { mov: lista(sp.mov), sit: lista(sp.sit), ...Object.fromEntries(TIPOS.map((t) => [t, lista(sp[t])])) };
 
   const [{ data: parceiros = [] }, { data: treinos = [] }, nomes, statusLista] = await Promise.all([
     supabase.from('parceiros').select('id, nome_fantasia, cpf, cnpj, status, criado_em, data_ativacao, ponto_focal_id, venda_mes, venda_produto').limit(10000),
@@ -67,23 +69,15 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
   TIPOS.forEach((t) => { c[`${t}_mes`] = base.filter((x) => x.tr[t].noMes).length; });
 
   // aplica os filtros
-  const passa = (x) => {
-    if (F.mov === 'cad' && !x.cadNoMes) return false;
-    if (F.mov === 'atv' && !x.atvNoMes) return false;
-    if (F.mov === 'trn' && !x.trnNoMes) return false;
-    if (F.sit) {
-      if (!x.sit) return false;
-      if (F.sit === 'naoboa' ? x.sit.estado === 'boa' : x.sit.estado !== F.sit) return false;
-    }
-    for (const t of TIPOS) {
-      if (F[t] === 'fez' && !x.tr[t].ultimo) return false;
-      if (F[t] === 'naofez' && x.tr[t].ultimo) return false;
-    }
-    return true;
+  const um = {
+    mov: (x, v) => (v === 'cad' ? x.cadNoMes : v === 'atv' ? x.atvNoMes : x.trnNoMes),
+    sit: (x, v) => !!x.sit && (v === 'naoboa' ? x.sit.estado !== 'boa' : x.sit.estado === v),
   };
-  const algumFiltro = F.mov || F.sit || TIPOS.some((t) => F[t]);
+  TIPOS.forEach((t) => { um[t] = (x, v) => (v === 'fez' ? !!x.tr[t].ultimo : !x.tr[t].ultimo); });
+  const passa = (x, exceto) => Object.entries(F).every(([k, v]) => !v.length || k === exceto || v.some((y) => um[k](x, y)));
+  const algumFiltro = Object.values(F).some((v) => v.length);
   // sem filtro: parceiros com movimento no mês + ativos/ativados (a visão geral); com filtro: todos que passam
-  const lista = base
+  const lista2 = base
     .filter((x) => (algumFiltro ? !x.oculto || x.cadNoMes || x.atvNoMes : x.cadNoMes || x.atvNoMes || x.trnNoMes || (!x.oculto && (x.p.status === 'ativo' || x.p.data_ativacao))))
     .filter(passa)
     .sort((a, b) => {
@@ -92,20 +86,28 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
       return rb.localeCompare(ra) || (a.p.nome_fantasia || '').localeCompare(b.p.nome_fantasia || '');
     });
 
-  // contagem de treinamento (fez / não fez) dentro da lista sem o próprio filtro daquele tipo
-  const contaTreino = (t, v) => base.filter((x) => !x.oculto || x.cadNoMes || x.atvNoMes).filter((x) => (v === 'fez' ? x.tr[t].ultimo : !x.tr[t].ultimo)).length;
+  const universo = base.filter((x) => !x.oculto || x.cadNoMes || x.atvNoMes);
+  const conta = (k, v) => universo.filter((x) => passa(x, k) && um[k](x, v)).length;
 
-  const url = (extra) => {
-    const q = new URLSearchParams({ mes, ...(focal ? { focal } : {}), ...Object.fromEntries(Object.entries(F).filter(([, v]) => v)), ...extra });
-    [...q.keys()].forEach((k) => !q.get(k) && q.delete(k));
-    return `/indireto/acompanhamento?${q}`;
-  };
-  const alterna = (k, v) => url({ [k]: F[k] === v ? '' : v });
-  const Chip = ({ k, v, children, cor }) => (
-    <Link href={alterna(k, v)} className={`chip-acomp${F[k] === v ? ' sel' : ''}`} aria-pressed={F[k] === v}>
-      {cor && <i className="ponto-chip" style={{ background: cor }} />}{children}
-    </Link>
-  );
+  const url = (extra) => urlCom('/indireto/acompanhamento', { mes, focal, ...F }, extra);
+  const menus = [
+    { rotulo: 'No mês', opcoes: [['cad', 'Cadastrados'], ['atv', 'Ativados'], ['trn', 'Treinados']].map(([v, t]) => ({ param: 'mov', v, t, n: conta('mov', v) })) },
+    { rotulo: 'Ativação', opcoes: [
+      { param: 'sit', v: 'boa', t: 'Ativação boa', cor: 'var(--ok)', n: conta('sit', 'boa') },
+      { param: 'sit', v: 'naoboa', t: 'Não boa (todas)', cor: 'var(--risco)', n: conta('sit', 'naoboa') },
+      ...Object.entries(ROTULO_ATIVACAO).filter(([e]) => e !== 'boa').map(([e, r]) => ({ param: 'sit', v: e, t: r.texto, n: conta('sit', e) })),
+    ] },
+    ...TIPOS.map((t) => ({ rotulo: TIPOS_TREINAMENTO[t], opcoes: [
+      { param: t, v: 'fez', t: 'Fez', cor: 'var(--ok)', n: conta(t, 'fez') },
+      { param: t, v: 'naofez', t: 'Não fez', cor: 'var(--risco)', n: conta(t, 'naofez') },
+    ] })),
+  ];
+  const ROT = { mov: 'No mês', sit: 'Ativação', ...TIPOS_TREINAMENTO };
+  const nomeOp = (k, v) => menus.flatMap((m) => m.opcoes).find((o) => o.param === k && o.v === v)?.t || v;
+  const ativosF = [
+    ...(focal ? [{ chave: 'focal', t: focal === 'sem' ? 'Sem ponto focal' : nomes.get(focal) || 'Ponto focal', href: url({ focal: '' }) }] : []),
+    ...Object.entries(F).flatMap(([k, vs]) => vs.map((v) => ({ chave: `${k}-${v}`, t: `${ROT[k]}: ${nomeOp(k, v)}`, href: url({ [k]: vs.filter((y) => y !== v) }) }))),
+  ];
 
   // cartões dos pontos focais
   const idsFocais = [...new Set((parceiros || []).map((p) => p.ponto_focal_id || 'sem'))];
@@ -145,48 +147,20 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
         <SeletorMes mes={mes} meses={mesesAoRedor(hoje.slice(0, 7))} />
       </div>
 
-      <nav className="equipes-assid" aria-label="Pontos focais">
-        <Link href={url({ focal: '' })} className={`cartao-equipe${!focal ? ' sel' : ''}`} aria-current={!focal ? 'true' : undefined}>
-          <span className="linha1"><span className="nome">Todos</span><span className="dica">{todos.length} parceiros</span></span>
-          <span className="pct">{todosResumo.atv}</span>
-          <span className="dica" style={{ marginTop: -4 }}>ativações · {todosResumo.boa} boas</span>
-          <span className="dica">{todosResumo.cad} cadastros · {todosResumo.trn} treinamentos</span>
-        </Link>
-        {cartoes.map((x) => (
-          <Link key={x.f} href={url({ focal: focal === x.f ? '' : x.f })} className={`cartao-equipe${focal === x.f ? ' sel' : ''}`} aria-current={focal === x.f ? 'true' : undefined}>
-            <span className="linha1"><span className="nome">{x.nome}</span><span className="dica">{x.parceiros} parceiros</span></span>
-            <span className="pct">{x.atv}</span>
-            <span className="dica" style={{ marginTop: -4 }}>ativações · {x.boa} boas</span>
-            <span className="dica">{x.cad} cadastros · {x.trn} treinamentos</span>
-          </Link>
-        ))}
-      </nav>
-
-      <section className="assid-cartao filtros-acomp" aria-label="Filtros">
-        <div className="grupo-filtro"><span className="rot">No mês</span>
-          <Chip k="mov" v="cad">Cadastrados ({c.cad})</Chip>
-          <Chip k="mov" v="atv">Ativados ({c.atv})</Chip>
-          <Chip k="mov" v="trn">Treinados ({c.trn})</Chip>
+      <section className="barra-filtros" aria-label="Filtros">
+        <PilulasFocais
+          itens={[{ id: '', nome: 'Todos', n: todosResumo.atv }, ...cartoes.map((x) => ({ id: x.f, nome: x.nome, n: x.atv }))]}
+          selecionado={focal} hrefDe={(id) => url({ focal: id })} />
+        <div className="linha-menus">
+          {menus.map((m) => <MenuFiltro key={m.rotulo} rotulo={m.rotulo} opcoes={m.opcoes} />)}
+          <span className="dica" style={{ marginLeft: 'auto' }}>Número ao lado do ponto focal = ativações no mês</span>
         </div>
-        <div className="grupo-filtro"><span className="rot">Ativação</span>
-          <Chip k="sit" v="boa" cor="var(--ok)">Boa ({c.boa})</Chip>
-          <Chip k="sit" v="naoboa" cor="var(--risco)">Não boa ({c.naoboa})</Chip>
-          {Object.entries(ROTULO_ATIVACAO).filter(([e]) => e !== 'boa').map(([e, r]) => (
-            <Chip key={e} k="sit" v={e}>{r.texto}</Chip>
-          ))}
-        </div>
-        {TIPOS.map((t) => (
-          <div key={t} className="grupo-filtro"><span className="rot">{TIPOS_TREINAMENTO[t]}</span>
-            <Chip k={t} v="fez" cor="var(--ok)">Fez ({contaTreino(t, 'fez')})</Chip>
-            <Chip k={t} v="naofez" cor="var(--risco)">Não fez ({contaTreino(t, 'naofez')})</Chip>
-          </div>
-        ))}
-        {algumFiltro && <Link href={url({ mov: '', sit: '', ...Object.fromEntries(TIPOS.map((t) => [t, ''])) })} className="btn btn-sec btn-peq" style={{ alignSelf: 'flex-start' }}>Limpar filtros</Link>}
+        <FaixaAtivos total={universo.length} filtrados={lista2.length} ativos={ativosF} limparHref={url({ focal: '', mov: '', sit: '', ...Object.fromEntries(TIPOS.map((t) => [t, ''])) })} />
       </section>
 
       <section className="assid-cartao" style={{ marginTop: 14 }}>
         <div className="assid-cab">
-          <h2>{lista.length} {lista.length === 1 ? 'parceiro' : 'parceiros'}{nomeFocal ? ` · ${nomeFocal}` : ''}</h2>
+          <h2>{lista2.length} {lista2.length === 1 ? 'parceiro' : 'parceiros'}{nomeFocal ? ` · ${nomeFocal}` : ''}</h2>
           <span className="dica">{algumFiltro ? 'Com os filtros acima.' : `Visão geral de ${nomeMes(mes).toLowerCase()}: quem teve movimento no mês e os parceiros ativos.`}</span>
         </div>
         <div className="tabela-wrap tabela-fixa" style={{ maxHeight: 560 }}>
@@ -198,7 +172,7 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
               </tr>
             </thead>
             <tbody>
-              {lista.map((x) => (
+              {lista2.map((x) => (
                 <tr key={x.p.id}>
                   <td className="esq"><Link href={`/indireto/${x.p.id}`}>{x.p.nome_fantasia}</Link>{documentoDe(x.p) && <span className="nome-sub">{documentoDe(x.p)}</span>}</td>
                   <td className="esq">{x.p.ponto_focal_id ? nomes.get(x.p.ponto_focal_id) : <span className="fraco">—</span>}</td>
@@ -216,7 +190,7 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
                   {TIPOS.map((t) => <td key={t} className="esq"><Treino v={x.tr[t]} /></td>)}
                 </tr>
               ))}
-              {!lista.length && <tr><td colSpan={5 + TIPOS.length} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Ninguém com esses filtros.</td></tr>}
+              {!lista2.length && <tr><td colSpan={5 + TIPOS.length} className="fraco" style={{ textAlign: 'center', padding: 24 }}>Ninguém com esses filtros.</td></tr>}
             </tbody>
           </table>
         </div>

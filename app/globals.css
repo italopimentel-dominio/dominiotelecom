@@ -898,3 +898,28 @@ button.q:not(:disabled):hover { outline: 2px solid var(--acento); outline-offset
 .registro-rapido { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .registro-rapido input[type="date"] { padding: 3px 6px; font-size: 12.5px; }
 .sep-filtro { width: 1px; height: 20px; background: var(--linha); margin: 0 4px; }
+
+/* filtros compactos (Ativação, Treinamentos, Acompanhamento) */
+.barra-filtros { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; background: #fff; border: 1px solid var(--linha); border-radius: 14px; margin-bottom: 14px; }
+.pilulas-focais { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.pilulas-focais .rot, .barra-filtros .rot { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b6480; margin-right: 4px; }
+.pilula { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px; border-radius: 99px; border: 1px solid var(--linha); background: #fff; font-size: 13.5px; color: var(--tinta); text-decoration: none; }
+.pilula .cont { font-size: 12px; color: #5e5873; background: #f1eff6; border-radius: 99px; padding: 1px 8px; }
+.pilula:hover { border-color: var(--acento); }
+.pilula.sel { border: 2px solid var(--acento); background: var(--acento-fundo); font-weight: 600; padding: 0 11px; }
+.linha-menus { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.menu-filtro { position: relative; }
+.menu-filtro-botao { height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--linha); background: #fff; font: inherit; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: var(--tinta); }
+.menu-filtro-botao b { font-weight: 600; color: var(--acento); }
+.menu-filtro-botao.ativo { border-color: var(--acento); background: var(--acento-fundo); }
+.menu-filtro-botao .seta-menu { color: #6b6480; }
+.menu-filtro-lista { position: absolute; top: calc(100% + 6px); left: 0; z-index: 20; min-width: 260px; background: #fff; border: 1px solid var(--linha); border-radius: 12px; box-shadow: 0 12px 32px rgba(26,23,38,.16); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.menu-filtro-titulo { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #6b6480; padding: 6px 6px 2px; }
+.menu-filtro-op { display: flex; align-items: center; gap: 8px; padding: 7px 6px; border-radius: 8px; font-size: 13.5px; cursor: pointer; }
+.menu-filtro-op:hover { background: #f6f5f9; }
+.menu-filtro-op.sel { background: var(--acento-fundo); }
+.busca-filtro { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.busca-filtro input { height: 38px; border-radius: 10px; min-width: 220px; }
+.faixa-ativos { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12.5px; margin: 0; }
+.tag-filtro { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px 0 10px; border-radius: 99px; border: 1px solid #c9bcff; background: var(--acento-fundo); color: var(--tinta); text-decoration: none; font-size: 12.5px; }
+.tag-filtro span { color: var(--acento); font-weight: 700; }
