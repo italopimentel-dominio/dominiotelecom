@@ -12,7 +12,9 @@ import LinksGerais from '@/components/LinksGerais';
 import { PilulasFocais, FaixaAtivos, urlCom, lista } from '@/components/Filtros';
 import MenuFiltro from '@/components/MenuFiltro';
 import SeletorMes from '@/components/SeletorMes';
-import { mesesAoRedor } from '@/lib/meses';
+import { mesesAoRedor, nomeMes } from '@/lib/meses';
+import { buscarTodas } from '@/lib/buscarTodas';
+import PlacarFocais from '@/components/PlacarFocais';
 import { vincularResposta, ignorarResposta } from '@/app/actions/indireto';
 import { nomesDosPerfis, listarFocais, listarStatus } from '../dados';
 
@@ -26,10 +28,11 @@ export default async function TreinamentosIndireto({ searchParams }) {
   const gerente = podeValidarIndireto(perfil);
   const hoje = hojeSP();
 
+  // tudo paginado: a API do Supabase corta em 1.000 linhas sem avisar
   const [{ data: parceiros = [] }, { data: treinos = [] }, { data: respostas = [] }, links, nomes, focais, statusLista, gerais] = await Promise.all([
-    supabase.from('parceiros').select('id, nome_fantasia, razao_social, cpf, cnpj, codigo, status, ponto_focal_id, validacao, venda_mes, contato_nome, contato_telefone').order('nome_fantasia'),
-    supabase.from('parceiro_treinamentos').select('*'),
-    supabase.from('parceiro_respostas_form').select('id, parceiro_id, respondido_em, nome, documento, email, tipo_treinamento, ignorada, acertos, total_pontuavel').eq('ignorada', false).order('respondido_em', { ascending: false }),
+    buscarTodas(() => supabase.from('parceiros').select('id, nome_fantasia, razao_social, cpf, cnpj, codigo, status, ponto_focal_id, validacao, venda_mes, contato_nome, contato_telefone').order('nome_fantasia').order('id')),
+    buscarTodas(() => supabase.from('parceiro_treinamentos').select('*').order('id')),
+    buscarTodas(() => supabase.from('parceiro_respostas_form').select('id, parceiro_id, respondido_em, nome, documento, email, tipo_treinamento, ignorada, acertos, total_pontuavel').eq('ignorada', false).order('respondido_em', { ascending: false }).order('id')),
     supabase.from('form_links').select('token, parceiro_id, tipo').is('respondido_em', null).gt('expira_em', new Date().toISOString()),
     nomesDosPerfis(supabase),
     listarFocais(supabase),
@@ -67,13 +70,21 @@ export default async function TreinamentosIndireto({ searchParams }) {
   // mes (treinamento realizado no mês, qualquer tipo | 'todos'), focal, status/comp/aguard e t_<tipo>/f_<tipo> (listas), q
   const mesSel = /^\d{4}-\d{2}$/.test(sp.mes || '') || sp.mes === 'todos' ? sp.mes : hoje.slice(0, 7);
   const treinouNoMes = new Set((treinos || []).filter((t) => t.status === 'realizado' && mesSel !== 'todos' && (t.data || '').startsWith(mesSel)).map((t) => t.parceiro_id));
-  const FIL = { mes: mesSel, focal: sp.focal || '', status: lista(sp.status), comp: lista(sp.comp), aguard: lista(sp.aguard), q: sp.q || '' };
+  // feito = quem fez o treinamento no período (ponto focal que treinou, não o responsável); ft = onb | trn
+  const FIL = { mes: mesSel, focal: sp.focal || '', feito: sp.feito || '', ft: sp.feito && ['onb', 'trn'].includes(sp.ft) ? sp.ft : '', status: lista(sp.status), comp: lista(sp.comp), aguard: lista(sp.aguard), q: sp.q || '' };
+  const noPeriodo = (t) => t.status === 'realizado' && (mesSel === 'todos' || (t.data || '').startsWith(mesSel));
+  const focalDe = new Map((parceiros || []).map((p) => [p.id, p.ponto_focal_id]));
+  // quem fez: feito_por (ou o ponto focal do parceiro) e, em conjunto, também feito_por_2
+  const quemFez = (t) => [...new Set([t.feito_por || focalDe.get(t.parceiro_id) || 'sem', t.feito_por_2].filter(Boolean))];
+  const doGrupo = (t, ft) => !ft || (ft === 'onb' ? t.tipo === 'onboarding' : t.tipo !== 'onboarding');
   TIPOS.forEach((t) => { FIL[`t_${t}`] = lista(sp[`t_${t}`]); FIL[`f_${t}`] = lista(sp[`f_${t}`]); });
   const b = normalizar(FIL.q);
   const bDig = soDigitos(FIL.q);
   const temLink = (p) => TIPOS.some((t) => linkDe.has(`${p.id}:${t}`));
   const um = {
     mes: (p, v) => v === 'todos' || treinouNoMes.has(p.id),
+    feito: (p, v) => (treinosDe.get(p.id) || []).some((t) => noPeriodo(t) && doGrupo(t, FIL.ft) && quemFez(t).includes(v)),
+    ft: () => true, // usado junto com "feito"
     focal: (p, v) => (v === 'sem' ? !p.ponto_focal_id : p.ponto_focal_id === v),
     status: (p, v) => p.status === v,
     comp: (p, v) => (v === '3' ? p.respondidos === 3 : v === '1' ? p.respondidos === 2 : p.respondidos <= 1),
@@ -120,6 +131,7 @@ export default async function TreinamentosIndireto({ searchParams }) {
   const ROT_PARAM = Object.fromEntries([...TIPOS.flatMap((t) => [[`t_${t}`, `${TIPOS_TREINAMENTO[t]}`], [`f_${t}`, `Formulário ${TIPOS_TREINAMENTO[t].toLowerCase()}`]]), ['comp', 'Formulários'], ['aguard', 'Formulários'], ['status', 'Status']]);
   const nomeOp = (k, v) => menus.flatMap((m) => m.opcoes).find((o) => o.param === k && o.v === v)?.t || v;
   const ativosF = [
+    ...(FIL.feito ? [{ chave: 'feito', t: `Feito por: ${FIL.feito === 'sem' ? 'sem ponto focal' : nomes.get(FIL.feito) || '—'}${FIL.ft === 'onb' ? ' · ONB' : FIL.ft === 'trn' ? ' · treinamentos' : ''}`, href: urlF({ feito: '', ft: '' }) }] : []),
     ...(FIL.focal ? [{ chave: 'focal', t: pilulas.find((x) => x.id === FIL.focal)?.nome || 'Ponto focal', href: urlF({ focal: '' }) }] : []),
     ...Object.keys(ROT_PARAM).flatMap((k) => (FIL[k] || []).map((v) => ({ chave: `${k}-${v}`, t: `${ROT_PARAM[k]}: ${nomeOp(k, v)}`, href: urlF({ [k]: FIL[k].filter((x) => x !== v) }) }))),
     ...(FIL.q ? [{ chave: 'q', t: `Busca: "${FIL.q}"`, href: urlF({ q: '' }) }] : []),
@@ -150,6 +162,20 @@ export default async function TreinamentosIndireto({ searchParams }) {
       <span className="dica">Por página:{' '}{POR_PAGINA.map((n) => (n === porPagina ? <b key={n} style={{ margin: '0 4px' }}>{n}</b> : <Link key={n} href={linkPagina(1, n)} style={{ margin: '0 4px' }}>{n}</Link>))}</span>
     </div>
   );
+
+  // placar por ponto focal (quem treinou no período)
+  const zero = () => ({ n: 0, f: 0 });
+  const placarMap = new Map();
+  (treinos || []).filter(noPeriodo).forEach((t) => {
+    const respondeu = !!formDe.get(t.parceiro_id)?.[t.tipo];
+    quemFez(t).forEach((f) => {
+      if (!placarMap.has(f)) placarMap.set(f, { id: f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—', onb: zero(), trn: zero(), telecom: zero(), servicos: zero() });
+      const e = placarMap.get(f);
+      [t.tipo === 'onboarding' ? e.onb : e.trn, e[t.tipo === 'onboarding' ? 'onb' : t.tipo]].forEach((x, i) => { if (i === 1 && t.tipo === 'onboarding') return; x.n++; if (respondeu) x.f++; });
+    });
+  });
+  const placar = [...placarMap.values()].sort((a, b2) => (a.id === 'sem') - (b2.id === 'sem') || (b2.onb.n + b2.trn.n) - (a.onb.n + a.trn.n) || a.nome.localeCompare(b2.nome));
+  const tituloPlacar = `Quem treinou · ${mesSel === 'todos' ? 'todos os meses' : nomeMes(mesSel).toLowerCase()}`;
 
   const limite = somarDias(hoje, 14);
   const agenda = (treinos || []).filter((t) => t.status === 'agendado' && t.data >= hoje && t.data <= limite).sort((x, y) => x.data.localeCompare(y.data));
@@ -192,6 +218,8 @@ export default async function TreinamentosIndireto({ searchParams }) {
           </p>
         )}
       </section>
+
+      <PlacarFocais itens={placar} titulo={tituloPlacar} sel={FIL.feito} selFt={FIL.ft} hrefDe={(id, ft) => urlF({ feito: id, ft: id ? ft : '', pag: '' })} />
 
       {editar && <LinksGerais links={linksGerais} gerente={gerente} />}
 
