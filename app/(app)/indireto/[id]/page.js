@@ -225,7 +225,7 @@ export default async function Parceiro({ params }) {
                       ) : <>{fmtData(t.data, true)} <span className="tag">{STATUS_TREINAMENTO[t.status]}</span></>}
                     </td>
                     <td className="esq">
-                      {nomes.get(t.feito_por) || <span className="fraco">—</span>}
+                      {nomes.get(t.feito_por) || <span className="fraco">—</span>}{t.feito_por_2 && <> e {nomes.get(t.feito_por_2) || '—'}<span className="nome-sub">em conjunto</span></>}
                       {t.feito_por && p.ponto_focal_id && t.feito_por !== p.ponto_focal_id && <span className="nome-sub">outro ponto focal</span>}
                     </td>
                     <td className="esq">{t.instrutor || '—'}</td>

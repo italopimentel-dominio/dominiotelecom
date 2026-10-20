@@ -134,6 +134,7 @@ export default async function ControleIndireto({ searchParams }) {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {editar && gerente && <Link className="btn btn-sec" href="/indireto/importar">Importar lista</Link>}
+          {editar && gerente && <Link className="btn btn-sec" href="/indireto/importar-planilha">Importar acompanhamento</Link>}
           {editar && <Link className="btn" href="/indireto/novo">Novo parceiro</Link>}
           <SeletorMes mes={FIL.mes} meses={mesesAoRedor(hoje.slice(0, 7))} comTodos limpar={['pag']} />
         </div>

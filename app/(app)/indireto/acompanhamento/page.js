@@ -31,7 +31,7 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
 
   const [{ data: parceiros = [] }, { data: treinos = [] }, nomes, statusLista] = await Promise.all([
     supabase.from('parceiros').select('id, nome_fantasia, cpf, cnpj, status, criado_em, data_ativacao, ponto_focal_id, venda_mes, venda_produto').limit(10000),
-    supabase.from('parceiro_treinamentos').select('parceiro_id, tipo, data, status, feito_por').eq('status', 'realizado').limit(20000),
+    supabase.from('parceiro_treinamentos').select('parceiro_id, tipo, data, status, feito_por, feito_por_2').eq('status', 'realizado').limit(20000),
     nomesDosPerfis(supabase),
     listarStatus(supabase),
   ]);
@@ -42,13 +42,13 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
   const ultimo = new Map();
   (treinos || []).forEach((t) => { const k = `${t.parceiro_id}|${t.tipo}`; if (!ultimo.has(k) || t.data > ultimo.get(k)) ultimo.set(k, t.data); });
   const treinouNoMes = new Map(); // pid|tipo -> { data, por } no mês (por = quem fez; pode ser outro ponto focal)
-  (treinos || []).forEach((t) => { if (noMes(t.data)) treinouNoMes.set(`${t.parceiro_id}|${t.tipo}`, { data: t.data, por: t.feito_por || null }); });
+  (treinos || []).forEach((t) => { if (noMes(t.data)) treinouNoMes.set(`${t.parceiro_id}|${t.tipo}`, { data: t.data, por: t.feito_por || null, por2: t.feito_por_2 || null }); }); // por2 = feito em conjunto
 
   // uma linha por parceiro, com tudo o que importa no mês
   const todos = (parceiros || []).map((p) => {
     const cad = p.criado_em ? dataSP(p.criado_em) : null;
     const sit = situacaoAtivacao(p, hoje);
-    const tr = Object.fromEntries(TIPOS.map((t) => { const m = treinouNoMes.get(`${p.id}|${t}`); return [t, { ultimo: ultimo.get(`${p.id}|${t}`) || null, noMes: m?.data || null, por: m?.por || null }]; }));
+    const tr = Object.fromEntries(TIPOS.map((t) => { const m = treinouNoMes.get(`${p.id}|${t}`); return [t, { ultimo: ultimo.get(`${p.id}|${t}`) || null, noMes: m?.data || null, por: m?.por || null, por2: m?.por2 || null }]; }));
     return {
       p, cad, sit, tr,
       cadNoMes: noMes(cad), atvNoMes: noMes(p.data_ativacao), trnNoMes: TIPOS.some((t) => tr[t].noMes),
@@ -56,9 +56,9 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
     };
   });
   // do ponto focal = parceiro dele, ou parceiro de outro em que ele fez treinamento no mês
-  const ehDoFocal = (x, f) => (f === 'sem' ? !x.p.ponto_focal_id : x.p.ponto_focal_id === f || TIPOS.some((t) => x.tr[t].por === f));
+  const ehDoFocal = (x, f) => (f === 'sem' ? !x.p.ponto_focal_id : x.p.ponto_focal_id === f || TIPOS.some((t) => x.tr[t].por === f || x.tr[t].por2 === f));
   const doFocal = (x) => !focal || ehDoFocal(x, focal);
-  const treinoConta = (x, t) => !!x.tr[t].noMes && (!focal || focal === 'sem' || x.tr[t].por === focal || (!x.tr[t].por && x.p.ponto_focal_id === focal));
+  const treinoConta = (x, t) => !!x.tr[t].noMes && (!focal || focal === 'sem' || x.tr[t].por === focal || x.tr[t].por2 === focal || (!x.tr[t].por && x.p.ponto_focal_id === focal));
   const base = todos.filter(doFocal);
 
   // contadores (sobre o ponto focal escolhido)
@@ -119,7 +119,7 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
     return {
       f, nome: f === 'sem' ? 'Sem ponto focal' : nomes.get(f) || '—', parceiros: l.length,
       atv: l.filter((x) => x.atvNoMes).length, boa: l.filter((x) => x.atvNoMes && x.sit?.estado === 'boa').length,
-      cad: l.filter((x) => x.cadNoMes).length, trn: todos.reduce((s, x) => s + TIPOS.filter((t) => x.tr[t].noMes && (x.tr[t].por || x.p.ponto_focal_id || 'sem') === f).length, 0),
+      cad: l.filter((x) => x.cadNoMes).length, trn: todos.reduce((s, x) => s + TIPOS.filter((t) => x.tr[t].noMes && ((x.tr[t].por || x.p.ponto_focal_id || 'sem') === f || x.tr[t].por2 === f)).length, 0),
     };
   }).sort((a, b) => (a.f === 'sem') - (b.f === 'sem') || b.atv - a.atv || a.nome.localeCompare(b.nome));
   const todosResumo = { atv: todos.filter((x) => x.atvNoMes).length, boa: todos.filter((x) => x.atvNoMes && x.sit?.estado === 'boa').length, cad: todos.filter((x) => x.cadNoMes).length, trn: todos.reduce((s, x) => s + TIPOS.filter((t) => x.tr[t].noMes).length, 0) };
@@ -137,7 +137,7 @@ export default async function AcompanhamentoIndireto({ searchParams }) {
   const dias = [...porDia.entries()].sort((a, b) => b[0].localeCompare(a[0]));
 
   const Treino = ({ v, focalParceiro }) => (v.noMes
-    ? <><span className="tag tag-ok" title="Feito neste mês">✓ {dm(v.noMes)}</span>{v.por && v.por !== focalParceiro && <span className="nome-sub">por {nomes.get(v.por) || 'outro'}</span>}</>
+    ? <><span className="tag tag-ok" title="Feito neste mês">✓ {dm(v.noMes)}</span>{v.por2 ? <span className="nome-sub">em conjunto: {nomes.get(v.por) || '—'} e {nomes.get(v.por2) || '—'}</span> : v.por && v.por !== focalParceiro && <span className="nome-sub">por {nomes.get(v.por) || 'outro'}</span>}</>
     : v.ultimo ? <span className="dica" title="Feito antes deste mês">✓ {dm(v.ultimo)}</span>
     : <span className="tag tag-risco">pendente</span>);
 
