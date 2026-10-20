@@ -43,7 +43,7 @@ function FormFonte({ f = {}, chaveModelo, produtos, botao }) {
           <label key={d} className="campo">{rotulo} da planilha entra em
             <select name={`produto_${d}`} defaultValue={f.config?.[d] || sugerirProduto(rotulo, produtos)}>
               <option value="">Não gravar</option>
-              {produtos.map((p) => <option key={p.id} value={p.id}>{p.nome}</option>)}
+              {produtos.map((p) => <option key={p.id} value={p.id}>{p.nome}{p.parte ? ' (parte de soma)' : ''}</option>)}
             </select>
           </label>
         ))}
@@ -59,18 +59,23 @@ function FormFonte({ f = {}, chaveModelo, produtos, botao }) {
 export default async function Fontes() {
   const { supabase, perfil } = await exigirSessao();
   if (!podeEditar(perfil)) redirect('/');
-  const [{ data: fontes, error }, { data: produtos }, { data: sincs }, { data: periodos }, { data: perfis }, cfgAuto] = await Promise.all([
+  const [{ data: fontes, error }, { data: produtos }, { data: sincs }, { data: periodos }, { data: perfis }, cfgAuto, comps] = await Promise.all([
     supabase.from('fontes_dados').select('*').order('criado_em'),
     supabase.from('produtos').select('id, nome, ativo, tipo').order('ordem'),
     supabase.from('sincronizacoes').select('id, fonte_id, url, executado_em, executado_por, meses, resumo, desfeita_em').order('executado_em', { ascending: false }).limit(30),
     supabase.from('periodos').select('*').order('referencia', { ascending: false }).limit(12),
     supabase.from('profiles').select('id, nome, usuario'),
     supabase.from('config_sistema').select('valor, atualizado_em, atualizado_por').eq('chave', 'fontes_auto').maybeSingle(),
+    supabase.from('produto_componentes').select('componente_id'),
   ]);
   if (error) {
     return <div className="vazio"><h2>Falta preparar o banco</h2><p>Rode o arquivo 017_fonte_dados.sql no Supabase para usar a fonte de dados.</p></div>;
   }
-  const prods = (produtos || []).filter((p) => p.ativo && p.tipo !== 'composto');
+  // produtos que a fonte pode gravar: os ativos e as partes internas de uma soma (ex.: Alta Móvel – planilha, Alta Fibra – B2C),
+  // que ficam inativas para não aparecer nas abas. Soma nunca recebe gravação direta.
+  const partes = new Set(((comps && !comps.error && comps.data) || []).map((c) => c.componente_id));
+  const prods = (produtos || []).filter((p) => p.tipo !== 'composto' && (p.ativo || partes.has(p.id)))
+    .map((p) => ({ ...p, parte: !p.ativo }));
   const nomePerfil = new Map((perfis || []).map((p) => [p.id, p.nome || p.usuario]));
 
   return (
