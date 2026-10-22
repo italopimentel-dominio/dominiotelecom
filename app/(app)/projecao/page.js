@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 const pctTxt = (v) => (v == null ? '—' : `${Math.round(v * 100)}%`);
 const COR = { 'em-dia': 'var(--ok)', atencao: 'var(--atencao)', risco: 'var(--risco)', 'sem-meta': '#8f88a8' };
 const COR_SIT = { exec: 'var(--ok)', tram: 'var(--atencao)', canc: '#b9b4c8', backlog: '#c98a3a' };
-const zero = () => ({ tramMes: 0, backlog: 0, backlogPor: {}, safra: { exec: 0, tram: 0, canc: 0 }, safras3: { exec: 0, canc: 0 } });
+const zero = () => ({ assumidas: 0, tramMes: 0, backlog: 0, backlogPor: {}, safra: { exec: 0, tram: 0, canc: 0 }, safras3: { exec: 0, canc: 0 } });
 const NOMES_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const rotSafra = (m) => (m ? `${NOMES_MES[+m.slice(5, 7) - 1]}/${m.slice(2, 4)}` : 'sem data');
 // mês 'AAAA-MM' menos n
@@ -37,6 +37,16 @@ function PedidosSafra({ x, un }) {
         {fmtValor(s.exec, un)} exec. · {fmtValor(s.tram, un)} tram. · {fmtValor(s.canc, un)} pend./canc. · aprovação <b>{pctTxt(x.aprovMes)}</b>
         {x.aprov3 != null && <> (3 meses: {pctTxt(x.aprov3)})</>}
       </span>
+      {x.assumidas > 0 && (
+        <span className="nome-sub" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--atencao)' }}>
+          ⚠ {fmtValor(x.assumidas, un)} sem classe, contados como Alta
+          <InfoBalao titulo="Pedidos sem classe" rotulo="Por que contados como Alta">
+            <span style={{ display: 'block' }}>Estes pedidos vieram com o GRUPO CLASSE vazio ou com uma classe que o sistema não conhece.</span>
+            <span style={{ display: 'block' }}>Pela regra combinada, eles entram como Alta para não sumirem da projeção.</span>
+            <span style={{ display: 'block', marginTop: 4, opacity: 0.85 }}>Quando a classe for preenchida na planilha, a próxima leitura corrige sozinha.</span>
+          </InfoBalao>
+        </span>
+      )}
     </div>
   );
 }
@@ -101,7 +111,7 @@ export default async function PainelProjecao({ searchParams }) {
   const tres = new Set([1, 2, 3].map((n) => mesMenos(mes, n)));
   const [base, carteira] = await Promise.all([
     carregarBase(supabase, periodo, medida),
-    buscarTodas(() => supabase.from('pedidos_carteira').select('colaborador_id, grupo_id, produto_id, situacao, safra, qtd, valor').order('id')),
+    buscarTodas(() => supabase.from('pedidos_carteira').select('colaborador_id, grupo_id, produto_id, situacao, safra, qtd, valor, classe_assumida').order('id')),
   ]);
   const atual = carteira;
   const an = analisar(base);
@@ -125,11 +135,12 @@ export default async function PainelProjecao({ searchParams }) {
       else if (!r.safra || r.safra < mes) { e.backlog += v; e.backlogPor[r.safra || ''] = (e.backlogPor[r.safra || ''] || 0) + v; }
     }
     if (r.safra === mes) e.safra[r.situacao] += v;
+    if (r.classe_assumida && (r.safra === mes || (r.situacao === 'tram' && (!r.safra || r.safra < mes)))) e.assumidas += v;
     if (tres.has(r.safra) && r.situacao !== 'tram') e.safras3[r.situacao] += v;
     idx.set(k, e);
   });
   const somarEm = (acc, x, peso = 1) => {
-    acc.tramMes += x.tramMes * peso; acc.backlog += x.backlog * peso;
+    acc.assumidas += x.assumidas * peso; acc.tramMes += x.tramMes * peso; acc.backlog += x.backlog * peso;
     Object.entries(x.backlogPor).forEach(([k, v]) => { acc.backlogPor[k] = (acc.backlogPor[k] || 0) + v * peso; });
     ['exec', 'tram', 'canc'].forEach((s) => { acc.safra[s] += x.safra[s] * peso; });
     ['exec', 'canc'].forEach((s) => { acc.safras3[s] += x.safras3[s] * peso; });
@@ -146,7 +157,7 @@ export default async function PainelProjecao({ searchParams }) {
     const res = an.resumo(ciclo, g);
     const meta = an.meta(g, p.id);
     const f = funil(g, p.id);
-    return { produto: p, temMeta: meta !== null, backlogPor: f.backlogPor, ...projetar({ executado: an.realizado(g, p.id), ...f }, res, meta) };
+    return { produto: p, temMeta: meta !== null, backlogPor: f.backlogPor, assumidas: f.assumidas, ...projetar({ executado: an.realizado(g, p.id), ...f }, res, meta) };
   };
 
   const grupos = canal ? [{ ...canal, nivel: 0 }, ...base.achatar(canal.id, 1, true)] : [];
@@ -210,7 +221,7 @@ export default async function PainelProjecao({ searchParams }) {
           <div className="legenda">
             <span><i style={{ background: COR_SIT.exec }} />Executado</span>
             <span><i style={{ background: COR_SIT.tram }} />Tramitando</span>
-            <span><i style={{ background: COR_SIT.canc }} />Pendente/cancelado</span>
+            <span><i style={{ background: COR_SIT.canc }} />Pendente/cancelado (inclui status vazio)</span>
             <span><i style={{ background: COR_SIT.backlog }} />Backlog (tramitando de meses anteriores)</span>
             <span><i className="marca-leg" />Meta</span>
           </div>
