@@ -15,7 +15,8 @@ export default async function LayoutApp({ children }) {
 
   const metas = [
     { href: '/resumo', rotulo: 'Resumo da empresa', icone: 'resumo' },
-    { href: '/', rotulo: 'Painel', icone: 'painel' },
+    { href: '/', rotulo: 'Painel – Executado', icone: 'painel' },
+    { href: '/projecao', rotulo: 'Painel – Projeção', icone: 'painel' },
     { href: '/metas', rotulo: 'Quadro de metas', icone: 'quadro' },
     { href: '/tempo-falado', rotulo: 'Tempo falado', icone: 'fonte' },
     { secao: 'Pessoas' },

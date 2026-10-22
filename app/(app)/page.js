@@ -39,8 +39,8 @@ export default async function Painel({ searchParams }) {
     <>
       <div className="topo">
         <div>
-          <h1>{periodo.nome}</h1>
-          <p className="sub">Hoje é {fmtData(an.hoje, true)}. Necessidade bruta calculada com {fator}.</p>
+          <h1>Painel – Executado · {periodo.nome}</h1>
+          <p className="sub">Hoje é {fmtData(an.hoje, true)}. Necessidade bruta calculada com {fator}. <Link href={`/projecao${q(canal ? `&c=${canal.id}` : '')}`}>Ver a projeção →</Link></p>
         </div>
         <div className="linha-acoes">
           <BaixarExcelMes periodoId={periodo.id} />
