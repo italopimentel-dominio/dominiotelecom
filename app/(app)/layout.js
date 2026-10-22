@@ -48,6 +48,7 @@ export default async function LayoutApp({ children }) {
 
   const menu = [
     { rotulo: 'Metas', icone: 'metas', itens: metas, aberto: true },
+    { href: '/pre-input', rotulo: 'Pré-Input', icone: 'fonte' },
     { href: '/campanhas', rotulo: 'Campanhas', icone: 'campanhas' },
     { href: '/organograma', rotulo: 'Organograma', icone: 'organograma' },
   ];
