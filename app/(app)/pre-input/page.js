@@ -8,6 +8,12 @@ import SeletorDia from '@/components/SeletorDia';
 import InfoBalao from '@/components/InfoBalao';
 import ImportarPreInput from '@/components/ImportarPreInput';
 import ParametrosPreInput from '@/components/ParametrosPreInput';
+import BaixarExcelLista from '@/components/BaixarExcelLista';
+import MenuFiltro from '@/components/MenuFiltro';
+import { FaixaAtivos, urlCom, lista as listaParam } from '@/components/Filtros';
+
+const SEM_PROD = '__sem';
+const NOME_SEM_PROD = 'Sem produto no arquivo de Produção';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -16,6 +22,7 @@ const fmtN = (n) => Number(n || 0).toLocaleString('pt-BR');
 const fmtH = (h) => { if (h == null || isNaN(h)) return '—'; let hh = Math.floor(h), mm = Math.round((h - hh) * 60); if (mm === 60) { hh++; mm = 0; } return `${hh}h${String(mm).padStart(2, '0')}`; };
 const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—');
 const hora = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)} ${iso.slice(11, 16)}` : '—');
+const dataHoraBr = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)} ${iso.slice(11, 16)}` : '');
 const media = (l) => (l.length ? l.reduce((s, x) => s + x, 0) / l.length : null);
 const linha = (t, k) => <span key={k} style={{ display: 'block' }}>{t}</span>;
 
@@ -76,7 +83,14 @@ export default async function PreInput({ searchParams }) {
   const gruposEntrada = [...new Set(entradas.map((f) => f.grupo || SEM_GRUPO))];
   const contaEnt = (g) => doDia.filter((p) => p.grupoEntrada === g).length;
   const sel = gruposEntrada.includes(sp.ent) ? sp.ent : '';
-  const lista = sel ? doDia.filter((p) => p.grupoEntrada === sel) : doDia;
+  const listaEnt = sel ? doDia.filter((p) => p.grupoEntrada === sel) : doDia;
+  // filtro de grupo de produto (vários): o pedido entra se tiver algum dos grupos escolhidos
+  const gp = listaParam(sp.gp);
+  const temGrupo = (p, g) => (g === SEM_PROD ? p.semProduto : p.grupos.includes(g));
+  const lista = gp.length ? listaEnt.filter((p) => gp.some((g) => temGrupo(p, g))) : listaEnt;
+  // ordenação das tabelas (sempre do maior para o menor)
+  const og = ['neos', 'qtd', 'evol', 'tempo', 'sla', 'pctSla'].includes(sp.og) ? sp.og : 'neos';
+  const od = ['n', 'pct', 'tempo', 'pctSla'].includes(sp.od) ? sp.od : '';
 
   // indicadores
   const evoluidos = lista.filter((p) => p.evoluiu);
@@ -89,7 +103,7 @@ export default async function PreInput({ searchParams }) {
   // por grupo de produto (pedido com mais de um grupo aparece em cada um)
   const porGrupo = new Map();
   lista.forEach((p) => {
-    const gs = p.grupos.length ? p.grupos : ['(sem produto no arquivo de Produção)'];
+    const gs = p.grupos.length ? p.grupos : [NOME_SEM_PROD];
     gs.forEach((g) => {
       if (!porGrupo.has(g)) porGrupo.set(g, { grupo: g, neos: 0, qtd: 0, tempos: [], evol: 0, noSla: 0, sla: slaPorGrupo.get(chaveFila(g)) ?? Number(cfg.sla_padrao) });
       const e = porGrupo.get(g);
@@ -98,7 +112,16 @@ export default async function PreInput({ searchParams }) {
       if (p.evoluiu) { e.evol++; e.tempos.push(p.tempo); if (p.dentroSla) e.noSla++; }
     });
   });
-  const grupos = [...porGrupo.values()].sort((a, b) => b.neos - a.neos);
+  const valorG = (g) => ({ neos: g.neos, qtd: g.qtd, evol: g.evol, tempo: media(g.tempos) ?? -1, sla: g.sla, pctSla: g.evol ? g.noSla / g.evol : -1 }[og]);
+  const grupos = [...porGrupo.values()]
+    .filter((g) => !gp.length || gp.includes(g.grupo === NOME_SEM_PROD ? SEM_PROD : g.grupo))
+    .sort((a, b) => valorG(b) - valorG(a) || b.neos - a.neos);
+  // opções do filtro de grupo de produto (contagem sobre o grupo de entrada escolhido)
+  const opcoesGrupo = (() => {
+    const c = new Map();
+    listaEnt.forEach((p) => (p.semProduto ? [SEM_PROD] : p.grupos).forEach((g) => c.set(g, (c.get(g) || 0) + 1)));
+    return [...c.entries()].sort((a, b) => b[1] - a[1]).map(([g, n]) => ({ param: 'gp', v: g, t: g === SEM_PROD ? NOME_SEM_PROD : g, n }));
+  })();
 
   // para onde evoluíram (na ordem dos grupos de destino dos parâmetros)
   const ordem = new Map((gruposR.data || []).map((g) => [g.nome, g.ordem]));
@@ -109,9 +132,30 @@ export default async function PreInput({ searchParams }) {
     e.n++; e.tempos.push(p.tempo); if (p.dentroSla) e.noSla++;
     e.filas.set(p.filaSaida, (e.filas.get(p.filaSaida) || 0) + 1);
   });
-  const listaDestinos = [...destinos.values()].sort((a, b) => (ordem.get(a.grupo) ?? 99) - (ordem.get(b.grupo) ?? 99) || b.n - a.n);
+  const valorD = (d) => ({ n: d.n, pct: d.n, tempo: media(d.tempos) ?? -1, pctSla: d.n ? d.noSla / d.n : -1 }[od]);
+  const listaDestinos = [...destinos.values()].sort((a, b) => (od ? valorD(b) - valorD(a) : 0) || (ordem.get(a.grupo) ?? 99) - (ordem.get(b.grupo) ?? 99) || b.n - a.n);
 
-  const href = (extra) => { const p = new URLSearchParams({ dia, ...(sel ? { ent: sel } : {}), ...extra }); [...p.keys()].forEach((k) => { if (!p.get(k)) p.delete(k); }); return `/pre-input?${p.toString()}`; };
+  const href = (extra) => urlCom('/pre-input', { dia, ent: sel, gp, og: sp.og ? og : '', od }, extra);
+  // cabeçalho que ordena (clique = do maior para o menor; clique de novo volta ao padrão)
+  const Th = ({ param, k, atual, padrao, children }) => (
+    <th aria-sort={atual === k ? 'descending' : undefined}>
+      <Link href={href({ [param]: atual === k && k !== padrao ? '' : k })} style={{ color: 'inherit', textDecoration: 'none', whiteSpace: 'nowrap' }} title="Ordenar do maior para o menor">
+        {children} <span aria-hidden="true" style={{ opacity: atual === k ? 1 : 0.3 }}>▼</span>
+      </Link>
+    </th>
+  );
+  const ativosF = gp.map((g) => ({ chave: `gp-${g}`, t: `Grupo: ${g === SEM_PROD ? NOME_SEM_PROD : g}`, href: href({ gp: gp.filter((x) => x !== g) }) }));
+  // lista para Excel: pedidos sem produto no arquivo de Produção (no dia e no grupo de entrada escolhidos)
+  const semProdutoExcel = listaEnt.filter((p) => p.semProduto).map((p) => ({
+    neo: p.neo, grupoEntrada: p.grupoEntrada, filaEntrada: p.filaEntrada, chegou: dataHoraBr(p.entrada),
+    situacao: p.evoluiu ? 'Evoluiu' : 'Sem evolução', filaAtual: p.evoluiu ? p.filaSaida : p.filaAtual, grupoDestino: p.evoluiu ? p.grupoSaida : '',
+    saiu: p.saida ? dataHoraBr(p.saida) : '', tempo: Math.round(p.tempo * 100) / 100, sla: p.sla,
+  }));
+  const colunasSemProduto = [
+    { k: 'neo', t: 'Pedido (NEO)' }, { k: 'grupoEntrada', t: 'Grupo de entrada' }, { k: 'filaEntrada', t: 'Fila de entrada' }, { k: 'chegou', t: 'Chegou' },
+    { k: 'situacao', t: 'Situação' }, { k: 'filaAtual', t: 'Fila atual / de saída' }, { k: 'grupoDestino', t: 'Grupo de destino' }, { k: 'saiu', t: 'Saiu' },
+    { k: 'tempo', t: 'Tempo (h úteis)' }, { k: 'sla', t: 'SLA usado (h)' },
+  ];
   const nomeDia = `${dia.slice(8)}/${dia.slice(5, 7)}/${dia.slice(0, 4)}`;
 
   return (
@@ -150,6 +194,14 @@ export default async function PreInput({ searchParams }) {
         ))}
       </div>
 
+      <section className="barra-filtros" aria-label="Filtros" style={{ marginBottom: 10 }}>
+        <div className="linha-menus">
+          <MenuFiltro rotulo="Grupo de produto" opcoes={opcoesGrupo} />
+          <span className="dica" style={{ marginLeft: 'auto' }}>Escolha um ou mais grupos: os números passam a contar só os pedidos desses grupos.</span>
+        </div>
+        <FaixaAtivos total={listaEnt.length} filtrados={lista.length} ativos={ativosF} limparHref={href({ gp: [] })} />
+      </section>
+
       <div className="calendario" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
         <div>
           <b>{fmtN(lista.length)}</b>
@@ -165,17 +217,28 @@ export default async function PreInput({ searchParams }) {
         <div><b style={{ color: sem.length ? 'var(--risco)' : undefined }}>{fmtN(sem.length)}</b><span>sem evolução · {fmtN(sem.filter((p) => p.estourado).length)} já passaram do SLA</span></div>
         <div><b style={{ color: 'var(--ok)' }}>{fmtN(noSla.length)}</b><span>evoluíram dentro do SLA ({pct(noSla.length, evoluidos.length)} dos que evoluíram)</span></div>
       </div>
-      {semProduto > 0 && <p className="dica" style={{ margin: '4px 0 12px' }}>⚠ {fmtN(semProduto)} pedidos não estão no arquivo de Produção: ficam sem produto e usam o SLA padrão de {fmtN(cfg.sla_padrao)}h. Suba a Produção do mesmo período para completar.</p>}
+      {semProdutoExcel.length > 0 && (
+        <p className="dica" style={{ margin: '4px 0 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          ⚠ {fmtN(semProdutoExcel.length)} pedidos não estão no arquivo de Produção: ficam sem produto e usam o SLA padrão de {fmtN(cfg.sla_padrao)}h. Suba a Produção do mesmo período para completar.
+          <BaixarExcelLista linhas={semProdutoExcel} colunas={colunasSemProduto} arquivo={`pre-input-sem-produto-${dia}.xlsx`} aba="Sem produto" rotulo="Baixar lista em Excel" />
+        </p>
+      )}
 
       <section className="assid-cartao" style={{ marginTop: 12 }} aria-labelledby="pi-grupos">
         <h2 id="pi-grupos" style={{ marginBottom: 8 }}>Por grupo de produto</h2>
         <div className="tabela-wrap">
           <table>
-            <thead><tr><th className="esq">Grupo</th><th>Pedidos</th><th>Produtos</th><th>Evoluíram</th><th>Tempo médio</th><th>SLA</th><th>Dentro do SLA</th></tr></thead>
+            <thead><tr><th className="esq">Grupo</th>
+              <Th param="og" k="neos" atual={og} padrao="neos">Pedidos</Th><Th param="og" k="qtd" atual={og} padrao="neos">Produtos</Th>
+              <Th param="og" k="evol" atual={og} padrao="neos">Evoluíram</Th><Th param="og" k="tempo" atual={og} padrao="neos">Tempo médio</Th>
+              <Th param="og" k="sla" atual={og} padrao="neos">SLA</Th><Th param="og" k="pctSla" atual={og} padrao="neos">Dentro do SLA</Th></tr></thead>
             <tbody>
               {grupos.map((g) => (
                 <tr key={g.grupo}>
-                  <td className="esq">{g.grupo}</td><td>{fmtN(g.neos)}</td><td>{fmtN(g.qtd)}</td><td>{fmtN(g.evol)}</td>
+                  <td className="esq">
+                    {g.grupo}
+                    {g.grupo === NOME_SEM_PROD && <span style={{ marginLeft: 8 }}><BaixarExcelLista linhas={semProdutoExcel} colunas={colunasSemProduto} arquivo={`pre-input-sem-produto-${dia}.xlsx`} aba="Sem produto" rotulo="Excel" /></span>}
+                  </td><td>{fmtN(g.neos)}</td><td>{fmtN(g.qtd)}</td><td>{fmtN(g.evol)}</td>
                   <td>{fmtH(media(g.tempos))}</td><td className="fraco">{fmtN(g.sla)}h</td>
                   <td><b style={{ color: g.evol && g.noSla / g.evol >= 0.8 ? 'var(--ok)' : g.evol ? 'var(--risco)' : undefined }}>{pct(g.noSla, g.evol)}</b></td>
                 </tr>
@@ -184,28 +247,54 @@ export default async function PreInput({ searchParams }) {
             </tbody>
           </table>
         </div>
-        <p className="dica" style={{ marginTop: 6 }}>Pedido com produtos de grupos diferentes aparece em cada grupo.</p>
+        <p className="dica" style={{ marginTop: 6 }}>Pedido com produtos de grupos diferentes aparece em cada grupo. Clique no título de uma coluna para ordenar do maior para o menor.</p>
       </section>
 
       <section className="assid-cartao" style={{ marginTop: 16 }} aria-labelledby="pi-destinos">
-        <h2 id="pi-destinos" style={{ marginBottom: 8 }}>Para onde evoluíram</h2>
+        <h2 id="pi-destinos" style={{ marginBottom: 2 }}>Para onde evoluíram</h2>
+        <p className="dica" style={{ marginBottom: 8 }}>% do total = sobre todos os {fmtN(lista.length)} pedidos que chegaram no período filtrado (com os que ainda não evoluíram, a soma dá 100%).</p>
         <div className="tabela-wrap">
           <table>
-            <thead><tr><th className="esq">Grupo de destino</th><th>Pedidos</th><th>Tempo médio</th><th>Dentro do SLA</th></tr></thead>
+            <thead><tr><th className="esq">Grupo de destino</th>
+              <Th param="od" k="n" atual={od}>Pedidos</Th><Th param="od" k="pct" atual={od}>% do total</Th>
+              <Th param="od" k="tempo" atual={od}>Tempo médio</Th><Th param="od" k="pctSla" atual={od}>Dentro do SLA</Th></tr></thead>
             <tbody>
               {listaDestinos.map((d) => (
                 <tr key={d.grupo}>
                   <td className="esq">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{d.grupo}
                       <InfoBalao titulo="Filas deste grupo" rotulo={`Filas de ${d.grupo}`}>
-                        {[...d.filas.entries()].sort((a, b) => b[1] - a[1]).map(([f, n]) => linha(<>{f}: <b>{fmtN(n)}</b></>, f))}
+                        {[...d.filas.entries()].sort((a, b) => b[1] - a[1]).map(([f, n]) => linha(<>{f}: <b>{fmtN(n)}</b> ({pct(n, lista.length)} do total)</>, f))}
                       </InfoBalao>
                     </span>
                   </td>
-                  <td>{fmtN(d.n)}</td><td>{fmtH(media(d.tempos))}</td><td>{pct(d.noSla, d.n)}</td>
+                  <td>{fmtN(d.n)}</td>
+                  <td>
+                    <b>{pct(d.n, lista.length)}</b>
+                    <span aria-hidden="true" style={{ display: 'block', height: 6, borderRadius: 3, background: '#ece9f3', marginTop: 3, minWidth: 80 }}>
+                      <span style={{ display: 'block', height: 6, borderRadius: 3, width: `${lista.length ? (d.n / lista.length) * 100 : 0}%`, background: 'var(--ok)' }} />
+                    </span>
+                  </td>
+                  <td>{fmtH(media(d.tempos))}</td><td>{pct(d.noSla, d.n)}</td>
                 </tr>
               ))}
-              {!listaDestinos.length && <tr><td colSpan={4} className="fraco" style={{ textAlign: 'center', padding: 20 }}>Nenhum pedido evoluiu ainda.</td></tr>}
+              {sem.length > 0 && (
+                <tr className="fraco">
+                  <td className="esq"><i>Ainda sem evolução (nas filas iniciais)</i></td>
+                  <td>{fmtN(sem.length)}</td>
+                  <td>
+                    <b>{pct(sem.length, lista.length)}</b>
+                    <span aria-hidden="true" style={{ display: 'block', height: 6, borderRadius: 3, background: '#ece9f3', marginTop: 3, minWidth: 80 }}>
+                      <span style={{ display: 'block', height: 6, borderRadius: 3, width: `${lista.length ? (sem.length / lista.length) * 100 : 0}%`, background: 'var(--risco)' }} />
+                    </span>
+                  </td>
+                  <td>—</td><td>—</td>
+                </tr>
+              )}
+              {lista.length > 0 && (
+                <tr><td className="esq"><b>Total de pedidos do período</b></td><td><b>{fmtN(lista.length)}</b></td><td><b>100%</b></td><td /><td /></tr>
+              )}
+              {!listaDestinos.length && !sem.length && <tr><td colSpan={5} className="fraco" style={{ textAlign: 'center', padding: 20 }}>Nenhum pedido neste dia.</td></tr>}
             </tbody>
           </table>
         </div>
