@@ -10,7 +10,7 @@ import ImportarPreInput from '@/components/ImportarPreInput';
 import ParametrosPreInput from '@/components/ParametrosPreInput';
 import BaixarExcelLista from '@/components/BaixarExcelLista';
 import MenuFiltro from '@/components/MenuFiltro';
-import { FaixaAtivos, urlCom, lista as listaParam } from '@/components/Filtros';
+import { urlCom, lista as listaParam } from '@/components/Filtros';
 
 const SEM_PROD = '__sem';
 const NOME_SEM_PROD = 'Sem produto no arquivo de Produção';
@@ -25,6 +25,17 @@ const hora = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)} ${iso.slice
 const dataHoraBr = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)} ${iso.slice(11, 16)}` : '');
 const media = (l) => (l.length ? l.reduce((s, x) => s + x, 0) / l.length : null);
 const linha = (t, k) => <span key={k} style={{ display: 'block' }}>{t}</span>;
+
+// cartão de indicador: título pequeno, número grande, detalhe embaixo
+function Cartao({ titulo, valor, detalhe, cor }) {
+  return (
+    <div className="assid-cartao" style={{ margin: 0, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span className="dica" style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.03em', fontSize: 11 }}>{titulo}</span>
+      <span style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.1, color: cor }}>{valor}</span>
+      <span className="dica">{detalhe}</span>
+    </div>
+  );
+}
 
 export default async function PreInput({ searchParams }) {
   const sp = await searchParams;
@@ -205,25 +216,36 @@ export default async function PreInput({ searchParams }) {
       <section className="barra-filtros" aria-label="Filtros" style={{ marginBottom: 10 }}>
         <div className="linha-menus">
           <MenuFiltro rotulo="Grupo de produto" opcoes={opcoesGrupo} />
-          <span className="dica" style={{ marginLeft: 'auto' }}>Escolha um ou mais grupos: os números passam a contar só os pedidos desses grupos.</span>
+          <span className="dica" style={{ marginLeft: 'auto' }}>Escolha um ou mais grupos: a tela passa a contar só os pedidos deles.</span>
         </div>
-        <FaixaAtivos total={listaEnt.length} filtrados={lista.length} ativos={ativosF} limparHref={href({ gp: [] })} />
+        {ativosF.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 8 }}>
+            <span className="dica">{fmtN(lista.length)} de {fmtN(listaEnt.length)} pedidos ·</span>
+            {ativosF.map((a) => (
+              <Link key={a.chave} href={a.href} className="tag tag-acento" style={{ textDecoration: 'none' }} aria-label={`Tirar filtro ${a.t}`}>{a.t} ×</Link>
+            ))}
+            <Link href={href({ gp: [] })} className="dica" style={{ marginLeft: 4 }}>Limpar</Link>
+          </div>
+        )}
       </section>
 
-      <div className="calendario" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
-        <div>
-          <b>{fmtN(lista.length)}</b>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>pedidos chegaram · {fmtN(qtdProdutos)} produtos
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, margin: '4px 0 10px' }}>
+        <Cartao titulo="Chegaram" valor={fmtN(lista.length)}
+          detalhe={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{fmtN(qtdProdutos)} produtos
             <InfoBalao titulo="Produtos dos pedidos" rotulo="Ver produtos por grupo">
               {grupos.map((g) => linha(<>{g.grupo}: <b>{fmtN(g.neos)}</b> pedidos · {fmtN(g.qtd)} produtos</>, g.grupo))}
-              {semProduto > 0 && linha(<span style={{ color: '#ffd38a' }}>{fmtN(semProduto)} pedidos não estão no arquivo de Produção (sem produto; usam o SLA padrão).</span>, 'sp')}
-            </InfoBalao>
-          </span>
-        </div>
-        <div><b style={{ color: 'var(--ok)' }}>{fmtN(evoluidos.length)}</b><span>evoluíram até o fim do dia ({pct(evoluidos.length, lista.length)} dos que chegaram)</span></div>
-        <div><b>{fmtH(tempoMedio)}</b><span>tempo médio até evoluir (horas úteis)</span></div>
-        <div><b style={{ color: sem.length ? 'var(--risco)' : undefined }}>{fmtN(sem.length)}</b><span>sem evolução · {fmtN(sem.filter((p) => p.noPrazo).length)} ainda no prazo · <b style={{ color: 'var(--risco)' }}>{fmtN(sem.filter((p) => p.estourado).length)} SLA estourado</b></span></div>
-        <div><b style={{ color: 'var(--ok)' }}>{fmtN(noSla.length)}</b><span>evoluíram dentro do SLA ({pct(noSla.length, evoluidos.length)} dos que evoluíram)</span></div>
+            </InfoBalao></span>} />
+        <Cartao titulo="Evoluíram" valor={fmtN(evoluidos.length)} cor="var(--ok)" detalhe={`${pct(evoluidos.length, lista.length)} dos que chegaram`} />
+        <Cartao titulo="Tempo médio até evoluir" valor={fmtH(tempoMedio)} detalhe="em horas úteis" />
+        <Cartao titulo="Sem evolução" valor={fmtN(sem.length)} cor={sem.length ? 'var(--risco)' : undefined}
+          detalhe={sem.length ? (
+            <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
+              <span className="tag">{fmtN(sem.filter((p) => p.noPrazo).length)} no prazo</span>
+              <span className="tag tag-risco">{fmtN(sem.filter((p) => p.estourado).length)} SLA estourado</span>
+            </span>
+          ) : 'todos evoluíram'} />
+        <Cartao titulo="Dentro do SLA" valor={fmtN(noSla.length)} cor={evoluidos.length && noSla.length / evoluidos.length >= 0.8 ? 'var(--ok)' : evoluidos.length ? 'var(--risco)' : undefined}
+          detalhe={`${pct(noSla.length, evoluidos.length)} dos que evoluíram`} />
       </div>
       {semProdutoExcel.length > 0 && (
         <p className="dica" style={{ margin: '4px 0 12px', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
