@@ -14,25 +14,46 @@ export const dynamic = 'force-dynamic';
 
 const pctTxt = (v) => (v == null ? '—' : `${Math.round(v * 100)}%`);
 const COR = { 'em-dia': 'var(--ok)', atencao: 'var(--atencao)', risco: 'var(--risco)', 'sem-meta': '#8f88a8' };
-const COR_SIT = { exec: 'var(--ok)', tram: 'var(--atencao)', backlog: '#c98a3a' };
-const zero = () => ({ tramMes: 0, backlog: 0, safra: { exec: 0, tram: 0, canc: 0 }, safras3: { exec: 0, canc: 0 } });
+const COR_SIT = { exec: 'var(--ok)', tram: 'var(--atencao)', canc: '#b9b4c8', backlog: '#c98a3a' };
+const zero = () => ({ tramMes: 0, backlog: 0, backlogPor: {}, safra: { exec: 0, tram: 0, canc: 0 }, safras3: { exec: 0, canc: 0 } });
+const NOMES_MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const rotSafra = (m) => (m ? `${NOMES_MES[+m.slice(5, 7) - 1]}/${m.slice(2, 4)}` : 'sem data');
 // mês 'AAAA-MM' menos n
 const mesMenos = (m, n) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 - n, 1)).toISOString().slice(0, 7);
 
-// barra: executado no mês | tramitando da safra do mês | backlog (tramitando de meses anteriores)
-function Funil({ x, un }) {
-  const tot = x.executado + x.tramMes + x.backlog;
+// Pedidos da safra do mês (entraram no mês): total e funil executado | tramitando | pendente/cancelado
+function PedidosSafra({ x, un }) {
+  const s = x.safra, tot = x.entradas;
   const w = (v) => `${tot ? (v / tot) * 100 : 0}%`;
   return (
-    <div style={{ minWidth: 160 }}>
-      <b>{fmtValor(x.executado, un)}</b> <span className="dica">+ {fmtValor(x.aberto, un)} em aberto</span>
+    <div style={{ minWidth: 170 }}>
+      <b>{fmtValor(tot, un)}</b> <span className="dica">pedidos</span>
       <div aria-hidden="true" style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: '#ece9f3', margin: '3px 0 2px' }}>
-        <span style={{ width: w(x.executado), background: COR_SIT.exec }} />
-        <span style={{ width: w(x.tramMes), background: COR_SIT.tram }} />
-        <span style={{ width: w(x.backlog), background: COR_SIT.backlog }} />
+        <span style={{ width: w(s.exec), background: COR_SIT.exec }} />
+        <span style={{ width: w(s.tram), background: COR_SIT.tram }} />
+        <span style={{ width: w(s.canc), background: COR_SIT.canc }} />
       </div>
-      {!x.encerrado && <span className="nome-sub">{fmtValor(x.tramMes, un)} tramitando do mês · {fmtValor(x.backlog, un)} backlog</span>}
+      <span className="nome-sub">
+        {fmtValor(s.exec, un)} exec. · {fmtValor(s.tram, un)} tram. · {fmtValor(s.canc, un)} pend./canc. · aprovação <b>{pctTxt(x.aprovMes)}</b>
+        {x.aprov3 != null && <> (3 meses: {pctTxt(x.aprov3)})</>}
+      </span>
     </div>
+  );
+}
+
+// Backlog: tramitando de safras anteriores, com o detalhe por safra
+function Backlog({ x, un }) {
+  if (x.encerrado) return <span className="fraco">—</span>;
+  const partes = Object.entries(x.backlogPor || {}).filter(([, v]) => v > 0).sort((a, b) => b[0].localeCompare(a[0]));
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <b style={{ color: x.backlog ? COR_SIT.backlog : undefined }}>{fmtValor(x.backlog, un)}</b>
+      {partes.length > 0 && (
+        <InfoBalao titulo="Backlog por safra" rotulo="Ver o backlog por mês de entrada">
+          {partes.map(([k, v]) => <span key={k} style={{ display: 'block' }}>Safra {rotSafra(k)}: <b>{fmtValor(v, un)}</b> tramitando</span>)}
+        </InfoBalao>
+      )}
+    </span>
   );
 }
 
@@ -99,13 +120,17 @@ export default async function PainelProjecao({ searchParams }) {
     const v = Number(medida === 'brl' ? r.valor : r.qtd) || 0;
     const k = `${g}|${r.produto_id}`;
     const e = idx.get(k) || zero();
-    if (r.situacao === 'tram') { if (r.safra === mes) e.tramMes += v; else if (!r.safra || r.safra < mes) e.backlog += v; }
+    if (r.situacao === 'tram') {
+      if (r.safra === mes) e.tramMes += v;
+      else if (!r.safra || r.safra < mes) { e.backlog += v; e.backlogPor[r.safra || ''] = (e.backlogPor[r.safra || ''] || 0) + v; }
+    }
     if (r.safra === mes) e.safra[r.situacao] += v;
     if (tres.has(r.safra) && r.situacao !== 'tram') e.safras3[r.situacao] += v;
     idx.set(k, e);
   });
   const somarEm = (acc, x, peso = 1) => {
     acc.tramMes += x.tramMes * peso; acc.backlog += x.backlog * peso;
+    Object.entries(x.backlogPor).forEach(([k, v]) => { acc.backlogPor[k] = (acc.backlogPor[k] || 0) + v * peso; });
     ['exec', 'tram', 'canc'].forEach((s) => { acc.safra[s] += x.safra[s] * peso; });
     ['exec', 'canc'].forEach((s) => { acc.safras3[s] += x.safras3[s] * peso; });
     return acc;
@@ -120,7 +145,8 @@ export default async function PainelProjecao({ searchParams }) {
     if (!ciclo) return null;
     const res = an.resumo(ciclo, g);
     const meta = an.meta(g, p.id);
-    return { produto: p, temMeta: meta !== null, ...projetar({ executado: an.realizado(g, p.id), ...funil(g, p.id) }, res, meta) };
+    const f = funil(g, p.id);
+    return { produto: p, temMeta: meta !== null, backlogPor: f.backlogPor, ...projetar({ executado: an.realizado(g, p.id), ...f }, res, meta) };
   };
 
   const grupos = canal ? [{ ...canal, nivel: 0 }, ...base.achatar(canal.id, 1, true)] : [];
@@ -182,9 +208,10 @@ export default async function PainelProjecao({ searchParams }) {
             </div>
           )}
           <div className="legenda">
-            <span><i style={{ background: COR_SIT.exec }} />Executado no mês</span>
-            <span><i style={{ background: COR_SIT.tram }} />Tramitando (pedidos do mês)</span>
-            <span><i style={{ background: COR_SIT.backlog }} />Backlog (meses anteriores)</span>
+            <span><i style={{ background: COR_SIT.exec }} />Executado</span>
+            <span><i style={{ background: COR_SIT.tram }} />Tramitando</span>
+            <span><i style={{ background: COR_SIT.canc }} />Pendente/cancelado</span>
+            <span><i style={{ background: COR_SIT.backlog }} />Backlog (tramitando de meses anteriores)</span>
             <span><i className="marca-leg" />Meta</span>
           </div>
 
@@ -198,7 +225,7 @@ export default async function PainelProjecao({ searchParams }) {
                 <table>
                   <thead>
                     <tr>
-                      <th>Produto</th><th>Meta</th><th className="esq">Executado e em aberto</th><th>Aprovação</th>
+                      <th>Produto</th><th>Meta</th><th>Executado no mês</th><th className="esq">Pedidos do mês (safra)</th><th>Backlog</th>
                       <th>Entrada/dia</th><th>Projeção</th><th className="esq">Projeção × meta</th><th>Precisa/dia</th>
                     </tr>
                   </thead>
@@ -209,11 +236,9 @@ export default async function PainelProjecao({ searchParams }) {
                         <tr key={l.produto.id}>
                           <td>{l.produto.nome}{compsDe.has(l.produto.id) && <span className="tag-soma">soma</span>}</td>
                           <td>{l.temMeta ? fmtValor(l.meta, un) : '—'}</td>
-                          <td className="esq"><Funil x={l} un={un} /></td>
-                          <td>
-                            {pctTxt(l.aprov)}{l.usouTres && <span className="nome-sub">de 3 meses</span>}
-                            {l.aprov3 != null && !l.usouTres && <span className="nome-sub" title="Média dos últimos 3 meses">3 meses: {pctTxt(l.aprov3)}</span>}
-                          </td>
+                          <td><b>{fmtValor(l.executado, un)}</b></td>
+                          <td className="esq"><PedidosSafra x={l} un={un} /></td>
+                          <td><Backlog x={l} un={un} /></td>
                           <td>{l.ritmo != null ? fmtValor(l.ritmo, un, 1) : '—'}</td>
                           <td>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -222,7 +247,8 @@ export default async function PainelProjecao({ searchParams }) {
                             </span>
                           </td>
                           <td className="esq"><BarraMeta pct={l.pctMeta} status={l.status} /></td>
-                          <td>{l.precisa == null ? '—' : l.projecao >= l.meta ? <span className="tag tag-ok">no ritmo</span> : fmtValor(l.precisa, un, 1)}</td>
+                          <td>{l.precisa != null ? (l.projecao >= l.meta ? <span className="tag tag-ok">no ritmo</span> : fmtValor(l.precisa, un, 1))
+                            : l.temMeta && !l.encerrado ? <span className="fraco" title="Sem aprovação na safra do mês: ainda não dá para calcular">sem aprovação</span> : '—'}</td>
                         </tr>
                       );
                     })}
