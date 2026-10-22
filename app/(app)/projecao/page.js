@@ -87,9 +87,9 @@ function ContaProjecao({ x, un, nomeSafra }) {
   return (
     <InfoBalao titulo="Como chegamos neste número" rotulo="Ver a conta da projeção">
       {linha(<>Executado no mês (igual ao Painel): <b>{fmtValor(x.executado, un)}</b></>)}
-      {linha(<>Em aberto: {fmtValor(x.tramMes, un)} do mês + {fmtValor(x.backlog, un)} backlog = {fmtValor(x.aberto, un)} × {a} = <b>{fmtValor(x.aberto * (x.aprov || 0), un, 1)}</b></>)}
-      {x.ritmo != null && x.restantes > 0 && linha(<>Ainda devem entrar: {fmtValor(x.ritmo, un, 1)}/dia × {x.restantes} dias úteis = {fmtValor(x.novos, un, 1)} × {a} = <b>{fmtValor(x.novos * (x.aprov || 0), un, 1)}</b></>)}
-      <span style={{ display: 'block', borderTop: '1px solid rgba(255,255,255,.25)', marginTop: 4, paddingTop: 4 }}>Projeção: <b>{fmtValor(x.projecao, un)}</b></span>
+      {linha(<>+ Em aberto que deve aprovar: ({fmtValor(x.tramMes, un)} do mês + {fmtValor(x.backlog, un)} backlog) × {a} = <b>{fmtValor(x.aberto * (x.aprov || 0), un, 1)}</b></>)}
+      {x.ritmo != null && x.restantes > 0 && linha(<>+ Novos pedidos que devem aprovar: {fmtValor(x.ritmo, un, 1)}/dia × {x.restantes} dias úteis = {fmtValor(x.novos, un, 1)} × {a} = <b>{fmtValor(x.novos * (x.aprov || 0), un, 1)}</b></>)}
+      <span style={{ display: 'block', borderTop: '1px solid rgba(255,255,255,.25)', marginTop: 4, paddingTop: 4 }}>= Projeção: <b>{fmtValor(x.projecao, un)}</b></span>
       {x.usouTres && linha(<span style={{ opacity: 0.85 }}>A safra do mês ainda não tem pedidos resolvidos: usei a aprovação dos últimos 3 meses.</span>)}
       {x.projecao3 != null && linha(<span style={{ opacity: 0.85 }}>Com a aprovação dos últimos 3 meses ({pctTxt(x.aprov3)}): {fmtValor(x.projecao3, un)}</span>)}
       <span style={{ display: 'block', marginTop: 6, opacity: 0.85 }}>
