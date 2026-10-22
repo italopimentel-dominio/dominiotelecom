@@ -14,22 +14,24 @@ export const dynamic = 'force-dynamic';
 
 const pctTxt = (v) => (v == null ? '—' : `${Math.round(v * 100)}%`);
 const COR = { 'em-dia': 'var(--ok)', atencao: 'var(--atencao)', risco: 'var(--risco)', 'sem-meta': '#8f88a8' };
-const COR_SIT = { exec: 'var(--ok)', tram: 'var(--atencao)', canc: '#b9b4c8' };
-const zero = () => ({ exec: 0, tram: 0, canc: 0 });
+const COR_SIT = { exec: 'var(--ok)', tram: 'var(--atencao)', backlog: '#c98a3a' };
+const zero = () => ({ tramMes: 0, backlog: 0, safra: { exec: 0, tram: 0, canc: 0 }, safras3: { exec: 0, canc: 0 } });
+// mês 'AAAA-MM' menos n
+const mesMenos = (m, n) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1 - n, 1)).toISOString().slice(0, 7);
 
-// barra do funil: executado | tramitando | pendente/cancelado
+// barra: executado no mês | tramitando da safra do mês | backlog (tramitando de meses anteriores)
 function Funil({ x, un }) {
-  const tot = x.pedidos || 0;
+  const tot = x.executado + x.tramMes + x.backlog;
   const w = (v) => `${tot ? (v / tot) * 100 : 0}%`;
   return (
-    <div style={{ minWidth: 150 }}>
-      <b>{fmtValor(tot, un)}</b>
+    <div style={{ minWidth: 160 }}>
+      <b>{fmtValor(x.executado, un)}</b> <span className="dica">+ {fmtValor(x.aberto, un)} em aberto</span>
       <div aria-hidden="true" style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', background: '#ece9f3', margin: '3px 0 2px' }}>
-        <span style={{ width: w(x.exec), background: COR_SIT.exec }} />
-        <span style={{ width: w(x.tram), background: COR_SIT.tram }} />
-        <span style={{ width: w(x.canc), background: COR_SIT.canc }} />
+        <span style={{ width: w(x.executado), background: COR_SIT.exec }} />
+        <span style={{ width: w(x.tramMes), background: COR_SIT.tram }} />
+        <span style={{ width: w(x.backlog), background: COR_SIT.backlog }} />
       </div>
-      <span className="nome-sub">{fmtValor(x.exec, un)} exec. · {fmtValor(x.tram, un)} tram. · {fmtValor(x.canc, un)} pend./canc.</span>
+      {!x.encerrado && <span className="nome-sub">{fmtValor(x.tramMes, un)} tramitando do mês · {fmtValor(x.backlog, un)} backlog</span>}
     </div>
   );
 }
@@ -47,19 +49,21 @@ function BarraMeta({ pct, status }) {
   );
 }
 
-function ContaProjecao({ x, un }) {
+function ContaProjecao({ x, un, nomeSafra }) {
   const a = pctTxt(x.aprov);
+  const linha = (t) => <span style={{ display: 'block' }}>{t}</span>;
+  if (x.encerrado) return <InfoBalao titulo="Mês encerrado" rotulo="Ver a conta">{linha('O mês acabou: a projeção é o próprio executado.')}</InfoBalao>;
   return (
     <InfoBalao titulo="Como chegamos neste número" rotulo="Ver a conta da projeção">
-      <span style={{ display: 'block' }}>Já executado: <b>{fmtValor(x.exec, un)}</b></span>
-      <span style={{ display: 'block' }}>Tramitando: {fmtValor(x.tram, un)} × {a} aprovação = <b>{fmtValor(x.tram * (x.aprov || 0), un, 1)}</b></span>
-      {x.ritmo != null && x.restantes > 0 && (
-        <span style={{ display: 'block' }}>
-          Pedidos que ainda devem entrar: {fmtValor(x.ritmo, un, 1)}/dia × {x.restantes} dias úteis = {fmtValor(x.novos, un, 1)} × {a} = <b>{fmtValor(x.novos * (x.aprov || 0), un, 1)}</b>
-        </span>
-      )}
+      {linha(<>Executado no mês (igual ao Painel): <b>{fmtValor(x.executado, un)}</b></>)}
+      {linha(<>Em aberto: {fmtValor(x.tramMes, un)} do mês + {fmtValor(x.backlog, un)} backlog = {fmtValor(x.aberto, un)} × {a} = <b>{fmtValor(x.aberto * (x.aprov || 0), un, 1)}</b></>)}
+      {x.ritmo != null && x.restantes > 0 && linha(<>Ainda devem entrar: {fmtValor(x.ritmo, un, 1)}/dia × {x.restantes} dias úteis = {fmtValor(x.novos, un, 1)} × {a} = <b>{fmtValor(x.novos * (x.aprov || 0), un, 1)}</b></>)}
       <span style={{ display: 'block', borderTop: '1px solid rgba(255,255,255,.25)', marginTop: 4, paddingTop: 4 }}>Projeção: <b>{fmtValor(x.projecao, un)}</b></span>
-      {x.projecao3 != null && <span style={{ display: 'block', opacity: 0.85 }}>Com a aprovação dos últimos 3 meses ({pctTxt(x.aprov3)}): {fmtValor(x.projecao3, un)}</span>}
+      {x.usouTres && linha(<span style={{ opacity: 0.85 }}>A safra do mês ainda não tem pedidos resolvidos: usei a aprovação dos últimos 3 meses.</span>)}
+      {x.projecao3 != null && linha(<span style={{ opacity: 0.85 }}>Com a aprovação dos últimos 3 meses ({pctTxt(x.aprov3)}): {fmtValor(x.projecao3, un)}</span>)}
+      <span style={{ display: 'block', marginTop: 6, opacity: 0.85 }}>
+        Safra de {nomeSafra}: {fmtValor(x.entradas, un)} pedidos · {fmtValor(x.safra.exec, un)} executados · {fmtValor(x.safra.tram, un)} tramitando · {fmtValor(x.safra.canc, un)} pend./canc.
+      </span>
     </InfoBalao>
   );
 }
@@ -72,14 +76,13 @@ export default async function PainelProjecao({ searchParams }) {
   if (!periodo) return <SemPeriodo podeEditar={podeEditar(perfil)} />;
 
   const medida = await lerMedida(sp);
-  const anteriores = periodos.filter((p) => p.referencia < periodo.referencia).slice(0, 3); // listarPeriodos vem do mais novo
-  const [base, atual, ant] = await Promise.all([
+  const mes = String(periodo.referencia).slice(0, 7);
+  const tres = new Set([1, 2, 3].map((n) => mesMenos(mes, n)));
+  const [base, carteira] = await Promise.all([
     carregarBase(supabase, periodo, medida),
-    buscarTodas(() => supabase.from('pedidos_situacao').select('colaborador_id, grupo_id, produto_id, situacao, qtd, valor').eq('periodo_id', periodo.id).order('id')),
-    anteriores.length
-      ? buscarTodas(() => supabase.from('pedidos_situacao').select('colaborador_id, grupo_id, produto_id, situacao, qtd, valor').in('periodo_id', anteriores.map((p) => p.id)).order('id'))
-      : Promise.resolve({ data: [] }),
+    buscarTodas(() => supabase.from('pedidos_carteira').select('colaborador_id, grupo_id, produto_id, situacao, safra, qtd, valor').order('id')),
   ]);
+  const atual = carteira;
   const an = analisar(base);
   const raizes = base.raizes.filter((g) => g.ativo);
   const canal = raizes.find((r) => r.id === sp.c) || raizes[0];
@@ -88,48 +91,42 @@ export default async function PainelProjecao({ searchParams }) {
 
   // soma por equipe (subárvore) e produto; produto "soma" = soma das partes com peso
   const grupoDoColab = new Map(base.colaboradores.map((c) => [c.id, c.grupo_id]));
-  const indexar = (rows) => {
-    const m = new Map();
-    (rows || []).forEach((r) => {
-      const g = r.grupo_id || grupoDoColab.get(r.colaborador_id);
-      if (!g) return;
-      const k = `${g}|${r.produto_id}`;
-      const e = m.get(k) || zero();
-      e[r.situacao] += Number(medida === 'brl' ? r.valor : r.qtd) || 0;
-      m.set(k, e);
-    });
-    return m;
+  // cada pedido da carteira vira: tramitando do mês, backlog, safra do mês ou safra dos 3 meses anteriores
+  const idx = new Map();
+  (carteira.data || []).forEach((r) => {
+    const g = r.grupo_id || grupoDoColab.get(r.colaborador_id);
+    if (!g) return;
+    const v = Number(medida === 'brl' ? r.valor : r.qtd) || 0;
+    const k = `${g}|${r.produto_id}`;
+    const e = idx.get(k) || zero();
+    if (r.situacao === 'tram') { if (r.safra === mes) e.tramMes += v; else if (!r.safra || r.safra < mes) e.backlog += v; }
+    if (r.safra === mes) e.safra[r.situacao] += v;
+    if (tres.has(r.safra) && r.situacao !== 'tram') e.safras3[r.situacao] += v;
+    idx.set(k, e);
+  });
+  const somarEm = (acc, x, peso = 1) => {
+    acc.tramMes += x.tramMes * peso; acc.backlog += x.backlog * peso;
+    ['exec', 'tram', 'canc'].forEach((s) => { acc.safra[s] += x.safra[s] * peso; });
+    ['exec', 'canc'].forEach((s) => { acc.safras3[s] += x.safras3[s] * peso; });
+    return acc;
   };
-  const idx = indexar(atual.data), idx3 = indexar(ant.data);
   const compsDe = new Map(base.produtos.filter((p) => p.tipo === 'composto').map((p) => [p.id, p.componentes || []]));
-  const funil = (ix, g, pid, prof = 0) => {
-    if (compsDe.has(pid) && prof < 5) {
-      return compsDe.get(pid).reduce((acc, c) => {
-        const x = funil(ix, g, c.componente_id, prof + 1);
-        acc.exec += x.exec * c.peso; acc.tram += x.tram * c.peso; acc.canc += x.canc * c.peso;
-        return acc;
-      }, zero());
-    }
-    return base.subarvore(g).reduce((acc, id) => {
-      const e = ix.get(`${id}|${pid}`);
-      if (e) { acc.exec += e.exec; acc.tram += e.tram; acc.canc += e.canc; }
-      return acc;
-    }, zero());
+  const funil = (g, pid, prof = 0) => {
+    if (compsDe.has(pid) && prof < 5) return compsDe.get(pid).reduce((acc, c) => somarEm(acc, funil(g, c.componente_id, prof + 1), c.peso), zero());
+    return base.subarvore(g).reduce((acc, id) => { const e = idx.get(`${id}|${pid}`); return e ? somarEm(acc, e) : acc; }, zero());
   };
   const linhaDe = (g, p) => {
     const ciclo = an.cicloDe(p);
     if (!ciclo) return null;
     const res = an.resumo(ciclo, g);
-    const f3 = funil(idx3, g, p.id);
-    const aprov3 = f3.exec + f3.canc > 0 ? f3.exec / (f3.exec + f3.canc) : null;
     const meta = an.meta(g, p.id);
-    return { produto: p, temMeta: meta !== null, ...projetar(funil(idx, g, p.id), res, meta, aprov3) };
+    return { produto: p, temMeta: meta !== null, ...projetar({ executado: an.realizado(g, p.id), ...funil(g, p.id) }, res, meta) };
   };
 
   const grupos = canal ? [{ ...canal, nivel: 0 }, ...base.achatar(canal.id, 1, true)] : [];
   const secoes = grupos.map((g) => ({
     grupo: g,
-    linhas: produtos.map((p) => linhaDe(g.id, p)).filter((l) => l && (l.temMeta || l.pedidos > 0)),
+    linhas: produtos.map((p) => linhaDe(g.id, p)).filter((l) => l && (l.temMeta || l.executado > 0 || l.aberto > 0 || l.entradas > 0)),
   })).filter((s) => s.linhas.length);
   const res = base.ciclos[0] && canal ? an.resumo(base.ciclos[0], canal.id) : null;
   const semDados = !(atual.data || []).length;
@@ -142,10 +139,11 @@ export default async function PainelProjecao({ searchParams }) {
             Painel – Projeção · {periodo.nome}
             <InfoBalao titulo="Como funciona a projeção" rotulo="Como funciona a projeção">
               <span style={{ display: 'block', fontWeight: 400, fontSize: 13 }}>
-                Considera <b>todos os pedidos</b> que entraram no mês (pela data de entrada), não só os executados.<br />
-                <b>Aprovação</b> = executados ÷ (executados + pendentes/cancelados). Quem ainda está tramitando não entra, porque não teve desfecho.<br />
-                <b>Ritmo</b> = pedidos ÷ dias úteis que já passaram.<br />
-                <b>Projeção</b> = executado + aprovação × (tramitando + ritmo × dias úteis que faltam).<br />
+                <b>Executado</b>: o mesmo do Painel – Executado (mês de conclusão).<br />
+                <b>Em aberto</b>: tudo o que está tramitando, da safra do mês e o <b>backlog</b> (pedidos de meses anteriores ainda tramitando).<br />
+                <b>Aprovação</b>: da safra do mês (pedidos que entraram no mês) = executados ÷ (executados + pendentes/cancelados). Quem ainda tramita não entra.<br />
+                <b>Ritmo</b>: pedidos que entraram no mês ÷ dias úteis que já passaram.<br />
+                <b>Projeção</b> = executado + aprovação × (em aberto + ritmo × dias úteis que faltam).<br />
                 <b>Precisa/dia</b> = quantos pedidos por dia, com a mesma aprovação, levam até a meta.
               </span>
             </InfoBalao>
@@ -158,11 +156,11 @@ export default async function PainelProjecao({ searchParams }) {
         </div>
       </div>
 
-      {atual.error && <p className="msg msg-erro">Rode o arquivo 040_painel_projecao.sql no Supabase.</p>}
+      {atual.error && <p className="msg msg-erro">Rode o arquivo 041_carteira_pedidos.sql no Supabase.</p>}
       {!atual.error && semDados && (
         <div className="vazio" style={{ marginBottom: 16 }}>
-          <h2>Ainda não há pedidos deste mês</h2>
-          <p>A projeção é gravada pela fonte de dados. Em Fonte de dados, clique em <b>Rodar agora</b> (mês atual) ou em <b>Ler planilha</b> e grave os meses que quiser.</p>
+          <h2>A carteira de pedidos ainda não foi lida</h2>
+          <p>Em Fonte de dados, clique em <b>Rodar agora</b>. A partir daí, a rodada de hora em hora atualiza a carteira sozinha.</p>
         </div>
       )}
 
@@ -184,9 +182,9 @@ export default async function PainelProjecao({ searchParams }) {
             </div>
           )}
           <div className="legenda">
-            <span><i style={{ background: COR_SIT.exec }} />Executado</span>
-            <span><i style={{ background: COR_SIT.tram }} />Tramitando</span>
-            <span><i style={{ background: COR_SIT.canc }} />Pendente/cancelado</span>
+            <span><i style={{ background: COR_SIT.exec }} />Executado no mês</span>
+            <span><i style={{ background: COR_SIT.tram }} />Tramitando (pedidos do mês)</span>
+            <span><i style={{ background: COR_SIT.backlog }} />Backlog (meses anteriores)</span>
             <span><i className="marca-leg" />Meta</span>
           </div>
 
@@ -200,8 +198,8 @@ export default async function PainelProjecao({ searchParams }) {
                 <table>
                   <thead>
                     <tr>
-                      <th>Produto</th><th>Meta</th><th className="esq">Pedidos do mês</th><th>Aprovação</th>
-                      <th>Ritmo/dia</th><th>Projeção</th><th className="esq">Projeção × meta</th><th>Precisa/dia</th>
+                      <th>Produto</th><th>Meta</th><th className="esq">Executado e em aberto</th><th>Aprovação</th>
+                      <th>Entrada/dia</th><th>Projeção</th><th className="esq">Projeção × meta</th><th>Precisa/dia</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -213,14 +211,14 @@ export default async function PainelProjecao({ searchParams }) {
                           <td>{l.temMeta ? fmtValor(l.meta, un) : '—'}</td>
                           <td className="esq"><Funil x={l} un={un} /></td>
                           <td>
-                            {pctTxt(l.aprov)}
-                            {l.aprov3 != null && <span className="nome-sub" title="Média dos últimos 3 meses">3 meses: {pctTxt(l.aprov3)}</span>}
+                            {pctTxt(l.aprov)}{l.usouTres && <span className="nome-sub">de 3 meses</span>}
+                            {l.aprov3 != null && !l.usouTres && <span className="nome-sub" title="Média dos últimos 3 meses">3 meses: {pctTxt(l.aprov3)}</span>}
                           </td>
                           <td>{l.ritmo != null ? fmtValor(l.ritmo, un, 1) : '—'}</td>
                           <td>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                               <b>{l.projecao != null ? fmtValor(l.projecao, un) : '—'}</b>
-                              {l.projecao != null && <ContaProjecao x={l} un={un} />}
+                              {l.projecao != null && <ContaProjecao x={l} un={un} nomeSafra={periodo.nome} />}
                             </span>
                           </td>
                           <td className="esq"><BarraMeta pct={l.pctMeta} status={l.status} /></td>
