@@ -3,7 +3,7 @@ import { exigirSessao, podeEditar } from '@/lib/auth';
 import { hojeSP } from '@/lib/datas';
 import { montarCalendario } from '@/lib/calc';
 import { buscarTodas } from '@/lib/buscarTodas';
-import { passagens, avaliar, chaveFila, SEM_GRUPO } from '@/lib/preInput';
+import { fotoDoDia, primeiraEntrada, diaDoRelatorio, expedienteDe, chaveFila, SEM_GRUPO } from '@/lib/preInput';
 import SeletorDia from '@/components/SeletorDia';
 import InfoBalao from '@/components/InfoBalao';
 import ImportarPreInput from '@/components/ImportarPreInput';
@@ -49,16 +49,22 @@ export default async function PreInput({ searchParams }) {
   const slaPorGrupo = new Map((slaR.data || []).map((x) => [chaveFila(x.grupo), Number(x.horas)]));
   const cal = montarCalendario(configR.data, feriadosR.data || []);
   const ehUtil = (iso) => cal.ehUtil(iso);
+  const exp = expedienteDe(cfg.horarios, ehUtil);
 
   // dias com pedidos entrando no Pré-Input
   const ent = await buscarTodas(() => supabase.from('preinput_movimentos').select('neo, data_hora, fila').in('fila', entradas.map((f) => f.fila)).order('data_hora').order('neo'));
+  // cada pedido entra no relatório do dia da sua PRIMEIRA entrada (depois do expediente: próximo dia útil)
   const porDia = new Map();
-  (ent.data || []).forEach((m) => { const d = String(m.data_hora).slice(0, 10); if (!porDia.has(d)) porDia.set(d, new Set()); porDia.get(d).add(m.neo); });
+  primeiraEntrada((ent.data || []).map((m) => ({ ...m, data_hora: String(m.data_hora).slice(0, 19) })), filas).forEach((m, neo) => {
+    const d = diaDoRelatorio(m.data_hora, exp);
+    if (!porDia.has(d)) porDia.set(d, new Set());
+    porDia.get(d).add(neo);
+  });
   const dias = [...porDia.entries()].map(([dia, s]) => ({ dia, n: s.size }));
   const hoje = hojeSP();
   const dia = /^\d{4}-\d{2}-\d{2}$/.test(sp.dia || '') ? sp.dia : (dias.map((d) => d.dia).sort().pop() || hoje);
 
-  // todas as movimentações dos pedidos que tiveram entrada no dia (para saber de onde vieram e para onde foram)
+  // todas as movimentações dos pedidos do dia (o que aconteceu depois da meia-noite do dia não entra na foto)
   const neosDia = [...(porDia.get(dia) || [])];
   const movs = [], itens = [];
   for (let i = 0; i < neosDia.length; i += 300) {
@@ -75,11 +81,9 @@ export default async function PreInput({ searchParams }) {
   const agora = new Date(Date.now() - 3 * 3600000).toISOString().slice(0, 19);
   const filasNovas = [...new Set(movs.map((m) => m.fila).filter((f) => !filas.has(chaveFila(f))))].sort();
 
-  // passagens que começaram no dia (uma por pedido: a primeira do dia)
-  const todas = avaliar(passagens(movs, filas), { itensPorNeo, slaPorGrupo, slaPadrao: Number(cfg.sla_padrao) || 6, ehUtil, expIni: String(cfg.inicio).slice(0, 5), expFim: String(cfg.fim).slice(0, 5), agora });
-  const primeira = new Map();
-  todas.filter((p) => p.entrada.slice(0, 10) === dia).sort((a, b) => a.entrada.localeCompare(b.entrada)).forEach((p) => { if (!primeira.has(p.neo)) primeira.set(p.neo, p); });
-  const doDia = [...primeira.values()];
+  // foto do dia: primeira entrada de cada pedido e o que aconteceu até a meia-noite do dia
+  const doDia = fotoDoDia(movs, filas, { itensPorNeo, slaPorGrupo, slaPadrao: Number(cfg.sla_padrao) || 6, exp, agora })
+    .filter((p) => p.dia === dia).sort((a, b) => a.entrada.localeCompare(b.entrada));
   const gruposEntrada = [...new Set(entradas.map((f) => f.grupo || SEM_GRUPO))];
   const contaEnt = (g) => doDia.filter((p) => p.grupoEntrada === g).length;
   const sel = gruposEntrada.includes(sp.ent) ? sp.ent : '';
@@ -157,6 +161,9 @@ export default async function PreInput({ searchParams }) {
     { k: 'tempo', t: 'Tempo (h úteis)' }, { k: 'sla', t: 'SLA usado (h)' },
   ];
   const nomeDia = `${dia.slice(8)}/${dia.slice(5, 7)}/${dia.slice(0, 4)}`;
+  const SEM = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const resumoExpediente = Object.entries(cfg.horarios || {}).filter(([, h]) => h?.[0]).map(([d, h]) => `${SEM[d]} ${h[0]}–${h[1]}`).join(', ') || 'seg–qui 08:00–18:00, sex 08:00–17:00';
+  const foraHorario = lista.filter((p) => p.foraDoHorario).length;
 
   return (
     <>
@@ -165,14 +172,15 @@ export default async function PreInput({ searchParams }) {
           <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             Pré-Input
             <InfoBalao titulo="Como a tela conta" rotulo="Como a tela conta">
-              {linha(<>Um pedido <b>chega</b> quando é movimentado para uma fila de entrada (Link Aceito, Pré-Input Móvel/Fixa/VADA, Tratados). O dia é o da chegada.</>, 1)}
-              {linha(<>Ele <b>evolui</b> na primeira movimentação para uma fila que não é de entrada. Andar entre filas de entrada não conta.</>, 2)}
-              {linha(<>O <b>tempo</b> é contado em horas úteis: {String(cfg.inicio).slice(0, 5)} às {String(cfg.fim).slice(0, 5)}, de segunda a sexta, sem feriados.</>, 3)}
-              {linha(<>O <b>SLA</b> vem do grupo de produto (arquivo de Produção). Pedido com grupos diferentes usa o menor. Sem produto: {fmtN(cfg.sla_padrao)}h.</>, 4)}
-              {linha(<>Se o pedido sai e volta para o Pré-Input, cada passagem conta no dia em que começou.</>, 5)}
+              {linha(<>Cada dia é uma <b>foto</b>: mostra os pedidos que chegaram nele e o que aconteceu com eles até a meia-noite. Subir o dia seguinte não muda o dia anterior.</>, 1)}
+              {linha(<>Um pedido <b>chega</b> na primeira vez que é movimentado para uma fila de entrada. Se sair e voltar, a volta não conta.</>, 2)}
+              {linha(<>Chegou <b>depois do expediente</b> (ou em fim de semana/feriado)? Entra no relatório do próximo dia útil, mostrando a hora real da chegada.</>, 3)}
+              {linha(<>Ele <b>evolui</b> na primeira movimentação para uma fila que não é de entrada. Andar entre filas de entrada não conta.</>, 4)}
+              {linha(<>O <b>tempo</b> conta só o expediente ({resumoExpediente}), sem feriados. Quem não andou tem o tempo parado no fim do expediente do dia.</>, 5)}
+              {linha(<>O <b>SLA</b> vem do grupo de produto (arquivo de Produção). Pedido com grupos diferentes usa o menor. Sem produto: {fmtN(cfg.sla_padrao)}h.</>, 6)}
             </InfoBalao>
           </h1>
-          <p className="sub" style={{ marginTop: 4 }}>Pedidos que chegaram às filas iniciais em {nomeDia}: quantos evoluíram, em quanto tempo e quantos dentro do SLA.</p>
+          <p className="sub" style={{ marginTop: 4 }}>Foto de {nomeDia}: pedidos que chegaram às filas iniciais, quantos evoluíram até o fim do dia, em quanto tempo e quantos dentro do SLA.{foraHorario > 0 && <> Inclui {fmtN(foraHorario)} que chegaram depois do expediente do dia útil anterior.</>}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <SeletorDia dia={dia} dias={dias} />
@@ -212,9 +220,9 @@ export default async function PreInput({ searchParams }) {
             </InfoBalao>
           </span>
         </div>
-        <div><b style={{ color: 'var(--ok)' }}>{fmtN(evoluidos.length)}</b><span>evoluíram ({pct(evoluidos.length, lista.length)}) · {fmtN(evoluidos.filter((p) => p.mesmoDia).length)} no mesmo dia</span></div>
+        <div><b style={{ color: 'var(--ok)' }}>{fmtN(evoluidos.length)}</b><span>evoluíram até o fim do dia ({pct(evoluidos.length, lista.length)} dos que chegaram)</span></div>
         <div><b>{fmtH(tempoMedio)}</b><span>tempo médio até evoluir (horas úteis)</span></div>
-        <div><b style={{ color: sem.length ? 'var(--risco)' : undefined }}>{fmtN(sem.length)}</b><span>sem evolução · {fmtN(sem.filter((p) => p.estourado).length)} já passaram do SLA</span></div>
+        <div><b style={{ color: sem.length ? 'var(--risco)' : undefined }}>{fmtN(sem.length)}</b><span>sem evolução · {fmtN(sem.filter((p) => p.noPrazo).length)} ainda no prazo · <b style={{ color: 'var(--risco)' }}>{fmtN(sem.filter((p) => p.estourado).length)} SLA estourado</b></span></div>
         <div><b style={{ color: 'var(--ok)' }}>{fmtN(noSla.length)}</b><span>evoluíram dentro do SLA ({pct(noSla.length, evoluidos.length)} dos que evoluíram)</span></div>
       </div>
       {semProdutoExcel.length > 0 && (
@@ -302,16 +310,16 @@ export default async function PreInput({ searchParams }) {
 
       <section className="assid-cartao" style={{ marginTop: 16 }} aria-labelledby="pi-sem">
         <h2 id="pi-sem" style={{ marginBottom: 2 }}>Sem evolução ({fmtN(sem.length)})</h2>
-        <p className="dica" style={{ marginBottom: 8 }}>Ainda nas filas iniciais. Parado há = horas úteis desde a chegada até agora. Os mais antigos primeiro.</p>
+        <p className="dica" style={{ marginBottom: 8 }}>Não andaram até o fim do dia. Tempo parado = horas úteis da chegada até o fim do expediente do dia (no dia de hoje, até agora). Os mais antigos primeiro.</p>
         <div className="tabela-wrap tabela-fixa" style={{ maxHeight: 420 }}>
           <table>
-            <thead><tr><th className="esq">Pedido (NEO)</th><th className="esq">Fila atual</th><th>Chegou</th><th>Parado há</th><th>SLA</th><th className="esq">Produtos</th></tr></thead>
+            <thead><tr><th className="esq">Pedido (NEO)</th><th className="esq">Fila atual</th><th>Chegou</th><th>Tempo parado</th><th>SLA</th><th className="esq">Produtos</th></tr></thead>
             <tbody>
               {sem.map((p) => (
                 <tr key={p.neo}>
                   <td className="esq"><b>{p.neo}</b></td>
                   <td className="esq">{p.filaAtual}</td>
-                  <td>{hora(p.entrada)}</td>
+                  <td>{hora(p.entrada)}{p.foraDoHorario && <span className="nome-sub">fora do horário</span>}</td>
                   <td><b style={{ color: p.estourado ? 'var(--risco)' : undefined }}>{fmtH(p.tempo)}</b></td>
                   <td>{p.estourado ? <span className="tag tag-risco">passou de {fmtN(p.sla)}h</span> : <span className="tag">{fmtN(p.sla)}h</span>}</td>
                   <td className="esq">{p.semProduto ? <span className="fraco">sem produto</span> : p.grupos.join(', ')}</td>
@@ -332,7 +340,7 @@ export default async function PreInput({ searchParams }) {
               {[...evoluidos].sort((a, b) => b.tempo - a.tempo).map((p) => (
                 <tr key={p.neo}>
                   <td className="esq"><b>{p.neo}</b><span className="nome-sub">{p.semProduto ? 'sem produto' : p.grupos.join(', ')}</span></td>
-                  <td>{hora(p.entrada)}</td><td>{hora(p.saida)}</td>
+                  <td>{hora(p.entrada)}{p.foraDoHorario && <span className="nome-sub">fora do horário</span>}</td><td>{hora(p.saida)}</td>
                   <td className="esq">{p.filaSaida}<span className="nome-sub">{p.grupoSaida}</span></td>
                   <td><b>{fmtH(p.tempo)}</b></td>
                   <td>{p.dentroSla ? <span className="tag tag-ok">no SLA ({fmtN(p.sla)}h)</span> : <span className="tag tag-risco">fora ({fmtN(p.sla)}h)</span>}</td>
@@ -353,7 +361,7 @@ export default async function PreInput({ searchParams }) {
       <details className="bloco secao recolhivel" style={{ marginTop: 12 }} open={filasNovas.length > 0 && editor}>
         <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Parâmetros (expediente, SLA e filas){filasNovas.length > 0 && <span className="tag tag-atencao" style={{ marginLeft: 8 }}>{filasNovas.length} filas novas</span>}</summary>
         <div style={{ marginTop: 10 }}>
-          <ParametrosPreInput podeEditar={editor} config={cfg} sla={(slaR.data || []).map((x) => ({ grupo: x.grupo, horas: x.horas }))}
+          <ParametrosPreInput podeEditar={editor} config={{ ...cfg, horarios: cfg.horarios || null }} sla={(slaR.data || []).map((x) => ({ grupo: x.grupo, horas: x.horas }))}
             filas={filasLista.map((f) => ({ fila: f.fila, tipo: f.tipo, grupo: f.grupo || '' }))} filasNovas={filasNovas}
             grupos={[...new Set([...(gruposR.data || []).map((g) => g.nome), ...filasLista.map((f) => f.grupo).filter(Boolean)])]} />
         </div>

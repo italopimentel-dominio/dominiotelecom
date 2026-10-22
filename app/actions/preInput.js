@@ -57,14 +57,22 @@ export async function salvarParametrosPreInput({ config, sla = [], filas = [] })
   const s = await editor();
   if (!s) return SEM_PERMISSAO;
   const hora = (h) => /^\d{2}:\d{2}$/.test(String(h || '').slice(0, 5));
-  if (!hora(config?.inicio) || !hora(config?.fim) || String(config.inicio) >= String(config.fim)) return { erro: 'Confira o horário do expediente.' };
+  // expediente por dia da semana: { '1': ['08:00', '18:00'], … } (dia sem expediente fica de fora)
+  const horarios = {};
+  for (const [d, h] of Object.entries(config?.horarios || {})) {
+    if (!h) continue;
+    if (!['0', '1', '2', '3', '4', '5', '6'].includes(String(d)) || !hora(h[0]) || !hora(h[1]) || h[0] >= h[1]) return { erro: 'Confira os horários do expediente: o início precisa ser antes do fim.' };
+    horarios[d] = [String(h[0]).slice(0, 5), String(h[1]).slice(0, 5)];
+  }
+  if (!Object.keys(horarios).length) return { erro: 'Marque pelo menos um dia com expediente.' };
   if (!(Number(config?.sla_padrao) > 0)) return { erro: 'O SLA padrão precisa ser maior que zero.' };
   const slaOk = sla.filter((x) => String(x.grupo || '').trim()).map((x) => ({ grupo: String(x.grupo).trim(), horas: Number(x.horas) }));
   if (slaOk.some((x) => !(x.horas > 0))) return { erro: 'Todo SLA precisa ser maior que zero.' };
   const filasOk = filas.filter((x) => String(x.fila || '').trim()).map((x) => ({ fila: String(x.fila).trim(), tipo: x.tipo === 'entrada' ? 'entrada' : 'destino', grupo: String(x.grupo || '').trim() || null }));
   const db = s.supabase;
-  const r1 = await db.from('preinput_config').upsert({ id: 1, inicio: String(config.inicio).slice(0, 5), fim: String(config.fim).slice(0, 5), sla_padrao: Number(config.sla_padrao) });
-  if (r1.error) return { erro: erroTabela(r1.error.message) };
+  const seg = horarios['1'] || Object.values(horarios)[0];
+  const r1 = await db.from('preinput_config').upsert({ id: 1, horarios, inicio: seg[0], fim: seg[1], sla_padrao: Number(config.sla_padrao) });
+  if (r1.error) return { erro: /horarios/.test(r1.error.message) ? 'Rode o arquivo 044_pre_input_expediente.sql no Supabase.' : erroTabela(r1.error.message) };
   // substitui as listas inteiras pelo que está na tela
   const [antSla, antFilas] = await Promise.all([db.from('preinput_sla').select('grupo'), db.from('preinput_filas').select('fila')]);
   const tirarSla = (antSla.data || []).map((x) => x.grupo).filter((g) => !slaOk.some((y) => y.grupo === g));

@@ -1,10 +1,16 @@
 'use client';
 import { useState } from 'react';
 import { salvarParametrosPreInput } from '@/app/actions/preInput';
+import { HORARIOS_PADRAO } from '@/lib/preInput';
+
+const DIAS = [[1, 'Segunda'], [2, 'Terça'], [3, 'Quarta'], [4, 'Quinta'], [5, 'Sexta'], [6, 'Sábado'], [0, 'Domingo']];
 
 // Edição dos parâmetros do Pré-Input: expediente, SLA (horas úteis) por grupo de produto e filas.
 export default function ParametrosPreInput({ config, sla, filas, grupos, filasNovas = [], podeEditar }) {
-  const [cfg, setCfg] = useState({ inicio: String(config.inicio).slice(0, 5), fim: String(config.fim).slice(0, 5), sla_padrao: config.sla_padrao });
+  const [cfg, setCfg] = useState({ sla_padrao: config.sla_padrao });
+  const h0 = config.horarios && Object.keys(config.horarios).length ? config.horarios : HORARIOS_PADRAO;
+  const [horarios, setHorarios] = useState(Object.fromEntries(DIAS.map(([d]) => [d, h0[d] ? [String(h0[d][0]).slice(0, 5), String(h0[d][1]).slice(0, 5)] : null])));
+  const setDia = (d, v) => { setHorarios((h) => ({ ...h, [d]: v })); setEstado({ salvando: false, erro: '', ok: '' }); };
   const [listaSla, setListaSla] = useState(sla);
   const [listaFilas, setListaFilas] = useState([...filas, ...filasNovas.map((f) => ({ fila: f, tipo: 'destino', grupo: '', nova: true }))]);
   const [estado, setEstado] = useState({ salvando: false, erro: '', ok: '' });
@@ -12,18 +18,35 @@ export default function ParametrosPreInput({ config, sla, filas, grupos, filasNo
 
   async function salvar() {
     setEstado({ salvando: true, erro: '', ok: '' });
-    const r = await salvarParametrosPreInput({ config: cfg, sla: listaSla, filas: listaFilas });
+    const r = await salvarParametrosPreInput({ config: { ...cfg, horarios }, sla: listaSla, filas: listaFilas });
     setEstado({ salvando: false, erro: r.erro || '', ok: r.ok || '' });
   }
   const dis = !podeEditar;
   return (
     <div>
-      <div className="campos">
-        <label className="campo">Início do expediente<input type="time" value={cfg.inicio} disabled={dis} onChange={(e) => { setCfg({ ...cfg, inicio: e.target.value }); muda(); }} /></label>
-        <label className="campo">Fim do expediente<input type="time" value={cfg.fim} disabled={dis} onChange={(e) => { setCfg({ ...cfg, fim: e.target.value }); muda(); }} /></label>
-        <label className="campo">SLA padrão (h úteis)<input type="number" min="0.5" step="0.5" value={cfg.sla_padrao} disabled={dis} onChange={(e) => { setCfg({ ...cfg, sla_padrao: e.target.value }); muda(); }} /></label>
+      <h3 style={{ marginBottom: 4 }}>Expediente por dia da semana</h3>
+      <p className="dica" style={{ marginBottom: 6 }}>As horas úteis só contam dentro destes horários. Dia desmarcado = sem expediente. Feriados (Configurações → Feriados) também não contam.</p>
+      <div className="tabela-wrap" style={{ maxWidth: 520 }}>
+        <table>
+          <thead><tr><th className="esq">Dia</th><th>Trabalha</th><th>Início</th><th>Fim</th></tr></thead>
+          <tbody>
+            {DIAS.map(([d, nome]) => {
+              const h = horarios[d];
+              return (
+                <tr key={d}>
+                  <td className="esq">{nome}</td>
+                  <td><input type="checkbox" checked={!!h} disabled={dis} aria-label={`${nome} tem expediente`} onChange={(e) => setDia(d, e.target.checked ? ['08:00', d === 5 ? '17:00' : '18:00'] : null)} /></td>
+                  <td><input type="time" value={h?.[0] || ''} disabled={dis || !h} aria-label={`Início ${nome}`} onChange={(e) => setDia(d, [e.target.value, h[1]])} /></td>
+                  <td><input type="time" value={h?.[1] || ''} disabled={dis || !h} aria-label={`Fim ${nome}`} onChange={(e) => setDia(d, [h[0], e.target.value])} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
-      <p className="dica" style={{ marginTop: 4 }}>Dias úteis: segunda a sexta, menos os feriados cadastrados em Configurações → Feriados.</p>
+      <div className="campos" style={{ marginTop: 10 }}>
+        <label className="campo">SLA padrão (h úteis, para pedido sem produto ou grupo sem SLA)<input type="number" min="0.5" step="0.5" value={cfg.sla_padrao} disabled={dis} onChange={(e) => { setCfg({ ...cfg, sla_padrao: e.target.value }); muda(); }} /></label>
+      </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 12 }}>
         <div>
