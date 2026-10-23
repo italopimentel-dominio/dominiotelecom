@@ -3,23 +3,30 @@ import { notFound } from 'next/navigation';
 import { exigirSessao, podeEditar } from '@/lib/auth';
 import { fmtValor } from '@/lib/formato';
 import { TEMAS, PERSONAGENS } from '@/lib/campanhas';
-import { carregarCampanha } from '@/lib/campanhasDados';
+import { carregarCampanha, listaFontes } from '@/lib/campanhasDados';
+import RegraItemCampanha from '@/components/RegraItemCampanha';
 import { capitalizar } from '@/lib/nomes';
 import PainelCampanha from '@/components/PainelCampanha';
 import FormCampanha from '@/components/FormCampanha';
 import FormAcao from '@/components/FormAcao';
 import CampoNumero from '@/components/CampoNumero';
 import { enviarImagemCampanha, removerImagemCampanha, salvarVisualCampanha, enviarFotoColaborador } from '@/app/actions/midia';
-import { salvarCampanha, excluirCampanha, salvarItem, excluirItem, adicionarParticipantes, removerParticipante, salvarResultadoCampanha } from '@/app/actions/campanhas';
+import { salvarCampanha, excluirCampanha, salvarItem, excluirItem, adicionarParticipantes, removerParticipante, salvarResultadoCampanha, salvarRegraItem, camposDaFonte, previaRegra } from '@/app/actions/campanhas';
+
+const dataBR = (d) => (d ? d.split('-').reverse().join('/') : '');
 
 export default async function Campanha({ params, searchParams }) {
   const { id } = await params;
   const sp = await searchParams;
   const { supabase, perfil } = await exigirSessao();
   const editar = podeEditar(perfil);
-  const d = await carregarCampanha(supabase, id);
+  const filtro = { de: sp.de, ate: sp.ate };
+  const d = await carregarCampanha(supabase, id, filtro);
   if (!d) notFound();
-  const { campanha: c, itens, participantes, resultados, calc, colabs, grupos } = d;
+  const { campanha: c, itens, participantes, resultados, calc, colabs, grupos, automatico, periodo, erroAuto } = d;
+  const temAuto = Object.keys(automatico).length > 0;
+  const filtrado = periodo.de !== c.data_inicio || periodo.ate !== c.data_fim;
+  const fontes = editar ? (d.fontes.length ? d.fontes : await listaFontes(supabase)) : d.fontes;
   const tema = TEMAS[sp.tema] ? sp.tema : c.tema;
   const valor = new Map(resultados.map((r) => [`${r.participante_id}|${r.item_id}`, Number(r.valor)]));
   const porId = new Map(grupos.map((g) => [g.id, g]));
@@ -43,6 +50,21 @@ export default async function Campanha({ params, searchParams }) {
           <Link href={`/tv/campanha/${id}?tema=${tema}`} target="_blank" className="btn">📺 Modo TV</Link>
         </div>
       </div>
+
+      {temAuto && (
+        <form method="get" className="bloco" style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12, padding: '10px 14px' }}>
+          <input type="hidden" name="tema" value={tema} />
+          <label className="campo" style={{ margin: 0 }}>De<input type="date" name="de" defaultValue={periodo.de} min={c.data_inicio} max={c.data_fim} /></label>
+          <label className="campo" style={{ margin: 0 }}>Até<input type="date" name="ate" defaultValue={periodo.ate} min={c.data_inicio} max={c.data_fim} /></label>
+          <button className="btn btn-sec btn-peq" type="submit">Filtrar</button>
+          {filtrado && <Link href={`/campanhas/${id}?tema=${tema}`} className="btn btn-sec btn-peq">× Período todo</Link>}
+          <p className="dica" style={{ margin: 0, flex: '1 1 260px' }}>
+            {filtrado ? <>Mostrando pedidos com entrada de <strong>{dataBR(periodo.de)}</strong> a <strong>{dataBR(periodo.ate)}</strong>. </> : null}
+            O filtro vale para os itens automáticos (pela data de entrada); itens lançados à mão mostram sempre o acumulado.
+          </p>
+        </form>
+      )}
+      {erroAuto && <p className="dica" style={{ marginBottom: 12, color: 'var(--perigo, #c0392b)' }}>Itens automáticos: {erroAuto}</p>}
 
       <PainelCampanha campanha={c} calc={calc} tema={tema} />
 
@@ -128,17 +150,19 @@ export default async function Campanha({ params, searchParams }) {
 
           <section className="secao">
             <h2 style={{ marginBottom: 6 }}>Lançar resultados</h2>
-            <p className="dica" style={{ marginBottom: 10 }}>Digite o acumulado de cada participante e saia do campo para salvar. O visual atualiza na hora (e no Modo TV, a cada minuto).</p>
+            <p className="dica" style={{ marginBottom: 10 }}>Digite o acumulado de cada participante e saia do campo para salvar. O visual atualiza na hora (e no Modo TV, a cada minuto).{temAuto ? ' As colunas ⚡ vêm das planilhas e se atualizam sozinhas a cada leitura das fontes.' : ''}</p>
             {participantes.length && itens.length ? (
               <div className="tabela-wrap grade-metas">
                 <table>
-                  <thead><tr><th>{c.participacao === 'equipe' ? 'Equipe' : 'Participante'}</th>{itens.map((it) => <th key={it.id}>{it.nome}<span className="nome-sub">alvo {fmtValor(it.alvo, it.unidade)}{c.modo === 'coletiva' ? ' (total)' : ''}</span></th>)}<th></th></tr></thead>
+                  <thead><tr><th>{c.participacao === 'equipe' ? 'Equipe' : 'Participante'}</th>{itens.map((it) => <th key={it.id}>{automatico[it.id] ? '⚡ ' : ''}{it.nome}<span className="nome-sub">alvo {fmtValor(it.alvo, it.unidade)}{c.modo === 'coletiva' ? ' (total)' : ''}</span></th>)}<th></th></tr></thead>
                   <tbody>
                     {ordemPart.map((p) => (
                       <tr key={p.id}>
                         <td>{p.nomeCompleto}{p.equipe && <span className="nome-sub">{p.equipe}</span>}</td>
                         {itens.map((it) => (
-                          <td key={it.id}><CampoNumero rotulo={`${it.nome} de ${p.nome}`} acao={salvarResultadoCampanha.bind(null, p.id, it.id)} valor={valor.has(`${p.id}|${it.id}`) ? valor.get(`${p.id}|${it.id}`) : null} placeholder="0" /></td>
+                          automatico[it.id]
+                            ? <td key={it.id} title="Calculado pela regra automática" style={{ fontWeight: 600 }}>{fmtValor(valor.get(`${p.id}|${it.id}`) || 0, it.unidade)}</td>
+                            : <td key={it.id}><CampoNumero rotulo={`${it.nome} de ${p.nome}`} acao={salvarResultadoCampanha.bind(null, p.id, it.id)} valor={valor.has(`${p.id}|${it.id}`) ? valor.get(`${p.id}|${it.id}`) : null} placeholder="0" /></td>
                         ))}
                         <td>
                           <FormAcao acao={removerParticipante} confirmar={`Tirar ${p.nome} da campanha? Os resultados dele(a) serão apagados.`}>
@@ -206,6 +230,21 @@ export default async function Campanha({ params, searchParams }) {
                             <button className="btn btn-sec btn-peq" type="submit">Salvar</button>
                           </div>
                         </FormAcao>
+                        <RegraItemCampanha
+                          item={{ id: it.id, nome: it.nome, regra: it.regra || null }}
+                          fontes={fontes}
+                          filtro={filtro}
+                          salvar={salvarRegraItem.bind(null, it.id)}
+                          carregarCampos={camposDaFonte}
+                          previa={previaRegra.bind(null, id)}
+                        />
+                        {automatico[it.id] && (automatico[it.id].fora > 0 || automatico[it.id].semVinculo > 0) && (
+                          <p className="dica" style={{ marginTop: 4 }}>
+                            {fmtValor(automatico[it.id].contado, it.unidade)} contados de {fmtValor(automatico[it.id].total, it.unidade)} no período
+                            {automatico[it.id].fora > 0 ? ` · ${fmtValor(automatico[it.id].fora, it.unidade)} de quem não participa` : ''}
+                            {automatico[it.id].semVinculo > 0 ? ` · ${fmtValor(automatico[it.id].semVinculo, it.unidade)} de nomes sem vínculo` : ''}
+                          </p>
+                        )}
                       </td>
                       <td>
                         <FormAcao acao={excluirItem} confirmar={`Excluir ${it.nome}? Os resultados lançados nele serão apagados.`}>
