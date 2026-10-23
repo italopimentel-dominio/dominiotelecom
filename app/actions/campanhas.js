@@ -238,12 +238,12 @@ export async function fecharCampanha(_prev, fd) {
   if (!d) return { erro: 'Campanha não encontrada.' };
   if (d.campanha.fechada_em) return { erro: 'A campanha já está fechada.' };
   if (d.erroAuto) return { erro: `Não deu para ler os itens automáticos: ${d.erroAuto}` };
-  const valores = {};
-  d.resultados.filter((r) => r.automatico).forEach((r) => { (valores[r.item_id] ||= {})[r.participante_id] = Number(r.valor) || 0; });
+  // grava só o que veio das planilhas; os ajustes manuais continuam na tabela campanha_ajustes
+  const automatico = Object.fromEntries(Object.entries(d.automatico).map(([k, v]) => { const resto = { ...v }; delete resto.ajustes; return [k, resto]; }));
   const agora = new Date().toISOString();
   const { error } = await db.from('campanhas').update({
     fechada_em: agora,
-    resultado_fechado: { valores, automatico: d.automatico, periodo: d.periodo, gravado_em: agora },
+    resultado_fechado: { valores: d.valoresAuto, neos: d.neosAuto, automatico, periodo: d.periodo, gravado_em: agora },
   }).eq('id', id);
   if (error) return { erro: /fechada_em|resultado_fechado/.test(error.message) ? 'Rode o 048_campanhas_fechar.sql no Supabase.' : error.message };
   atualizar();
@@ -257,4 +257,52 @@ export async function reabrirCampanha(_prev, fd) {
   if (error) return { erro: error.message };
   atualizar();
   return { ok: 'Campanha reaberta. Os itens automáticos voltam a ler as planilhas.' };
+}
+
+
+// ---------- Ajuste manual em item automático ----------
+// Para pedidos que a planilha não trouxe (ex.: não lançados). Exige os NEOs; soma por cima do automático.
+// Vale também com a campanha fechada (fica registrado quando foi feito).
+const separarNeos = (t) => [...new Set(String(t ?? '').split(/[\s,;]+/).map((x) => x.trim()).filter(Boolean))].slice(0, 100);
+
+export async function salvarAjuste(participante_id, item_id, dados) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const neos = separarNeos(dados?.neos);
+  if (!neos.length) return { erro: 'Informe o número NEO de cada pedido.' };
+  const qtdTxt = String(dados?.qtd ?? '').trim();
+  const qtd = qtdTxt === '' ? neos.length : numero(qtdTxt);
+  if (qtd === null || qtd === 0) return { erro: 'Informe a quantidade (ou valor) do ajuste. Use negativo para tirar.' };
+  const motivo = curto(dados?.motivo, 500);
+  if (!motivo) return { erro: 'Conte o motivo do ajuste (ex.: pedidos não lançados na planilha).' };
+
+  const { data: part } = await db.from('campanha_participantes').select('campanha_id').eq('id', participante_id).maybeSingle();
+  if (!part) return { erro: 'Participante não encontrado.' };
+  const d = await carregarCampanha(db, part.campanha_id);
+  if (!d) return { erro: 'Campanha não encontrada.' };
+  if (!d.automatico[item_id]) return { erro: 'Este item não é automático: lance o valor direto na tabela.' };
+
+  // não deixa contar o mesmo NEO duas vezes (no automático ou em outro ajuste deste item)
+  if (qtd > 0) {
+    const nomeDe = (pid) => d.participantes.find((p) => p.id === pid)?.nome || 'outro participante';
+    const auto = d.neosAuto[item_id] || {};
+    const ja = neos.filter((n) => auto[n]);
+    if (ja.length) return { erro: `Já contado(s) automaticamente: ${ja.map((n) => `${n} (${nomeDe(auto[n])})`).join(', ')}.` };
+    const emAjuste = d.ajustes.filter((a) => a.item_id === item_id && Number(a.qtd) > 0).flatMap((a) => (a.neos || []).filter((n) => neos.includes(n)).map((n) => `${n} (${nomeDe(a.participante_id)})`));
+    if (emAjuste.length) return { erro: `Já incluído(s) em outro ajuste: ${[...new Set(emAjuste)].join(', ')}.` };
+  }
+
+  const { error } = await db.from('campanha_ajustes').insert({ participante_id, item_id, qtd, neos, motivo });
+  if (error) return { erro: /campanha_ajustes/.test(error.message) ? 'Rode o 049_campanha_ajustes.sql no Supabase.' : error.message };
+  atualizar();
+  return { ok: `Ajuste de ${qtd > 0 ? '+' : ''}${String(qtd).replace('.', ',')} registrado.` };
+}
+
+export async function excluirAjuste(id) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const { error } = await db.from('campanha_ajustes').delete().eq('id', id);
+  if (error) return { erro: error.message };
+  atualizar();
+  return { ok: 'Ajuste apagado.' };
 }

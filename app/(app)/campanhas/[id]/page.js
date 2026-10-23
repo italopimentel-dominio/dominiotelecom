@@ -11,7 +11,8 @@ import FormCampanha from '@/components/FormCampanha';
 import FormAcao from '@/components/FormAcao';
 import CampoNumero from '@/components/CampoNumero';
 import { enviarImagemCampanha, removerImagemCampanha, salvarVisualCampanha, enviarFotoColaborador } from '@/app/actions/midia';
-import { salvarCampanha, excluirCampanha, salvarItem, excluirItem, adicionarParticipantes, removerParticipante, salvarResultadoCampanha, salvarRegraItem, camposDaFonte, previaRegra, fecharCampanha, reabrirCampanha } from '@/app/actions/campanhas';
+import { salvarCampanha, excluirCampanha, salvarItem, excluirItem, adicionarParticipantes, removerParticipante, salvarResultadoCampanha, salvarRegraItem, camposDaFonte, previaRegra, fecharCampanha, reabrirCampanha, salvarAjuste, excluirAjuste } from '@/app/actions/campanhas';
+import AjusteResultado from '@/components/AjusteResultado';
 import { textoRegra, regraValida } from '@/lib/campanhaRegras';
 
 const dataBR = (d) => (d ? d.split('-').reverse().join('/') : '');
@@ -24,7 +25,7 @@ export default async function Campanha({ params, searchParams }) {
   const filtro = { de: sp.de, ate: sp.ate };
   const d = await carregarCampanha(supabase, id, filtro);
   if (!d) notFound();
-  const { campanha: c, itens, participantes, resultados, calc, colabs, grupos, automatico, periodo, erroAuto } = d;
+  const { campanha: c, itens, participantes, resultados, calc, colabs, grupos, automatico, periodo, erroAuto, valoresAuto, ajustes } = d;
   const temAuto = Object.keys(automatico).length > 0;
   const fechada = !!c.fechada_em;
   const quandoFechou = fechada ? new Date(c.fechada_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
@@ -171,7 +172,7 @@ export default async function Campanha({ params, searchParams }) {
 
           <section className="secao">
             <h2 style={{ marginBottom: 6 }}>Lançar resultados</h2>
-            <p className="dica" style={{ marginBottom: 10 }}>{fechada ? 'Campanha fechada: os valores abaixo são os do fechamento. Reabra a campanha para alterar.' : `Digite o acumulado de cada participante e saia do campo para salvar. O visual atualiza na hora (e no Modo TV, a cada minuto).${temAuto ? ' As colunas ⚡ vêm das planilhas e se atualizam sozinhas a cada leitura das fontes.' : ''}`}</p>
+            <p className="dica" style={{ marginBottom: 10 }}>{fechada ? 'Campanha fechada: os valores abaixo são os do fechamento. Nas colunas ⚡ ainda dá para registrar ajuste manual (com os NEOs).' : `Digite o acumulado de cada participante e saia do campo para salvar. O visual atualiza na hora (e no Modo TV, a cada minuto).${temAuto ? ' As colunas ⚡ vêm das planilhas e se atualizam sozinhas a cada leitura das fontes; use “± ajustar” para pedidos que a planilha não trouxe.' : ''}`}</p>
             {participantes.length && itens.length ? (
               <div className="tabela-wrap grade-metas">
                 <table>
@@ -181,8 +182,21 @@ export default async function Campanha({ params, searchParams }) {
                       <tr key={p.id}>
                         <td>{p.nomeCompleto}{p.equipe && <span className="nome-sub">{p.equipe}</span>}</td>
                         {itens.map((it) => (
-                          automatico[it.id] || fechada
-                            ? <td key={it.id} title={fechada ? 'Valor do fechamento' : 'Calculado pela regra automática'} style={{ fontWeight: 600 }}>{fmtValor(valor.get(`${p.id}|${it.id}`) || 0, it.unidade)}</td>
+                          automatico[it.id] ? (
+                            <td key={it.id} style={{ whiteSpace: 'nowrap' }}>
+                              <AjusteResultado
+                                rotulo={`${it.nome} de ${p.nomeCompleto}`}
+                                auto={valoresAuto[it.id]?.[p.id] || 0}
+                                ajustes={ajustes.filter((a) => a.participante_id === p.id && a.item_id === it.id).map((a) => ({ id: a.id, qtd: Number(a.qtd), neos: a.neos || [], motivo: a.motivo, criado_em: a.criado_em }))}
+                                unidade={it.unidade}
+                                editar={editar}
+                                fechada={fechada}
+                                salvar={salvarAjuste.bind(null, p.id, it.id)}
+                                excluir={excluirAjuste}
+                              />
+                            </td>
+                          ) : fechada
+                            ? <td key={it.id} title="Valor do fechamento" style={{ fontWeight: 600 }}>{fmtValor(valor.get(`${p.id}|${it.id}`) || 0, it.unidade)}</td>
                             : <td key={it.id}><CampoNumero rotulo={`${it.nome} de ${p.nome}`} acao={salvarResultadoCampanha.bind(null, p.id, it.id)} valor={valor.has(`${p.id}|${it.id}`) ? valor.get(`${p.id}|${it.id}`) : null} placeholder="0" /></td>
                         ))}
                         <td>
@@ -263,11 +277,12 @@ export default async function Campanha({ params, searchParams }) {
                             previa={previaRegra.bind(null, id)}
                           />
                         )}
-                        {automatico[it.id] && (automatico[it.id].fora > 0 || automatico[it.id].semVinculo > 0) && (
+                        {automatico[it.id] && (automatico[it.id].fora > 0 || automatico[it.id].semVinculo > 0 || automatico[it.id].ajustes) && (
                           <p className="dica" style={{ marginTop: 4 }}>
                             {fmtValor(automatico[it.id].contado, it.unidade)} contados de {fmtValor(automatico[it.id].total, it.unidade)} no período
                             {automatico[it.id].fora > 0 ? ` · ${fmtValor(automatico[it.id].fora, it.unidade)} de quem não participa` : ''}
                             {automatico[it.id].semVinculo > 0 ? ` · ${fmtValor(automatico[it.id].semVinculo, it.unidade)} de nomes sem vínculo` : ''}
+                            {automatico[it.id].ajustes ? ` · ✎ ${automatico[it.id].ajustes > 0 ? '+' : ''}${fmtValor(automatico[it.id].ajustes, it.unidade)} em ajustes manuais` : ''}
                           </p>
                         )}
                       </td>

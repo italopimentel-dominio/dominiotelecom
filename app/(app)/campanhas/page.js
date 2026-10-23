@@ -20,7 +20,7 @@ function Abas({ aba }) {
   );
 }
 
-function Ganhador({ p, pos }) {
+function Ganhador({ p, pos, ajustou }) {
   return (
     <div className="bloco" style={{ display: 'flex', gap: 12, alignItems: 'center', padding: '10px 14px' }}>
       <div style={{ fontSize: pos < 3 ? 28 : 16, minWidth: 34, textAlign: 'center', fontWeight: 700 }}>{MEDALHA[pos] || `${pos + 1}º`}</div>
@@ -32,6 +32,7 @@ function Ganhador({ p, pos }) {
         {p.equipe && <span className="nome-sub">{p.equipe}</span>}
         <p className="dica" style={{ margin: '2px 0 0' }}>
           {p.porItem.map((x) => `${x.item.nome}: ${fmtValor(x.realizado, x.item.unidade)} de ${fmtValor(x.item.alvo, x.item.unidade)}`).join(' · ')}
+          {ajustou && <span className="tag" style={{ marginLeft: 6 }} title="O resultado inclui ajuste manual com NEOs">✎ inclui ajuste</span>}
         </p>
       </div>
     </div>
@@ -41,7 +42,8 @@ function Ganhador({ p, pos }) {
 function Ganhadores({ campanhas, selecionada, hoje }) {
   if (!campanhas.length) return <div className="vazio"><h2>Nenhuma campanha ainda</h2><p>Quando houver campanhas, os ganhadores aparecem aqui.</p></div>;
   const sel = campanhas.find((x) => x.campanha.id === selecionada) || campanhas[0];
-  const { campanha: c, calc, itens, fontes } = sel;
+  const { campanha: c, calc, itens, fontes, ajustes = [] } = sel;
+  const comAjuste = new Set(ajustes.map((a) => a.participante_id));
   const sit = situacaoCampanha(c, hoje);
   const { ganhadores, maisPerto } = ganhadoresDe(c, calc);
   return (
@@ -99,13 +101,13 @@ function Ganhadores({ campanhas, selecionada, hoje }) {
           <h3>{ganhadores.length ? `🏆 Ganhadores (${ganhadores.length})` : '🏆 Ganhadores'}</h3>
           {ganhadores.length ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {ganhadores.map((p, i) => <Ganhador key={p.id} p={p} pos={i} />)}
+              {ganhadores.map((p, i) => <Ganhador key={p.id} p={p} pos={i} ajustou={comAjuste.has(p.id)} />)}
             </div>
           ) : (
             <>
               <p className="dica">{c.modo === 'coletiva' ? 'A equipe ainda não bateu todos os alvos.' : 'Ninguém atingiu o alvo de todos os itens.'}{maisPerto.length ? ' Quem chegou mais perto:' : ''}</p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {maisPerto.map((p, i) => <Ganhador key={p.id} p={p} pos={i} />)}
+                {maisPerto.map((p, i) => <Ganhador key={p.id} p={p} pos={i} ajustou={comAjuste.has(p.id)} />)}
               </div>
             </>
           )}
