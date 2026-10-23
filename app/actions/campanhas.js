@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { sessao, podeEditar } from '@/lib/auth';
 import { numero } from '@/lib/formato';
 import { regraValida, OPERADORES } from '@/lib/campanhaRegras';
-import { periodoCampanha, linhasDoPeriodo, distribuirItem } from '@/lib/campanhasDados';
+import { periodoCampanha, linhasDoPeriodo, distribuirItem, carregarCampanha } from '@/lib/campanhasDados';
 
 const SEM_PERMISSAO = { erro: 'Seu usuário só tem permissão para visualizar.' };
 const txt = (fd, k) => String(fd.get(k) ?? '').trim();
@@ -14,6 +14,17 @@ async function editor() {
   return podeEditar(s.perfil) ? s.supabase : null;
 }
 const atualizar = () => { revalidatePath('/campanhas', 'layout'); revalidatePath('/tv', 'layout'); };
+
+// Campanha fechada não aceita mudanças (resultados, itens, regras, participantes)
+const FECHADA = { erro: 'Campanha fechada: reabra a campanha para alterar.' };
+async function estaFechada(db, { campanha_id, item_id, participante_id }) {
+  let id = campanha_id;
+  if (!id && item_id) id = (await db.from('campanha_itens').select('campanha_id').eq('id', item_id).maybeSingle()).data?.campanha_id;
+  if (!id && participante_id) id = (await db.from('campanha_participantes').select('campanha_id').eq('id', participante_id).maybeSingle()).data?.campanha_id;
+  if (!id) return false;
+  const { data } = await db.from('campanhas').select('fechada_em').eq('id', id).maybeSingle();
+  return !!data?.fechada_em;
+}
 
 function dadosCampanha(fd) {
   return {
@@ -81,6 +92,7 @@ export async function salvarItem(_prev, fd) {
   const id = txt(fd, 'id');
   const dados = { nome: txt(fd, 'nome'), alvo: numero(txt(fd, 'alvo')), unidade: txt(fd, 'unidade') || 'qtd', ordem: Number(txt(fd, 'ordem')) || 0 };
   if (!dados.nome || !(dados.alvo > 0)) return { erro: 'Informe o nome e um alvo maior que zero.' };
+  if (await estaFechada(db, { item_id: id || null, campanha_id: id ? null : txt(fd, 'campanha_id') })) return FECHADA;
   const res = id
     ? await db.from('campanha_itens').update(dados).eq('id', id)
     : await db.from('campanha_itens').insert({ ...dados, campanha_id: txt(fd, 'campanha_id') });
@@ -92,6 +104,7 @@ export async function salvarItem(_prev, fd) {
 export async function excluirItem(_prev, fd) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
+  if (await estaFechada(db, { item_id: txt(fd, 'id') })) return FECHADA;
   const { error } = await db.from('campanha_itens').delete().eq('id', txt(fd, 'id'));
   if (error) return { erro: error.message };
   atualizar();
@@ -102,7 +115,8 @@ export async function adicionarParticipantes(_prev, fd) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
   const campanha_id = txt(fd, 'campanha_id');
-  const { data: camp } = await db.from('campanhas').select('participacao').eq('id', campanha_id).single();
+  const { data: camp } = await db.from('campanhas').select('participacao, fechada_em').eq('id', campanha_id).single();
+  if (camp?.fechada_em) return FECHADA;
   const grupo = txt(fd, 'grupo_id');
   const colab = txt(fd, 'colaborador_id');
   let linhas = [];
@@ -131,6 +145,7 @@ export async function adicionarParticipantes(_prev, fd) {
 export async function removerParticipante(_prev, fd) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
+  if (await estaFechada(db, { participante_id: txt(fd, 'id') })) return FECHADA;
   const { error } = await db.from('campanha_participantes').delete().eq('id', txt(fd, 'id'));
   if (error) return { erro: error.message };
   atualizar();
@@ -140,6 +155,7 @@ export async function removerParticipante(_prev, fd) {
 export async function salvarResultadoCampanha(participante_id, item_id, valor) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
+  if (await estaFechada(db, { participante_id })) return FECHADA;
   const n = numero(valor);
   if (valor !== null && valor !== '' && n === null) return { erro: 'Valor inválido.' };
   const res = n === null
@@ -170,6 +186,7 @@ function limparRegra(regra) {
 export async function salvarRegraItem(item_id, regra) {
   const db = await editor();
   if (!db) return SEM_PERMISSAO;
+  if (await estaFechada(db, { item_id })) return FECHADA;
   const r = limparRegra(regra);
   if (r && !regraValida(r)) return { erro: 'Escolha pelo menos uma fonte.' };
   if (r && r.medida === 'soma' && r.fontes.some((f) => !f.soma)) return { erro: 'Escolha a coluna a somar em cada fonte.' };
@@ -207,4 +224,37 @@ export async function previaRegra(campanha_id, regra, filtro = {}) {
   if (erro) return { erro };
   const { valores, diag } = distribuirItem(campanha, r, linhas, parts || [], colabs || [], grupos || []);
   return { ok: true, ...diag, comResultado: valores.size, participantes: (parts || []).length, periodo, linhasLidas: linhas.length };
+}
+
+
+// ---------- Fechar e reabrir ----------
+// Fechar grava a foto dos itens automáticos (valores por participante) e trava a campanha:
+// ela para de ser atualizada pelas planilhas e não aceita mais lançamentos.
+export async function fecharCampanha(_prev, fd) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const id = txt(fd, 'id');
+  const d = await carregarCampanha(db, id);
+  if (!d) return { erro: 'Campanha não encontrada.' };
+  if (d.campanha.fechada_em) return { erro: 'A campanha já está fechada.' };
+  if (d.erroAuto) return { erro: `Não deu para ler os itens automáticos: ${d.erroAuto}` };
+  const valores = {};
+  d.resultados.filter((r) => r.automatico).forEach((r) => { (valores[r.item_id] ||= {})[r.participante_id] = Number(r.valor) || 0; });
+  const agora = new Date().toISOString();
+  const { error } = await db.from('campanhas').update({
+    fechada_em: agora,
+    resultado_fechado: { valores, automatico: d.automatico, periodo: d.periodo, gravado_em: agora },
+  }).eq('id', id);
+  if (error) return { erro: /fechada_em|resultado_fechado/.test(error.message) ? 'Rode o 048_campanhas_fechar.sql no Supabase.' : error.message };
+  atualizar();
+  return { ok: 'Campanha fechada. Os resultados ficaram congelados.' };
+}
+
+export async function reabrirCampanha(_prev, fd) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const { error } = await db.from('campanhas').update({ fechada_em: null, resultado_fechado: null }).eq('id', txt(fd, 'id'));
+  if (error) return { erro: error.message };
+  atualizar();
+  return { ok: 'Campanha reaberta. Os itens automáticos voltam a ler as planilhas.' };
 }

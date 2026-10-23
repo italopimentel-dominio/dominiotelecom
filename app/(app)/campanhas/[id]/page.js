@@ -11,7 +11,8 @@ import FormCampanha from '@/components/FormCampanha';
 import FormAcao from '@/components/FormAcao';
 import CampoNumero from '@/components/CampoNumero';
 import { enviarImagemCampanha, removerImagemCampanha, salvarVisualCampanha, enviarFotoColaborador } from '@/app/actions/midia';
-import { salvarCampanha, excluirCampanha, salvarItem, excluirItem, adicionarParticipantes, removerParticipante, salvarResultadoCampanha, salvarRegraItem, camposDaFonte, previaRegra } from '@/app/actions/campanhas';
+import { salvarCampanha, excluirCampanha, salvarItem, excluirItem, adicionarParticipantes, removerParticipante, salvarResultadoCampanha, salvarRegraItem, camposDaFonte, previaRegra, fecharCampanha, reabrirCampanha } from '@/app/actions/campanhas';
+import { textoRegra, regraValida } from '@/lib/campanhaRegras';
 
 const dataBR = (d) => (d ? d.split('-').reverse().join('/') : '');
 
@@ -25,6 +26,8 @@ export default async function Campanha({ params, searchParams }) {
   if (!d) notFound();
   const { campanha: c, itens, participantes, resultados, calc, colabs, grupos, automatico, periodo, erroAuto } = d;
   const temAuto = Object.keys(automatico).length > 0;
+  const fechada = !!c.fechada_em;
+  const quandoFechou = fechada ? new Date(c.fechada_em).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   const filtrado = periodo.de !== c.data_inicio || periodo.ate !== c.data_fim;
   const fontes = editar ? (d.fontes.length ? d.fontes : await listaFontes(supabase)) : d.fontes;
   const tema = TEMAS[sp.tema] ? sp.tema : c.tema;
@@ -47,11 +50,29 @@ export default async function Campanha({ params, searchParams }) {
               <Link key={k} href={`/campanhas/${id}?tema=${k}`} className={tema === k ? 'ativo' : ''} title={`Ver como ${t.nome}`}>{t.emoji} {t.nome}</Link>
             ))}
           </div>
+          {editar && (fechada ? (
+            <FormAcao acao={reabrirCampanha} confirmar="Reabrir a campanha? Os itens automáticos voltam a ler as planilhas e os resultados podem mudar.">
+              <input type="hidden" name="id" value={id} />
+              <button type="submit" className="btn btn-sec">🔓 Reabrir campanha</button>
+            </FormAcao>
+          ) : (
+            <FormAcao acao={fecharCampanha} confirmar="Fechar a campanha? Os resultados ficam congelados como estão agora e param de ser atualizados.">
+              <input type="hidden" name="id" value={id} />
+              <button type="submit" className="btn btn-sec">🔒 Fechar campanha</button>
+            </FormAcao>
+          ))}
           <Link href={`/tv/campanha/${id}?tema=${tema}`} target="_blank" className="btn">📺 Modo TV</Link>
         </div>
       </div>
 
-      {temAuto && (
+      {fechada && (
+        <div className="bloco" style={{ marginBottom: 12, padding: '10px 14px' }}>
+          <strong>🔒 Campanha fechada em {quandoFechou}.</strong>{' '}
+          <span className="dica" style={{ margin: 0 }}>Os resultados ficaram congelados: as planilhas não atualizam mais os itens automáticos e não é possível lançar valores. <Link href={`/campanhas?aba=ganhadores&c=${id}`}>Ver ganhadores</Link>.</span>
+        </div>
+      )}
+
+      {temAuto && !fechada && (
         <form method="get" className="bloco" style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12, padding: '10px 14px' }}>
           <input type="hidden" name="tema" value={tema} />
           <label className="campo" style={{ margin: 0 }}>De<input type="date" name="de" defaultValue={periodo.de} min={c.data_inicio} max={c.data_fim} /></label>
@@ -150,7 +171,7 @@ export default async function Campanha({ params, searchParams }) {
 
           <section className="secao">
             <h2 style={{ marginBottom: 6 }}>Lançar resultados</h2>
-            <p className="dica" style={{ marginBottom: 10 }}>Digite o acumulado de cada participante e saia do campo para salvar. O visual atualiza na hora (e no Modo TV, a cada minuto).{temAuto ? ' As colunas ⚡ vêm das planilhas e se atualizam sozinhas a cada leitura das fontes.' : ''}</p>
+            <p className="dica" style={{ marginBottom: 10 }}>{fechada ? 'Campanha fechada: os valores abaixo são os do fechamento. Reabra a campanha para alterar.' : `Digite o acumulado de cada participante e saia do campo para salvar. O visual atualiza na hora (e no Modo TV, a cada minuto).${temAuto ? ' As colunas ⚡ vêm das planilhas e se atualizam sozinhas a cada leitura das fontes.' : ''}`}</p>
             {participantes.length && itens.length ? (
               <div className="tabela-wrap grade-metas">
                 <table>
@@ -160,15 +181,15 @@ export default async function Campanha({ params, searchParams }) {
                       <tr key={p.id}>
                         <td>{p.nomeCompleto}{p.equipe && <span className="nome-sub">{p.equipe}</span>}</td>
                         {itens.map((it) => (
-                          automatico[it.id]
-                            ? <td key={it.id} title="Calculado pela regra automática" style={{ fontWeight: 600 }}>{fmtValor(valor.get(`${p.id}|${it.id}`) || 0, it.unidade)}</td>
+                          automatico[it.id] || fechada
+                            ? <td key={it.id} title={fechada ? 'Valor do fechamento' : 'Calculado pela regra automática'} style={{ fontWeight: 600 }}>{fmtValor(valor.get(`${p.id}|${it.id}`) || 0, it.unidade)}</td>
                             : <td key={it.id}><CampoNumero rotulo={`${it.nome} de ${p.nome}`} acao={salvarResultadoCampanha.bind(null, p.id, it.id)} valor={valor.has(`${p.id}|${it.id}`) ? valor.get(`${p.id}|${it.id}`) : null} placeholder="0" /></td>
                         ))}
                         <td>
-                          <FormAcao acao={removerParticipante} confirmar={`Tirar ${p.nome} da campanha? Os resultados dele(a) serão apagados.`}>
+                          {!fechada && <FormAcao acao={removerParticipante} confirmar={`Tirar ${p.nome} da campanha? Os resultados dele(a) serão apagados.`}>
                             <input type="hidden" name="id" value={p.id} />
                             <button type="submit" className="lt-apagar">remover</button>
-                          </FormAcao>
+                          </FormAcao>}
                         </td>
                       </tr>
                     ))}
@@ -230,14 +251,18 @@ export default async function Campanha({ params, searchParams }) {
                             <button className="btn btn-sec btn-peq" type="submit">Salvar</button>
                           </div>
                         </FormAcao>
-                        <RegraItemCampanha
-                          item={{ id: it.id, nome: it.nome, regra: it.regra || null }}
-                          fontes={fontes}
-                          filtro={filtro}
-                          salvar={salvarRegraItem.bind(null, it.id)}
-                          carregarCampos={camposDaFonte}
-                          previa={previaRegra.bind(null, id)}
-                        />
+                        {fechada ? (
+                          <p className="dica" style={{ marginTop: 6 }}>{regraValida(it.regra) ? `⚡ ${textoRegra(it.regra, fontes)}` : '✋ Lançado à mão.'}</p>
+                        ) : (
+                          <RegraItemCampanha
+                            item={{ id: it.id, nome: it.nome, regra: it.regra || null }}
+                            fontes={fontes}
+                            filtro={filtro}
+                            salvar={salvarRegraItem.bind(null, it.id)}
+                            carregarCampos={camposDaFonte}
+                            previa={previaRegra.bind(null, id)}
+                          />
+                        )}
                         {automatico[it.id] && (automatico[it.id].fora > 0 || automatico[it.id].semVinculo > 0) && (
                           <p className="dica" style={{ marginTop: 4 }}>
                             {fmtValor(automatico[it.id].contado, it.unidade)} contados de {fmtValor(automatico[it.id].total, it.unidade)} no período
