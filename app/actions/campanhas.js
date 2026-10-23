@@ -3,6 +3,8 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { sessao, podeEditar } from '@/lib/auth';
 import { numero } from '@/lib/formato';
+import { regraValida, OPERADORES } from '@/lib/campanhaRegras';
+import { periodoCampanha, linhasDoPeriodo, distribuirItem } from '@/lib/campanhasDados';
 
 const SEM_PERMISSAO = { erro: 'Seu usuário só tem permissão para visualizar.' };
 const txt = (fd, k) => String(fd.get(k) ?? '').trim();
@@ -146,4 +148,63 @@ export async function salvarResultadoCampanha(participante_id, item_id, valor) {
   if (res.error) return { erro: res.error.message };
   atualizar();
   return { ok: true };
+}
+
+
+// ---------- Itens automáticos (regra sobre as planilhas) ----------
+const OPS = new Set(OPERADORES.map((o) => o.id));
+const curto = (v, n = 200) => String(v ?? '').trim().slice(0, n);
+function limparRegra(regra) {
+  if (!regra) return null;
+  const fontes = (Array.isArray(regra.fontes) ? regra.fontes : []).slice(0, 6).filter((f) => f?.fonte_id).map((f) => ({
+    fonte_id: curto(f.fonte_id, 60),
+    condicoes: (Array.isArray(f.condicoes) ? f.condicoes : []).slice(0, 12)
+      .filter((c) => c?.campo && OPS.has(c.op))
+      .map((c) => ({ campo: curto(c.campo), op: c.op, valores: (Array.isArray(c.valores) ? c.valores : []).map((v) => curto(v)).filter(Boolean).slice(0, 300) })),
+    soma: f.soma ? curto(f.soma) : null,
+  }));
+  return { fontes, medida: regra.medida === 'soma' ? 'soma' : 'pedidos' };
+}
+
+// regra = null volta o item para "lançado à mão"
+export async function salvarRegraItem(item_id, regra) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const r = limparRegra(regra);
+  if (r && !regraValida(r)) return { erro: 'Escolha pelo menos uma fonte.' };
+  if (r && r.medida === 'soma' && r.fontes.some((f) => !f.soma)) return { erro: 'Escolha a coluna a somar em cada fonte.' };
+  const { error } = await db.from('campanha_itens').update({ regra: r }).eq('id', item_id);
+  if (error) return { erro: /regra/.test(error.message) ? 'Rode o 047_campanha_itens_regra.sql no Supabase.' : error.message };
+  atualizar();
+  return { ok: r ? 'Regra salva. O resultado deste item agora vem das planilhas.' : 'Item voltou a ser lançado à mão.' };
+}
+
+// Colunas da planilha da fonte, com os valores mais frequentes (para montar as condições)
+export async function camposDaFonte(fonte_id) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const { data, error } = await db.from('fontes_campos').select('coluna, ordem, muitos, distintos, valores, atualizado_em').eq('fonte_id', fonte_id).order('ordem');
+  if (error) return { erro: /fontes_campos/.test(error.message) ? 'Rode o 045_campanhas.sql no Supabase.' : error.message };
+  if (!data?.length) return { erro: 'Ainda não há colunas desta fonte. Clique em "Rodar agora" na tela de fontes e tente de novo.' };
+  return { campos: data.map((c) => ({ coluna: c.coluna, muitos: c.muitos, distintos: c.distintos, valores: (c.valores || []).slice(0, 200) })), atualizado: data[0].atualizado_em };
+}
+
+// Prévia: quanto a regra daria hoje, no período da campanha (ou no filtro de datas)
+export async function previaRegra(campanha_id, regra, filtro = {}) {
+  const db = await editor();
+  if (!db) return SEM_PERMISSAO;
+  const r = limparRegra(regra);
+  if (!regraValida(r)) return { erro: 'Escolha pelo menos uma fonte.' };
+  const [{ data: campanha }, { data: parts }, { data: colabs }, { data: grupos }] = await Promise.all([
+    db.from('campanhas').select('*').eq('id', campanha_id).maybeSingle(),
+    db.from('campanha_participantes').select('*').eq('campanha_id', campanha_id),
+    db.from('colaboradores').select('id, grupo_id'),
+    db.from('grupos').select('id, parent_id'),
+  ]);
+  if (!campanha) return { erro: 'Campanha não encontrada.' };
+  const periodo = periodoCampanha(campanha, filtro);
+  const { linhas, erro } = await linhasDoPeriodo(db, r.fontes.map((f) => f.fonte_id), periodo.de, periodo.ate);
+  if (erro) return { erro };
+  const { valores, diag } = distribuirItem(campanha, r, linhas, parts || [], colabs || [], grupos || []);
+  return { ok: true, ...diag, comResultado: valores.size, participantes: (parts || []).length, periodo, linhasLidas: linhas.length };
 }
