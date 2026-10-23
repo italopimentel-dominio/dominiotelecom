@@ -104,7 +104,7 @@ export default function RegraItemCampanha({ item, fontes, filtro, salvar, carreg
       <div style={{ marginTop: 6 }}>
         {resumo
           ? <p className="dica" style={{ margin: 0 }}><span className="tag tag-ok" style={{ marginRight: 6 }}>⚡ Automático</span>{resumo}</p>
-          : <p className="dica" style={{ margin: 0 }}><span className="tag" style={{ marginRight: 6 }}>✋ À mão</span>Resultado digitado em "Lançar resultados".</p>}
+          : <p className="dica" style={{ margin: 0 }}><span className="tag" style={{ marginRight: 6 }}>✋ À mão</span>Resultado digitado em “Lançar resultados”.</p>}
         <button type="button" className="btn btn-sec btn-peq" style={{ marginTop: 6 }} onClick={abrir}>⚙ {resumo ? 'Editar regra' : 'Usar regra automática'}</button>
         {msg?.ok && <span className="dica" style={{ marginLeft: 8 }}>{msg.ok}</span>}
       </div>
